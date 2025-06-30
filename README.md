@@ -31,8 +31,10 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 
 ### ユーザ設定
 - **作成**: 指定UID/GIDで自動作成（存在しない場合）
-- **SSH公開鍵**: ホームディレクトリ + ConfigMap/Secret提供
-- **ホームディレクトリ**: 永続化オプション（10GiB）
+- **SSH公開鍵**: **必須** - ホームディレクトリ + ConfigMap/Secret提供
+- **ユーザ名**: **必須** - ユーザ作成に使用
+- **UID/GID**: オプション（未指定時は自動割り当て）
+- **ホームディレクトリ**: 永続化オプション（10GiB）、無効時はemptyDir使用
 - **sudo権限**: オプション（無効）
 - **設定ファイル**: ディストリビューションデフォルト使用
 
@@ -125,15 +127,15 @@ image:
   pullSecrets: [] # Private Registry対応
 
 user:
-  name: # ユーザ名
-  uid: # ユーザID
-  gid: # グループID
+  name: "" # ユーザ名（必須）
+  uid: null # ユーザID（オプション、未指定時は自動割り当て）
+  gid: null # グループID（オプション、未指定時は自動割り当て）
   shell: /bin/bash # ログインシェル
   additionalGroups: [] # 追加グループ
   sudo: false # sudo権限
 
 ssh:
-  publicKeys: [] # SSH公開鍵（配列）
+  publicKeys: [] # SSH公開鍵（必須、配列形式）
   port: 22 # SSHポート
   config: {} # カスタム設定
 
@@ -159,6 +161,8 @@ monitoring:
 ingress:
   enabled: false # Ingress有効/無効
   # annotations, className, TLS設定等
+
+# デプロイ時決定パラメータ以外は全てデフォルト値設定済み
 ```
 
 ### Helm機能
@@ -170,6 +174,8 @@ ingress:
   - test: SSH接続テスト
 - **NOTES.txt**: SSH接続手順、永続化警告、トラブルシューティング
 - **Labels**: app.kubernetes.io/* 標準ラベル
+- **必須パラメータ**: SSH公開鍵、ユーザ名
+- **Values設計**: デプロイ時決定事項以外は全てオプション（デフォルト値提供）
 
 ## 7. 制限事項
 
