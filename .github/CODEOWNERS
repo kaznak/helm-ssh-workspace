@@ -1,0 +1,19 @@
+# Global owners
+* @ssh-workspace-maintainers
+
+# Docker image changes
+/docker/ @ssh-workspace-maintainers @docker-team
+
+# Helm chart changes
+/helm/ @ssh-workspace-maintainers @kubernetes-team
+
+# GitHub workflows
+/.github/ @ssh-workspace-maintainers @devops-team
+
+# Documentation
+*.md @ssh-workspace-maintainers @documentation-team
+*.ja.md @ssh-workspace-maintainers @documentation-team
+
+# Security-related files
+/docker/config/ @ssh-workspace-maintainers @security-team
+/helm/ssh-workspace/templates/*security* @ssh-workspace-maintainers @security-team

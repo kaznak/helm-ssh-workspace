@@ -1,0 +1,68 @@
+# SSH Keys (security)
+*.pem
+*.key
+*_rsa
+*_dsa
+*_ecdsa
+*_ed25519
+authorized_keys
+known_hosts
+
+# Helm
+*.tgz
+.helm-packages/
+charts/*.lock
+
+# Docker
+.docker/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime
+*.pid
+*.tmp
+*.temp
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Testing
+test-results/
+coverage/
+
+# Build artifacts
+dist/
+build/
+target/
+
+# Node.js (if any)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python (if any)
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Backup files
+*.bak
+*.backup
+*.orig

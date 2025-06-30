@@ -49,6 +49,40 @@ kubectl port-forward svc/workspace-ssh-workspace 2222:22
 ssh developer@localhost -p 2222
 ```
 
+## 🔄 CI/CD & Container Registry
+
+### GitHub Container Registry (GHCR)
+
+Pre-built images are available on GitHub Container Registry:
+
+```bash
+# Pull the latest image
+docker pull ghcr.io/YOUR_USERNAME/ssh-workspace:latest
+
+# Use in Helm Chart
+helm install workspace ./helm/ssh-workspace \
+  --set image.repository=ghcr.io/YOUR_USERNAME/ssh-workspace \
+  --set image.tag=latest \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
+
+### Available Tags
+
+- `latest` - Latest stable release from main branch
+- `develop` - Latest development version
+- `v1.0.0` - Specific version tags
+- `main` - Main branch builds
+
+### CI/CD Workflows
+
+| Workflow | Trigger | Purpose |
+|----------|---------|---------|
+| **CI/CD Pipeline** | Push/PR | Lint, test, build, and push |
+| **Docker Build & Push** | Docker changes | Build multi-arch images |
+| **Security Scan** | Daily/Push | Vulnerability scanning |
+| **Helm Release** | Chart changes | Package and publish charts |
+
 ## 1. Overview & Basic Features
 
 ### Concept

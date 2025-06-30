@@ -1,0 +1,141 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/ssh-workspace
+
+jobs:
+  lint:
+    name: Lint and Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.12.1'
+
+      - name: Lint Helm Chart
+        run: |
+          helm lint helm/ssh-workspace
+
+      - name: Validate Helm Chart
+        run: |
+          helm template test helm/ssh-workspace \
+            --set user.name="testuser" \
+            --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com" \
+            --validate
+
+      - name: Check Dockerfile with hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+          failure-threshold: warning
+
+  test:
+    name: Test Helm Chart
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.12.1'
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.8.0
+        with:
+          cluster_name: test-cluster
+          kubectl_version: v1.27.3
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.IMAGE_NAME }}:test docker/
+
+      - name: Load image into kind
+        run: |
+          kind load docker-image ${{ env.IMAGE_NAME }}:test --name test-cluster
+
+      - name: Install Helm Chart
+        run: |
+          helm install test-workspace helm/ssh-workspace \
+            --set image.repository=${{ env.IMAGE_NAME }} \
+            --set image.tag=test \
+            --set image.pullPolicy=Never \
+            --set user.name="testuser" \
+            --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h test@example.com" \
+            --wait --timeout=300s
+
+      - name: Run Helm Tests
+        run: |
+          helm test test-workspace --timeout=300s
+
+      - name: Check deployment status
+        run: |
+          kubectl get all -l app.kubernetes.io/instance=test-workspace
+          kubectl describe pod -l app.kubernetes.io/instance=test-workspace
+
+      - name: Cleanup
+        if: always()
+        run: |
+          helm uninstall test-workspace || true
+
+  build:
+    name: Build and Push
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./docker
+          file: ./docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
