@@ -1,0 +1,6 @@
+repositoryID: ssh-workspace
+owners:
+  - name: SSH Workspace Maintainers
+    email: maintainer@example.com
+ignore:
+  - "*.md"

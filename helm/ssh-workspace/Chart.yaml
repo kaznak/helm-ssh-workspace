@@ -20,3 +20,18 @@ sources:
 
 annotations:
   category: Development
+  artifacthub.io/license: MIT
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release of SSH Workspace Helm Chart
+  artifacthub.io/images: |
+    - name: ssh-workspace
+      image: ghcr.io/YOUR_USERNAME/ssh-workspace:1.0.0
+  artifacthub.io/links: |
+    - name: Chart Source
+      url: https://github.com/YOUR_USERNAME/REPOSITORY_NAME/tree/main/helm/ssh-workspace
+    - name: Docker Image
+      url: https://github.com/YOUR_USERNAME/REPOSITORY_NAME/pkgs/container/ssh-workspace

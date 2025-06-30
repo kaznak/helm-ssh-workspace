@@ -7,7 +7,14 @@ on:
     paths:
       - 'helm/ssh-workspace/**'
       - '.github/workflows/helm-release.yml'
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      chart_version:
+        description: 'Chart version to release'
+        required: false
+        default: 'auto'
 
 jobs:
   release:
@@ -32,13 +39,37 @@ jobs:
         with:
           version: '3.12.1'
 
+      - name: Install yq
+        uses: mikefarah/yq@master
+
       - name: Lint Helm Chart
         run: |
           helm lint helm/ssh-workspace
 
+      - name: Set Chart Version
+        id: version
+        run: |
+          if [ "${{ github.event.inputs.chart_version }}" != "auto" ] && [ -n "${{ github.event.inputs.chart_version }}" ]; then
+            CHART_VERSION="${{ github.event.inputs.chart_version }}"
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            CHART_VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            CHART_VERSION=$(yq eval '.version' helm/ssh-workspace/Chart.yaml)
+          fi
+          echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
+          echo "Chart version: ${CHART_VERSION}"
+
+      - name: Update Chart Version
+        if: steps.version.outputs.chart_version != 'auto'
+        run: |
+          yq eval '.version = "${{ steps.version.outputs.chart_version }}"' -i helm/ssh-workspace/Chart.yaml
+          yq eval '.appVersion = "${{ steps.version.outputs.chart_version }}"' -i helm/ssh-workspace/Chart.yaml
+
       - name: Package Helm Chart
         run: |
           helm package helm/ssh-workspace --destination .helm-packages
+          echo "Packaged charts:"
+          ls -la .helm-packages/
 
       - name: Log in to Container Registry
         uses: docker/login-action@v3

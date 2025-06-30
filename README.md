@@ -82,6 +82,44 @@ helm install workspace ./helm/ssh-workspace \
 | **Docker Build & Push** | Docker changes | Build multi-arch images |
 | **Security Scan** | Daily/Push | Vulnerability scanning |
 | **Helm Release** | Chart changes | Package and publish charts |
+| **Pages Helm Repo** | Chart changes | GitHub Pages Helm repository |
+
+### Helm Chart Installation
+
+#### Method 1: OCI Registry (Recommended)
+
+```bash
+# Install directly from GHCR
+helm install workspace \
+  oci://ghcr.io/YOUR_USERNAME/charts/ssh-workspace \
+  --version 1.0.0 \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
+
+#### Method 2: Traditional Helm Repository
+
+```bash
+# Add repository
+helm repo add ssh-workspace https://YOUR_USERNAME.github.io/REPOSITORY_NAME/
+helm repo update
+
+# Install chart
+helm install workspace ssh-workspace/ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
+
+#### Method 3: Local Installation
+
+```bash
+# Clone repository and install locally
+git clone https://github.com/YOUR_USERNAME/REPOSITORY_NAME.git
+cd REPOSITORY_NAME
+helm install workspace ./helm/ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
 
 ## 1. Overview & Basic Features
 
