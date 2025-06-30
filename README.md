@@ -61,6 +61,7 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - サイズはデフォルトで 10GiB とする
 - ユーザのSSH公開鍵はホームディレクトリに含めるほか、 configmap や secret でも提供できるようにする。
 - sudo で root になれるかどうかはオプションで、デフォルトでは off
+  - sudo有効時は必要なcapabilitiesを自動的に追加設定
 
 ### サービス・アクセス設定
 
@@ -85,6 +86,7 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - 初期化失敗時は Init Container で適切なエラーを出力
   - SSH公開鍵が無効な場合は起動を停止
   - PVCマウント失敗時は Pod を Pending 状態にする
+  - UID/GID競合時はエラーで起動停止
 
 ### セキュリティ詳細設定
 
@@ -96,6 +98,10 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - capabilities:
     - drop: ["ALL"]
     - add: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
+  - sudo有効時は追加capabilities自動設定
+- emptyDir 設定
+  - デフォルトでlocal disk使用
+  - サイズ制限: /tmp=100Mi, /var/run=10Mi
 
 ### 監視・メトリクス
 
@@ -110,10 +116,10 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - データ永続化の保護
   - PVC, ConfigMap, Secret に `helm.sh/resource-policy: keep` アノテーションを設定
   - アップグレード時にもユーザデータとSSHホストキーを保持
-- Rolling Update 戦略
-  - Deployment の `strategy.type: RollingUpdate` を使用
-  - `maxUnavailable: 0` でダウンタイムを最小化
-  - readinessProbe によるトラフィック制御
+- Deployment 戦略
+  - `strategy.type: Recreate` を使用（ダウンタイム許容）
+  - Pod障害時の自動復旧（restartPolicy: Always）
+  - readinessProbe による正常性確認
 - 設定の下位互換性
   - values.yaml の新規オプション追加時も既存設定を保護
   - デフォルト値の適切な設定による後方互換性確保
@@ -170,7 +176,10 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - SSH 接続の詳細ログ記録
 - ネットワークセキュリティ
   - 不要なポートの無効化
-  - localhost 以外への接続制限
+  - ネットワークレベル制限は外部NetworkPolicyで実施
+- セキュリティレベル選択（オプション）
+  - Basic/Standard/High の段階的設定
+  - 用途に応じたセキュリティ設定の簡素化
 
 ### ドキュメント・使用例
 
@@ -206,7 +215,7 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 
 ### Helm Hooks 設定
 
-- pre-install: SSH公開鍵の妥当性チェック
+- pre-install: SSH公開鍵の妥当性チェック（必須、不正時はデプロイ失敗）
 - post-install: 初期化完了とSSH接続可能性の確認
 - pre-upgrade: 設定の互換性確認
 - post-upgrade: アップグレード後の動作確認
