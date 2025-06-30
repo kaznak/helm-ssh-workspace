@@ -183,7 +183,7 @@ resources:
 |-------|---------|----------|
 | basic | Development/Testing | Minimal restrictions |
 | standard | Recommended | readOnlyRootFilesystem enabled |
-| high | Production | AppArmor + strict SSH settings |
+| high | Production | seccomp RuntimeDefault + strict SSH settings |
 
 ### Security Features
 

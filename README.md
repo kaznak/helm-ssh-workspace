@@ -9,15 +9,22 @@ Provides Docker images and Kubernetes Helm Charts.
 ssh-workspace/
 ├── README.md              # This file (specification)
 ├── USAGE.md              # Usage guide
+├── LICENSE               # MIT License
+├── .github/              # GitHub configuration
+│   ├── workflows/        # CI/CD workflows
+│   ├── ISSUE_TEMPLATE/   # Issue templates
+│   └── CODEOWNERS        # Code ownership
 ├── docker/               # Docker image
 │   ├── Dockerfile        # Image definition
 │   ├── config/           # SSH configuration
 │   ├── scripts/          # Initialization scripts
 │   └── README.md         # Docker documentation
-└── helm/                 # Helm Chart
-    ├── ssh-workspace/    # Chart main
-    ├── example-values.yaml # Configuration examples
-    └── README.md         # Helm documentation
+├── helm/                 # Helm Chart
+│   ├── ssh-workspace/    # Chart package
+│   ├── example-values.yaml # Configuration examples
+│   └── README.md         # Helm documentation
+└── docs/                 # Additional documentation
+    └── helm-oci-format.md # OCI format guide
 ```
 
 ## 🚀 Quick Start
@@ -80,7 +87,7 @@ helm install workspace ./helm/ssh-workspace \
 |----------|---------|---------|
 | **CI/CD Pipeline** | Push/PR | Lint, test, build, and push |
 | **Docker Build & Push** | Docker changes | Build multi-arch images |
-| **Security Scan** | Daily/Push | Vulnerability scanning |
+| **Security Scan** | Daily/Push | Vulnerability scanning with Trivy |
 | **Helm Release** | Chart changes | Package and publish charts |
 | **Pages Helm Repo** | Chart changes | GitHub Pages Helm repository |
 

@@ -95,7 +95,7 @@ security:
   level: standard         # basic | standard | high
   # basic:    For development/testing (minimal restrictions)
   # standard: Recommended settings (readOnlyRootFilesystem enabled)
-  # high:     For production (AppArmor + strict settings)
+  # high:     For production (seccomp + strict settings)
 ```
 
 ## 🌐 External Access Configuration
