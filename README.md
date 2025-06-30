@@ -124,3 +124,58 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - ロールバック対応
   - 問題発生時の迅速なロールバック機能
   - アップグレード前の状態確認とバックアップ
+
+### コンテナイメージ戦略
+
+- 標準イメージの提供
+  - Ubuntu ベースの SSH サーバイメージを作成
+  - values.yaml でイメージ・タグを変更可能
+- ImagePullPolicy は Kubernetes ベストプラクティスに従う
+  - latest タグの場合は Always
+  - 固定タグの場合は IfNotPresent
+- Private Registry 対応
+  - imagePullSecrets の設定可能
+  - values.yaml での認証情報指定
+
+### リソース命名・ラベル戦略
+
+- Kubernetes・Helm ベストプラクティスに従った命名
+  - app.kubernetes.io/name, app.kubernetes.io/instance 等の標準ラベル
+  - リソース名の一意性確保
+  - セレクタの適切な設定
+
+### 設定詳細
+
+- タイムゾーン設定
+  - デフォルトは UTC
+  - values.yaml で変更可能
+  - tzdata パッケージを事前インストール
+- SSH公開鍵の複数対応
+  - values.yaml の配列形式で複数キー設定可能
+  - authorized_keys ファイルに自動統合
+
+### 運用・テスト・検証
+
+- Kubernetes・Helm ベストプラクティスに従った実装
+  - gracefulShutdown 対応（terminationGracePeriod）
+  - 適切なヘルスチェック設定
+  - Helm test による動作確認
+
+### セキュリティ強化
+
+- seccomp プロファイル設定
+  - runtime/default プロファイルを使用
+- AppArmor 対応（利用可能な場合）
+- 監査ログ設定
+  - SSH 接続の詳細ログ記録
+- ネットワークセキュリティ
+  - 不要なポートの無効化
+  - localhost 以外への接続制限
+
+### ドキュメント・使用例
+
+- values.yaml の典型的な設定例
+- SSH 接続方法の詳細ガイド
+- トラブルシューティングガイド
+- 制限事項・注意点の明記
+- セキュリティ設定の説明
