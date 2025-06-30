@@ -2,254 +2,189 @@
 
 SSH でアクセスできる作業用のシェル環境を構築する Helm Chart
 
-## 仕様
+## 1. 概要・基本機能
 
-### リソースに関して
+### コンセプト
+- 1デプロイあたり1ユーザー専用のSSH作業環境
+- 高セキュリティな設定でKubernetes上にSSHサーバーを提供
+- ホームディレクトリの永続化オプション
 
-- 設定情報に関しては ConfigMap, Secret を積極的に活用する
-- PVC, ConfigMap, Secret は Helm Release を削除しても残るようにする
-- 高セキュリティな環境を提供する
-- ネットワークポリシーは外付けするため不要
-- ssh サーバのベースイメージはまず ubuntu で作成する
-- 合わせて導入するパッケージに関しては、さし当たっては ssh 環境を実現するために最低限必要なものとする。
-- デフォルトシェルはディストリビューション（Ubuntu）のデフォルトを使用
-- PVC の StorageClass, AccessMode は values.yaml で設定可能にする
-- リソース制限に関しては values.yaml で設定できるようにし、デフォルトでは制限なしとする。
-- セキュリティ強化のため、ルートファイルシステムを読み取り専用にする
-  - sshd が書き込みを必要とするディレクトリは emptyDir でマウント
-    - /var/run: PIDファイル保存用
-    - /tmp: 一時ファイル・X11ソケット用
-    - /var/empty: sshd特権分離プロセス用
-  - ログは標準出力に出力して Kubernetes のログ機能を活用
-    - /var/log: 通常ログファイル保存用だが、標準出力使用のため emptyDir マウント不要
+### 基本構成
+- **ベースイメージ**: Ubuntu（最低限のSSH環境パッケージ）
+- **デフォルトシェル**: ディストリビューション（Ubuntu）デフォルト
+- **リソース管理**: ConfigMap, Secret, PVC を積極活用
+- **永続化**: PVC, ConfigMap, Secret は Helm Release 削除後も保持
 
-### sshd に関して
+## 2. SSH・ユーザ設定
 
-- 高セキュリティな設定を行う
-- 設定情報やホストキーは secret に含めるようにする
-- 認証方式は公開鍵のみ
-- 暗号化方式は現在のデフォルトのものを使用し、 values.yaml で設定を変更できるようにする
-- 設定ファイルはセキュリティを考慮したものをデフォルトとしてコンテナイメージに含める
-- root 実行モードで、 k8s リソース側のセキュリティ設定を強化して高いセキュリティを実現する
-- X11 転送はローカルホストからの接続のみ受け付けるよう制限する
-  - ユーザは sshd の転送オプションを使用して利用する想定
-- ログは標準出力に出力する（sshd -D -e オプションを使用）
-- セキュリティ強化設定（推奨値）
+### SSH設定
+- **認証方式**: 公開鍵のみ
+- **ログ出力**: 標準出力（sshd -D -e オプション）
+- **設定管理**: ホストキーはSecretで管理、初回起動時に自動生成
+- **セキュリティ設定**:
   - PasswordAuthentication no
   - PermitEmptyPasswords no
   - MaxAuthTries 3
   - LoginGraceTime 30
   - ClientAliveInterval 300
   - ClientAliveCountMax 2
-  - AllowTcpForwarding yes（ポート転送を許可）
+  - AllowTcpForwarding yes
   - GatewayPorts no
   - PermitRootLogin no
   - Protocol 2
 
-### ログインユーザに関して
+### ユーザ設定
+- **ユーザ作成**: 指定されたUID/GIDで自動作成（存在しない場合）
+- **SSH公開鍵**: ホームディレクトリ + ConfigMap/Secret提供
+- **ホームディレクトリ**: 永続化オプション（デフォルト10GiB）
+- **sudo権限**: オプション（デフォルト無効）
+- **設定ファイル**: ディストリビューションデフォルトを使用
 
-- 1 デプロイあたり 1 ユーザ専用
-- デプロイ時に環境変数でログインを許可するユーザをuid/gidともに指定できる
-- ユーザの設定に基づき sshd の AllowUsers の設定が反映される
-- ユーザの設定に基づき、ユーザが存在しなければ作成される
-- ユーザのシステム設定は values.yaml で詳細設定可能
-  - ログインシェル（デフォルトは /bin/bash）
-  - 追加グループ
-- ユーザのホームディレクトリ設定ファイルはディストリビューションデフォルトを使用
-- ユーザのホームディレクトリを永続化するオプションを提供する
-  - 同ボリュームのパラメータに関しては values.yaml で設定できるようにする
-  - サイズはデフォルトで 10GiB とする
-- ユーザのSSH公開鍵はホームディレクトリに含めるほか、 configmap や secret でも提供できるようにする。
-- sudo で root になれるかどうかはオプションで、デフォルトでは off
-  - sudo有効時は必要なcapabilitiesを自動的に追加設定
-- sudo有効時は allowPrivilegeEscalation: true に自動設定
+### X11転送
+- ローカルホストからの接続のみ許可
+- sshdの転送オプション使用を想定
 
-### サービス・アクセス設定
+## 3. セキュリティ設定
 
-- Service Type は values.yaml で設定可能とし、デフォルトは ClusterIP
-- SSH接続ポートは values.yaml で設定可能とし、デフォルトは 22
-- 外部からのアクセス方法（NodePort, LoadBalancer, Ingress等）は環境に応じて選択
-- 外部公開するポートは SSH のみに制限
-- localhost からのアクセスは基本的に許可
-
-### ヘルスチェック・監視
-
-- Liveness Probe: SSH プロセスの生存確認（/usr/sbin/sshd -t でコンフィグ検証）
-- Readiness Probe: SSH ポートへの接続確認
-- ログレベルは values.yaml で設定可能とし、デフォルトは INFO
-
-### 初期化・運用
-
-- 初回起動時にユーザ作成、SSH公開鍵配置を自動実行
-- ConfigMap/Secret 更新時の設定反映は Pod 再起動で対応
-- ホストキーは Secret で管理し、初回起動時に存在しなければ自動生成
-  - インスタンス固有のホストキー生成で一意性確保
-- エラーハンドリングは Kubernetes のベストプラクティスに従う
-  - 初期化失敗時は Init Container で適切なエラーを出力
-  - SSH公開鍵が無効な場合は起動を停止
-  - PVCマウント失敗時は Pod を Pending 状態にする
-  - UID/GID競合時はエラーで起動停止
-
-### セキュリティ詳細設定
-
-- Pod Security Context（推奨値）
-  - runAsNonRoot: false（root実行が必要）
+### セキュリティレベル選択（オプション）
+- **Basic**: 開発・テスト用
+  - readOnlyRootFilesystem: false
+  - 最小限の制限
+- **Standard**: 推奨設定（デフォルト）
   - readOnlyRootFilesystem: true
-  - allowPrivilegeEscalation: false
-- Security Context（推奨値）
-  - capabilities:
-    - drop: ["ALL"]
-    - add: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
-  - sudo有効時は追加capabilities自動設定
-- emptyDir 設定
-  - デフォルトでlocal disk使用
-  - サイズ制限: /tmp=100Mi, /var/run=10Mi
+  - seccomp: runtime/default
+- **High**: 本番環境用
+  - Standard + AppArmor有効
+  - 厳格なSSH設定（短いタイムアウト等）
 
-### 監視・メトリクス
+### Pod Security Context
+- **runAsNonRoot**: false（root実行が必要）
+- **readOnlyRootFilesystem**: true（Basicレベル時はfalse）
+- **allowPrivilegeEscalation**: false（sudo有効時は自動でtrue）
 
-- Prometheus メトリクス（オプション）
-  - ssh_exporter をサイドカーコンテナとして使用
-  - SSH接続数、レスポンス時間、認証失敗数等を監視
-  - メトリクス収集用のServiceMonitor設定
-  - メモリ・CPU使用量: Kubernetes 標準メトリクス
-  - ファイルシステム使用量: PVC 使用量監視
+### Capabilities
+- **drop**: ["ALL"]
+- **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
+- **sudo有効時**: 必要なcapabilitiesを自動追加
+
+### ファイルシステム
+- **読み取り専用ルート**: セキュリティ強化
+- **emptyDir マウント**:
+  - /var/run: PIDファイル（10Mi）
+  - /tmp: 一時ファイル・X11ソケット（100Mi）
+  - /var/empty: sshd特権分離プロセス用
+- **追加セキュリティ**: seccomp, AppArmor対応
+
+## 4. サービス・アクセス設定
+
+### Service設定
+- **Type**: ClusterIP（デフォルト）
+- **Port**: 22（デフォルト）
+- **外部アクセス**: NodePort/LoadBalancer/Ingress選択可能
+- **制限**: 外部公開はSSHのみ、localhostアクセスは許可
+
+### Ingress対応（オプション）
+- **デフォルト**: 無効
+- **設定**: annotations, ingressClassName, TLS終端対応
+- **機能**: SSH over HTTP/HTTPSトンネリング対応
+
+### ネットワークセキュリティ
+- 不要なポートの無効化
+- ネットワークレベル制限は外部NetworkPolicyで実施
+
+## 5. 監視・運用
+
+### ヘルスチェック
+- **Liveness Probe**: SSHプロセス生存確認（/usr/sbin/sshd -t）
+- **Readiness Probe**: SSHポート接続確認
+- **gracefulShutdown**: terminationGracePeriod対応
+
+### 監視・メトリクス（オプション）
+- **ssh_exporter**: サイドカーコンテナとして使用
+- **収集メトリクス**: SSH接続数、レスポンス時間、認証失敗数
+- **Prometheus連携**: ServiceMonitor設定
+- **標準メトリクス**: CPU・メモリ使用量、PVC使用量
+
+### エラーハンドリング
+- **初期化失敗**: Init Containerで適切なエラー出力
+- **SSH公開鍵無効**: 起動停止
+- **UID/GID競合**: エラーで起動停止
+- **PVCマウント失敗**: Pod Pending状態
 
 ### アップグレード戦略
+- **Deployment戦略**: Recreate（ダウンタイム許容）
+- **データ保護**: PVC/ConfigMap/Secretに`helm.sh/resource-policy: keep`
+- **自動復旧**: restartPolicy Always
+- **下位互換性**: values.yaml新規オプション追加時の既存設定保護
 
-- データ永続化の保護
-  - PVC, ConfigMap, Secret に `helm.sh/resource-policy: keep` アノテーションを設定
-  - アップグレード時にもユーザデータとSSHホストキーを保持
-- Deployment 戦略
-  - `strategy.type: Recreate` を使用（ダウンタイム許容）
-  - Pod障害時の自動復旧（restartPolicy: Always）
-  - readinessProbe による正常性確認
-- 設定の下位互換性
-  - values.yaml の新規オプション追加時も既存設定を保護
-  - デフォルト値の適切な設定による後方互換性確保
-- Init Container での前処理
-  - アップグレード時の設定ファイル形式変更対応
-  - ホームディレクトリの権限・所有者修正
-  - 既存SSH接続への影響最小化
-- ロールバック対応
-  - 問題発生時の迅速なロールバック機能
-  - アップグレード前の状態確認とバックアップ
+## 6. Helm Chart仕様
 
-### コンテナイメージ戦略
+### Chart.yaml
+- **name**: ssh-workspace
+- **type**: application
+- **version**: セマンティックバージョニング
+- **description**: SSH accessible workspace environment
+- **keywords**: [ssh, workspace, development]
+- **maintainers**: 適切な連絡先情報
 
-- 標準イメージの提供
-  - Ubuntu ベースの SSH サーバイメージを作成
-  - values.yaml でイメージ・タグを変更可能
-- ImagePullPolicy は Kubernetes ベストプラクティスに従う
-  - latest タグの場合は Always
-  - 固定タグの場合は IfNotPresent
-- Private Registry 対応
-  - imagePullSecrets の設定可能
-  - values.yaml での認証情報指定
+### Values.yaml構造
+- **image**: repository, tag, pullPolicy
+- **user**: name, uid, gid, shell, additionalGroups, sudo
+- **ssh**: publicKeys, port, config
+- **persistence**: enabled, size, storageClass, accessModes
+- **resources**: requests, limits
+- **service**: type, port
+- **security**: securityContext, podSecurityContext, level
+- **timezone**: デフォルトUTC
+- **monitoring**: ssh_exporter有効/無効
+- **ingress**: 設定オプション
+- **デプロイ時決定パラメータ以外は全てオプション**
 
-### リソース命名・ラベル戦略
+### Values.schema.json
+- 型検証による設定値の妥当性確認
 
-- Kubernetes・Helm ベストプラクティスに従った命名
-  - app.kubernetes.io/name, app.kubernetes.io/instance 等の標準ラベル
-  - リソース名の一意性確保
-  - セレクタの適切な設定
+### Helm Hooks
+- **pre-install**: SSH公開鍵妥当性チェック（必須、不正時はデプロイ失敗）
+- **post-install**: 初期化完了とSSH接続可能性確認
+- **pre-upgrade**: 設定互換性確認
+- **post-upgrade**: アップグレード後動作確認
+- **pre-delete**: 永続化データ警告表示
+- **test**: SSH接続テスト実行
+
+### NOTES.txt
+- **インストール後案内**: SSH接続コマンド、ポート転送方法
+- **設定確認手順**: 永続化設定確認
+- **警告**: エフェメラルストレージ使用時のデータ喪失警告
+- **トラブルシューティング**: よくある問題と解決方法
+
+### 運用・テスト
+- **Helm test**: 動作確認
+- **統合テスト**: SSH接続テスト自動化
+- **ドキュメント**: values.yaml設定例、SSH接続ガイド
+
+## 7. コンテナイメージ・技術詳細
+
+### イメージ戦略
+- **標準イメージ**: UbuntuベースSSHサーバー
+- **カスタマイズ**: values.yamlでイメージ・タグ変更可能
+- **ImagePullPolicy**: latestタグ=Always、固定タグ=IfNotPresent
+- **Private Registry**: imagePullSecrets対応
+
+### リソース命名・ラベル
+- **標準ラベル**: app.kubernetes.io/name, app.kubernetes.io/instance等
+- **命名規則**: Kubernetes・Helmベストプラクティス準拠
+- **一意性確保**: リソース名の重複回避
 
 ### 設定詳細
+- **タイムゾーン**: UTC（デフォルト）、tzdataパッケージ事前インストール
+- **SSH公開鍵**: 配列形式で複数キー対応、authorized_keys自動統合
+- **ホストキー**: インスタンス固有生成で一意性確保
 
-- タイムゾーン設定
-  - デフォルトは UTC
-  - values.yaml で変更可能
-  - tzdata パッケージを事前インストール
-- SSH公開鍵の複数対応
-  - values.yaml の配列形式で複数キー設定可能
-  - authorized_keys ファイルに自動統合
+## 8. 制限事項
 
-### 運用・テスト・検証
-
-- Kubernetes・Helm ベストプラクティスに従った実装
-  - gracefulShutdown 対応（terminationGracePeriod）
-  - 適切なヘルスチェック設定
-  - Helm test による動作確認
-
-### セキュリティ強化
-
-- seccomp プロファイル設定
-  - runtime/default プロファイルを使用
-- AppArmor 対応（利用可能な場合）
-- 監査ログ設定
-  - SSH 接続の詳細ログ記録
-- ネットワークセキュリティ
-  - 不要なポートの無効化
-  - ネットワークレベル制限は外部NetworkPolicyで実施
-- セキュリティレベル選択（オプション）
-  - Basic: 開発・テスト用（readOnlyRootFilesystem: false、最小限制限）
-  - Standard: 推奨設定（readOnlyRootFilesystem: true、seccomp有効）
-  - High: 本番環境用（Standard + AppArmor、厳格なSSH設定）
-
-### ドキュメント・使用例
-
-- values.yaml の典型的な設定例
-- SSH 接続方法の詳細ガイド
-- トラブルシューティングガイド
-- 制限事項・注意点の明記
-- セキュリティ設定の説明
-
-### Chart.yaml 要件
-
-- Chart メタデータ（Helm ベストプラクティス準拠）
-  - name: ssh-workspace
-  - version: セマンティックバージョニング
-  - description: SSH accessible workspace environment
-  - type: application
-  - maintainers: 適切な連絡先情報
-  - keywords: [ssh, workspace, development]
-  - sources: Git リポジトリ URL
-
-### Values.yaml 構造定義
-
-- 階層構造による設定の整理（Helm ベストプラクティス準拠）
-  - image: repository, tag, pullPolicy
-  - user: name, uid, gid, shell, additionalGroups, sudo
-  - デプロイ時にのみ決定すべきパラメータ以外は全てオプション
-  - ssh: publicKeys, port, config
-  - persistence: enabled, size, storageClass, accessModes
-  - resources: requests, limits
-  - service: type, port
-  - security: securityContext, podSecurityContext
-  - timezone: デフォルト UTC
-- values.schema.json による型検証
-
-### Helm Hooks 設定
-
-- pre-install: SSH公開鍵の妥当性チェック（必須、不正時はデプロイ失敗）
-- post-install: 初期化完了とSSH接続可能性の確認
-- pre-upgrade: 設定の互換性確認
-- post-upgrade: アップグレード後の動作確認
-- pre-delete: 永続化データの警告表示
-- test: SSH接続テストの実行
-
-### NOTES.txt 要件
-
-- インストール後の案内（Helm ベストプラクティス準拠）
-  - SSH接続コマンドの表示
-  - ポート転送方法の説明
-  - 永続化設定の確認方法
-  - エフェメラルストレージ使用時の警告
-- 設定確認手順とトラブルシューティング情報
-
-### 追加機能
-
-- Ingress 対応（オプション、デフォルト無効）
-  - Helm Chart ベストプラクティスに従った Ingress 設定
-  - TLS 終端対応、annotations、ingressClassName 設定可能
-  - SSH over HTTP/HTTPS トンネリング対応
-- カスタムイメージ対応
-  - 追加パッケージが必要な場合はカスタムイメージを作成
-  - values.yaml でイメージを変更可能
-
-### 制限事項
-
-- 単一ユーザー専用（マルチユーザー非対応）
-- root 実行が必要（セキュリティコンテキストで制限）
-- 永続化はホームディレクトリのみ
-- X11転送はローカルホスト経由のみ
-- SSH以外のポートは外部公開不可
+- **単一ユーザー専用**: マルチユーザー非対応
+- **root実行必須**: セキュリティコンテキストで制限
+- **永続化範囲**: ホームディレクトリのみ
+- **X11転送**: ローカルホスト経由のみ
+- **外部公開ポート**: SSH以外は不可
+- **追加パッケージ**: カスタムイメージでの対応が必要
