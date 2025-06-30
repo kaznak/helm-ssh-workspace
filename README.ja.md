@@ -9,15 +9,22 @@ DockerイメージとKubernetes用Helm Chartを提供します。
 ssh-workspace/
 ├── README.md              # このファイル（仕様書）
 ├── USAGE.md              # 使用方法ガイド
+├── LICENSE               # MITライセンス
+├── .github/              # GitHub設定
+│   ├── workflows/        # CI/CDワークフロー
+│   ├── ISSUE_TEMPLATE/   # Issueテンプレート
+│   └── CODEOWNERS        # コード所有者
 ├── docker/               # Dockerイメージ
 │   ├── Dockerfile        # イメージ定義
 │   ├── config/           # SSH設定
 │   ├── scripts/          # 初期化スクリプト
 │   └── README.md         # Docker用ドキュメント
-└── helm/                 # Helm Chart
-    ├── ssh-workspace/    # Chart本体
-    ├── example-values.yaml # 設定例
-    └── README.md         # Helm用ドキュメント
+├── helm/                 # Helm Chart
+│   ├── ssh-workspace/    # Chartパッケージ
+│   ├── example-values.yaml # 設定例
+│   └── README.md         # Helm用ドキュメント
+└── docs/                 # 追加ドキュメント
+    └── helm-oci-format.md # OCI形式ガイド
 ```
 
 ## 🚀 クイックスタート
@@ -47,6 +54,78 @@ helm install workspace ./ssh-workspace \
 
 kubectl port-forward svc/workspace-ssh-workspace 2222:22
 ssh developer@localhost -p 2222
+```
+
+## 🔄 CI/CD & コンテナレジストリ
+
+### GitHub Container Registry (GHCR)
+
+ビルド済みイメージがGitHub Container Registryで利用可能です：
+
+```bash
+# 最新イメージをプル
+docker pull ghcr.io/YOUR_USERNAME/ssh-workspace:latest
+
+# Helm Chartで使用
+helm install workspace ./helm/ssh-workspace \
+  --set image.repository=ghcr.io/YOUR_USERNAME/ssh-workspace \
+  --set image.tag=latest \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
+
+### 利用可能なタグ
+
+- `latest` - mainブランチからの最新安定版リリース
+- `develop` - 最新開発版
+- `v1.0.0` - 特定バージョンタグ
+- `main` - mainブランチビルド
+
+### CI/CDワークフロー
+
+| ワークフロー | トリガー | 目的 |
+|-------------|----------|------|
+| **CI/CDパイプライン** | Push/PR | リント、テスト、ビルド、プッシュ |
+| **Dockerビルド&プッシュ** | Docker変更 | マルチアーキテクチャイメージのビルド |
+| **セキュリティスキャン** | 日次/Push | Trivyによる脆弱性スキャン |
+| **Helmリリース** | Chart変更 | Chartのパッケージと公開 |
+| **Pages Helmリポジトリ** | Chart変更 | GitHub Pages Helmリポジトリ |
+
+### Helm Chartインストール
+
+#### 方法1: OCIレジストリ（推奨）
+
+```bash
+# GHCRから直接インストール
+helm install workspace \
+  oci://ghcr.io/YOUR_USERNAME/charts/ssh-workspace \
+  --version 1.0.0 \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
+
+#### 方法2: 従来のHelmリポジトリ
+
+```bash
+# リポジトリを追加
+helm repo add ssh-workspace https://YOUR_USERNAME.github.io/REPOSITORY_NAME/
+helm repo update
+
+# Chartをインストール
+helm install workspace ssh-workspace/ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+```
+
+#### 方法3: ローカルインストール
+
+```bash
+# リポジトリをクローンしてローカルでインストール
+git clone https://github.com/YOUR_USERNAME/REPOSITORY_NAME.git
+cd REPOSITORY_NAME
+helm install workspace ./helm/ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
 ```
 
 ## 1. 概要・基本機能

@@ -183,7 +183,7 @@ resources:
 |--------|------|------|
 | basic | 開発・テスト | 最小限制限 |
 | standard | 推奨 | readOnlyRootFilesystem有効 |
-| high | 本番環境 | AppArmor + 厳格SSH設定 |
+| high | 本番環境 | seccomp RuntimeDefault + 厳格SSH設定 |
 
 ### セキュリティ機能
 

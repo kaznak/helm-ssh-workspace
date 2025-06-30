@@ -95,7 +95,7 @@ security:
   level: standard         # basic | standard | high
   # basic:    開発・テスト用（最小限制限）
   # standard: 推奨設定（readOnlyRootFilesystem有効）
-  # high:     本番環境用（AppArmor + 厳格設定）
+  # high:     本番環境用（seccomp + 厳格設定）
 ```
 
 ## 🌐 外部アクセス設定
