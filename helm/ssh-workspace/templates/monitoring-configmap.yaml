@@ -1,0 +1,27 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-ssh-exporter-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: monitoring
+  annotations:
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  config.yml: |
+    modules:
+      default:
+        ssh:
+          host: "localhost"
+          port: {{ .Values.ssh.port }}
+          user: {{ .Values.user.name }}
+          timeout: "10s"
+          auth_methods: ["publickey"]
+        probe:
+          connection: true
+          auth: false  # Don't authenticate, just test connection
+{{- end }}

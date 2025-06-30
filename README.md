@@ -78,7 +78,7 @@ ssh developer@localhost -p 2222
 
 ### ユーザ設定
 - **作成**: 指定UID/GIDで自動作成（存在しない場合）
-- **SSH公開鍵**: **必須** - ホームディレクトリ + ConfigMap/Secret提供
+- **SSH公開鍵**: **必須** - ConfigMap経由で提供
 - **ユーザ名**: **必須** - ユーザ作成に使用
 - **UID/GID**: オプション（未指定時は自動割り当て）
 - **ホームディレクトリ**: 永続化オプション（10GiB）、無効時はemptyDir使用
@@ -96,7 +96,7 @@ ssh developer@localhost -p 2222
 |--------|------|------------------------|----------|
 | Basic | 開発・テスト | false | 最小限制限 |
 | Standard | 推奨 | true | seccomp有効 |
-| High | 本番環境 | true | AppArmor + 厳格SSH設定 |
+| High | 本番環境 | true | seccomp RuntimeDefault |
 
 ### Pod Security Context
 - **runAsNonRoot**: false（root実行必須）
@@ -106,7 +106,7 @@ ssh developer@localhost -p 2222
 ### Capabilities
 - **drop**: ["ALL"]
 - **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
-- **sudo有効時**: 必要なcapabilitiesを自動追加
+- **sudo有効時**: ["SETPCAP", "SYS_ADMIN"]を追加
 
 ### ファイルシステム
 - **読み取り専用ルート**: セキュリティ強化
@@ -145,7 +145,7 @@ ssh developer@localhost -p 2222
 ### エラーハンドリング・運用
 | 状況 | 対応 |
 |------|------|
-| 初期化失敗 | Init Containerでエラー出力 |
+| 初期化失敗 | pre-install hookでエラー出力 |
 | SSH公開鍵無効 | 起動停止 |
 | UID/GID競合 | エラーで起動停止 |
 | PVCマウント失敗 | Pod Pending状態 |
@@ -157,12 +157,16 @@ ssh developer@localhost -p 2222
 
 ### Chart.yaml
 ```yaml
+apiVersion: v2
 name: ssh-workspace
 type: application
-version: セマンティックバージョニング
+version: 1.0.0
+appVersion: "1.0.0"
 description: SSH accessible workspace environment
-keywords: [ssh, workspace, development]
-maintainers: 適切な連絡先情報
+keywords: [ssh, workspace, development, terminal]
+maintainers:
+  - name: SSH Workspace Team
+    email: maintainer@example.com
 ```
 
 ### Values.yaml構造
