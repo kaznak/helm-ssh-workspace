@@ -108,8 +108,9 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 ### 監視・メトリクス
 
 - Prometheus メトリクス（オプション）
-  - SSH接続数: ssh_exporter またはカスタムスクリプトで実装
-  - プロセス数: node_exporter 連携またはカスタムメトリクス
+  - ssh_exporter をサイドカーコンテナとして使用
+  - SSH接続数、レスポンス時間、認証失敗数等を監視
+  - メトリクス収集用のServiceMonitor設定
   - メモリ・CPU使用量: Kubernetes 標準メトリクス
   - ファイルシステム使用量: PVC 使用量監視
 
