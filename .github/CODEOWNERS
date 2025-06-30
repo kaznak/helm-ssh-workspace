@@ -1,19 +1,19 @@
 # Global owners
-* @ssh-workspace-maintainers
+* @kaznak
 
 # Docker image changes
-/docker/ @ssh-workspace-maintainers @docker-team
+/docker/ @kaznak
 
 # Helm chart changes
-/helm/ @ssh-workspace-maintainers @kubernetes-team
+/helm/ @kaznak
 
 # GitHub workflows
-/.github/ @ssh-workspace-maintainers @devops-team
+/.github/ @kaznak
 
 # Documentation
-*.md @ssh-workspace-maintainers @documentation-team
-*.ja.md @ssh-workspace-maintainers @documentation-team
+*.md @kaznak
+*.ja.md @kaznak
 
 # Security-related files
-/docker/config/ @ssh-workspace-maintainers @security-team
-/helm/ssh-workspace/templates/*security* @ssh-workspace-maintainers @security-team
+/docker/config/ @kaznak
+/helm/ssh-workspace/templates/*security* @kaznak

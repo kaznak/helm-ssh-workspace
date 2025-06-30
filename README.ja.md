@@ -64,11 +64,11 @@ ssh developer@localhost -p 2222
 
 ```bash
 # 最新イメージをプル
-docker pull ghcr.io/YOUR_USERNAME/ssh-workspace:latest
+docker pull ghcr.io/kaznak/ssh-workspace:latest
 
 # Helm Chartで使用
 helm install workspace ./helm/ssh-workspace \
-  --set image.repository=ghcr.io/YOUR_USERNAME/ssh-workspace \
+  --set image.repository=ghcr.io/kaznak/ssh-workspace \
   --set image.tag=latest \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
@@ -98,7 +98,7 @@ helm install workspace ./helm/ssh-workspace \
 ```bash
 # GHCRから直接インストール
 helm install workspace \
-  oci://ghcr.io/YOUR_USERNAME/charts/ssh-workspace \
+  oci://ghcr.io/kaznak/charts/ssh-workspace \
   --version 1.0.0 \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
@@ -108,7 +108,7 @@ helm install workspace \
 
 ```bash
 # リポジトリを追加
-helm repo add ssh-workspace https://YOUR_USERNAME.github.io/REPOSITORY_NAME/
+helm repo add ssh-workspace https://kaznak.github.io/helm-ssh-workspace/
 helm repo update
 
 # Chartをインストール
@@ -121,8 +121,8 @@ helm install workspace ssh-workspace/ssh-workspace \
 
 ```bash
 # リポジトリをクローンしてローカルでインストール
-git clone https://github.com/YOUR_USERNAME/REPOSITORY_NAME.git
-cd REPOSITORY_NAME
+git clone https://github.com/kaznak/helm-ssh-workspace.git
+cd helm-ssh-workspace
 helm install workspace ./helm/ssh-workspace \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"

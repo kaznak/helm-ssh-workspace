@@ -305,6 +305,6 @@ podDisruptionBudget:
 
 ## 📞 Support
 
-- Issue Reports: [GitHub Issues](https://github.com/example/ssh-workspace/issues)
-- Documentation: [Wiki](https://github.com/example/ssh-workspace/wiki)
-- FAQ: [Troubleshooting Guide](https://github.com/example/ssh-workspace/docs/faq.md)
+- Issue Reports: [GitHub Issues](https://github.com/kaznak/helm-ssh-workspace/issues)
+- Documentation: [Wiki](https://github.com/kaznak/helm-ssh-workspace/wiki)
+- FAQ: [Troubleshooting Guide](https://github.com/kaznak/helm-ssh-workspace/docs/faq.md)

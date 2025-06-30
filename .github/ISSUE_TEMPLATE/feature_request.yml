@@ -3,7 +3,7 @@ description: Suggest an idea for SSH Workspace
 title: "[Feature]: "
 labels: ["enhancement", "triage"]
 assignees:
-  - ssh-workspace-maintainers
+  - kaznak
 
 body:
   - type: markdown

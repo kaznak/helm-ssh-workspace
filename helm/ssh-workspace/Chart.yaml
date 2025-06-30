@@ -12,11 +12,11 @@ keywords:
   - terminal
 
 maintainers:
-  - name: SSH Workspace Team
-    email: maintainer@example.com
+  - name: Nakamura Kazutaka
+    email: kaznak.at.work@ipebble.org
 
 sources:
-  - https://github.com/example/ssh-workspace
+  - https://github.com/kaznak/helm-ssh-workspace
 
 annotations:
   category: Development
@@ -29,9 +29,9 @@ annotations:
       description: Initial release of SSH Workspace Helm Chart
   artifacthub.io/images: |
     - name: ssh-workspace
-      image: ghcr.io/YOUR_USERNAME/ssh-workspace:1.0.0
+      image: ghcr.io/kaznak/ssh-workspace:1.0.0
   artifacthub.io/links: |
     - name: Chart Source
-      url: https://github.com/YOUR_USERNAME/REPOSITORY_NAME/tree/main/helm/ssh-workspace
+      url: https://github.com/kaznak/helm-ssh-workspace/tree/main/helm/ssh-workspace
     - name: Docker Image
-      url: https://github.com/YOUR_USERNAME/REPOSITORY_NAME/pkgs/container/ssh-workspace
+      url: https://github.com/kaznak/helm-ssh-workspace/pkgs/container/ssh-workspace
