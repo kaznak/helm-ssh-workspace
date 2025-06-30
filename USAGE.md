@@ -1,115 +1,115 @@
-# SSH Workspace - 使用方法ガイド
+# SSH Workspace - Usage Guide
 
-SSH WorkspaceはKubernetes上で動作するSSHアクセス可能な開発環境です。
+SSH Workspace is an SSH-accessible development environment that runs on Kubernetes.
 
-## 🚀 クイックスタート
+## 🚀 Quick Start
 
-### 1. 基本的なデプロイ
+### 1. Basic Deployment
 
 ```bash
-# SSH公開鍵を準備（必須）
+# Prepare SSH public key (required)
 export SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... user@example.com"
 
-# 基本的なデプロイ
+# Basic deployment
 helm install my-workspace ./ssh-workspace \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="$SSH_PUBLIC_KEY"
 ```
 
-### 2. 接続方法
+### 2. Connection Method
 
 ```bash
-# ポートフォワードでアクセス（ClusterIP使用時）
+# Access via port forwarding (when using ClusterIP)
 kubectl port-forward svc/my-workspace-ssh-workspace 2222:22
 
-# SSH接続
+# SSH connection
 ssh developer@localhost -p 2222
 ```
 
-## 📋 詳細設定
+## 📋 Detailed Configuration
 
-### ユーザー設定
+### User Configuration
 
 ```yaml
 user:
-  name: "myuser"          # 必須: ユーザー名
-  uid: 1001               # オプション: UID
-  gid: 1001               # オプション: GID
-  shell: /bin/bash        # ログインシェル
-  sudo: true              # sudo権限
-  additionalGroups:       # 追加グループ
+  name: "myuser"          # Required: Username
+  uid: 1001               # Optional: UID
+  gid: 1001               # Optional: GID
+  shell: /bin/bash        # Login shell
+  sudo: true              # sudo privileges
+  additionalGroups:       # Additional groups
     - docker
     - wheel
 ```
 
-### タイムゾーン設定
+### Timezone Configuration
 
 ```yaml
-timezone: "Asia/Tokyo"    # タイムゾーン設定
+timezone: "Asia/Tokyo"    # Timezone setting
 ```
 
-#### 利用可能なタイムゾーン一覧
+#### Available Timezone List
 ```bash
-# コンテナ内で確認
+# Check within container
 kubectl exec deployment/workspace-ssh-workspace -- timedatectl list-timezones
 
-# 主要なタイムゾーン例
-# UTC, GMT                    # 協定世界時
-# Asia/Tokyo                  # 日本標準時 (JST)
-# America/New_York            # アメリカ東部標準時
-# America/Los_Angeles         # アメリカ太平洋標準時
-# Europe/London               # イギリス
-# Europe/Paris                # フランス・ドイツ・中欧
-# Asia/Shanghai               # 中国標準時
-# Asia/Seoul                  # 韓国標準時
+# Major timezone examples
+# UTC, GMT                    # Coordinated Universal Time
+# Asia/Tokyo                  # Japan Standard Time (JST)
+# America/New_York            # US Eastern Standard Time
+# America/Los_Angeles         # US Pacific Standard Time
+# Europe/London               # United Kingdom
+# Europe/Paris                # France/Germany/Central Europe
+# Asia/Shanghai               # China Standard Time
+# Asia/Seoul                  # Korea Standard Time
 ```
 
-### SSH設定
+### SSH Configuration
 
 ```yaml
 ssh:
-  publicKeys:             # 必須: SSH公開鍵リスト
+  publicKeys:             # Required: SSH public key list
     - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... user1@example.com"
     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... user2@example.com"
-  port: 22               # SSHポート
-  config:                # 追加SSH設定
+  port: 22               # SSH port
+  config:                # Additional SSH configuration
     MaxAuthTries: "3"
     LoginGraceTime: "30"
 ```
 
-### 永続化設定
+### Persistence Configuration
 
 ```yaml
 persistence:
-  enabled: true           # 永続化有効
-  size: 50Gi             # ストレージサイズ
-  storageClass: "ssd"    # ストレージクラス
+  enabled: true           # Enable persistence
+  size: 50Gi             # Storage size
+  storageClass: "ssd"    # Storage class
   accessModes:
     - ReadWriteOnce
 ```
 
-### セキュリティレベル
+### Security Levels
 
 ```yaml
 security:
   level: standard         # basic | standard | high
-  # basic:    開発・テスト用（最小限制限）
-  # standard: 推奨設定（readOnlyRootFilesystem有効）
-  # high:     本番環境用（AppArmor + 厳格設定）
+  # basic:    For development/testing (minimal restrictions)
+  # standard: Recommended settings (readOnlyRootFilesystem enabled)
+  # high:     For production (AppArmor + strict settings)
 ```
 
-## 🌐 外部アクセス設定
+## 🌐 External Access Configuration
 
-### NodePort使用
+### Using NodePort
 
 ```yaml
 service:
   type: NodePort
   port: 22
-  nodePort: 30022        # オプション: 固定NodePort
+  nodePort: 30022        # Optional: Fixed NodePort
 ```
 
-### LoadBalancer使用
+### Using LoadBalancer
 
 ```yaml
 service:
@@ -117,7 +117,7 @@ service:
   port: 22
 ```
 
-### Ingress使用（TCP）
+### Using Ingress (TCP)
 
 ```yaml
 ingress:
@@ -132,98 +132,98 @@ ingress:
           pathType: Prefix
 ```
 
-## 📊 監視設定
+## 📊 Monitoring Configuration
 
 ```yaml
 monitoring:
-  enabled: true           # ssh_exporter有効
-  port: 9312             # メトリクスポート
+  enabled: true           # Enable ssh_exporter
+  port: 9312             # Metrics port
   serviceMonitor:
     enabled: true         # Prometheus ServiceMonitor
-    interval: 30s         # スクレイプ間隔
+    interval: 30s         # Scrape interval
 ```
 
-## 🛠️ 管理コマンド
+## 🛠️ Management Commands
 
-### デプロイメント管理
+### Deployment Management
 
 ```bash
-# インストール
+# Install
 helm install workspace ./ssh-workspace -f values.yaml
 
-# アップグレード
+# Upgrade
 helm upgrade workspace ./ssh-workspace -f values.yaml
 
-# アンインストール（データ保持）
+# Uninstall (data retained)
 helm uninstall workspace
 
-# 完全削除（データも削除）
+# Complete removal (delete data too)
 helm uninstall workspace
 kubectl delete pvc workspace-ssh-workspace-home
 kubectl delete configmap workspace-ssh-workspace-ssh-keys
 kubectl delete secret workspace-ssh-workspace-host-keys
 ```
 
-### 状態確認
+### Status Check
 
 ```bash
-# 全リソース確認
+# Check all resources
 kubectl get all -l app.kubernetes.io/instance=workspace
 
-# ログ確認
+# Check logs
 kubectl logs -l app.kubernetes.io/instance=workspace -f
 
-# テスト実行
+# Run tests
 helm test workspace
 ```
 
-### デバッグ
+### Debugging
 
 ```bash
-# Pod内に入る（トラブルシューティング）
+# Enter pod (for troubleshooting)
 kubectl exec -it deployment/workspace-ssh-workspace -- /bin/bash
 
-# SSH設定確認
+# Check SSH configuration
 kubectl exec -it deployment/workspace-ssh-workspace -- /usr/sbin/sshd -T
 
-# 公開鍵確認
+# Check public keys
 kubectl get configmap workspace-ssh-workspace-ssh-keys -o yaml
 ```
 
-## 🔧 トラブルシューティング
+## 🔧 Troubleshooting
 
-### よくある問題
+### Common Issues
 
-1. **接続拒否される**
+1. **Connection Refused**
    ```bash
-   # Pod状態確認
+   # Check pod status
    kubectl get pods -l app.kubernetes.io/instance=workspace
    
-   # ログ確認
+   # Check logs
    kubectl logs -l app.kubernetes.io/instance=workspace --tail=50
    ```
 
-2. **認証失敗**
+2. **Authentication Failed**
    ```bash
-   # 公開鍵設定確認
+   # Check public key configuration
    kubectl get configmap workspace-ssh-workspace-ssh-keys -o yaml
    
-   # SSH接続テスト（詳細ログ）
+   # SSH connection test (verbose logging)
    ssh -vvv user@host -p port
    ```
 
-3. **Pod起動失敗**
+3. **Pod Startup Failed**
    ```bash
-   # イベント確認
+   # Check events
    kubectl describe pod -l app.kubernetes.io/instance=workspace
    
-   # 設定値検証
+   # Validate configuration values
    helm template workspace ./ssh-workspace -f values.yaml --debug
    ```
 
-## 📝 設定例
+## 📝 Configuration Examples
 
-### 開発環境
+### Development Environment
 
 ```yaml
 user:
@@ -238,7 +238,7 @@ monitoring:
   enabled: true
 ```
 
-### 本番環境
+### Production Environment
 
 ```yaml
 user:
@@ -269,27 +269,27 @@ podDisruptionBudget:
   minAvailable: 1
 ```
 
-## 🔒 セキュリティベストプラクティス
+## 🔒 Security Best Practices
 
-1. **常に最新のセキュリティレベルを使用**
+1. **Always use the latest security level**
    ```yaml
    security:
-     level: high  # 本番環境では必須
+     level: high  # Required for production
    ```
 
-2. **強力なSSH鍵を使用**
+2. **Use strong SSH keys**
    ```bash
-   # ED25519鍵生成（推奨）
+   # Generate ED25519 key (recommended)
    ssh-keygen -t ed25519 -C "your-email@example.com"
    ```
 
-3. **永続化を有効にして定期バックアップ**
+3. **Enable persistence and regular backups**
    ```yaml
    persistence:
      enabled: true
    ```
 
-4. **リソース制限の設定**
+4. **Set resource limits**
    ```yaml
    resources:
      limits:
@@ -297,14 +297,14 @@ podDisruptionBudget:
        memory: 2Gi
    ```
 
-5. **監視の有効化**
+5. **Enable monitoring**
    ```yaml
    monitoring:
      enabled: true
    ```
 
-## 📞 サポート
+## 📞 Support
 
-- 問題報告: [GitHub Issues](https://github.com/example/ssh-workspace/issues)
-- ドキュメント: [Wiki](https://github.com/example/ssh-workspace/wiki)
+- Issue Reports: [GitHub Issues](https://github.com/example/ssh-workspace/issues)
+- Documentation: [Wiki](https://github.com/example/ssh-workspace/wiki)
 - FAQ: [Troubleshooting Guide](https://github.com/example/ssh-workspace/docs/faq.md)

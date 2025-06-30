@@ -1,134 +1,134 @@
 # SSH Workspace Helm Chart
 
-Kubernetes上でSSHアクセス可能なワークスペース環境をデプロイするためのHelm Chartです。
+Helm Chart for deploying SSH-accessible workspace environments on Kubernetes.
 
-## 📁 ディレクトリ構造
+## 📁 Directory Structure
 
 ```
 helm/
 ├── ssh-workspace/          # Helm Chart
-│   ├── Chart.yaml         # Chart基本情報
-│   ├── values.yaml        # デフォルト設定値
-│   ├── values.schema.json # 設定値検証スキーマ
-│   ├── .helmignore        # パッケージ除外設定
-│   └── templates/         # Kubernetesテンプレート
-│       ├── _helpers.tpl   # 共通ヘルパー関数
-│       ├── configmap.yaml # SSH公開鍵設定
-│       ├── secret.yaml    # SSHホストキー
-│       ├── deployment.yaml # メインワークロード
-│       ├── service.yaml   # ネットワークアクセス
-│       ├── pvc.yaml       # 永続化ストレージ
-│       ├── ingress.yaml   # 外部アクセス
-│       ├── servicemonitor.yaml # 監視設定
-│       ├── poddisruptionbudget.yaml # 可用性保証
-│       ├── pre-install-hook.yaml   # インストール前検証
-│       ├── post-install-hook.yaml  # インストール後確認
-│       ├── NOTES.txt      # デプロイ後案内
-│       └── tests/         # Helmテスト
+│   ├── Chart.yaml         # Chart basic information
+│   ├── values.yaml        # Default configuration values
+│   ├── values.schema.json # Configuration value validation schema
+│   ├── .helmignore        # Package exclusion settings
+│   └── templates/         # Kubernetes templates
+│       ├── _helpers.tpl   # Common helper functions
+│       ├── configmap.yaml # SSH public key configuration
+│       ├── secret.yaml    # SSH host keys
+│       ├── deployment.yaml # Main workload
+│       ├── service.yaml   # Network access
+│       ├── pvc.yaml       # Persistent storage
+│       ├── ingress.yaml   # External access
+│       ├── servicemonitor.yaml # Monitoring configuration
+│       ├── poddisruptionbudget.yaml # Availability guarantee
+│       ├── pre-install-hook.yaml   # Pre-install validation
+│       ├── post-install-hook.yaml  # Post-install verification
+│       ├── NOTES.txt      # Post-deployment guide
+│       └── tests/         # Helm tests
 │           ├── ssh-connection-test.yaml
 │           └── resource-validation-test.yaml
-├── example-values.yaml    # 設定例集
-└── README.md             # このファイル
+├── example-values.yaml    # Configuration examples
+└── README.md             # This file
 ```
 
-## 🚀 クイックスタート
+## 🚀 Quick Start
 
-### 必須パラメータの設定
+### Required Parameter Configuration
 
 ```bash
-# SSH公開鍵を準備
+# Prepare SSH public key
 export SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5... user@example.com"
 
-# 基本的なデプロイ
+# Basic deployment
 helm install my-workspace ./ssh-workspace \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="$SSH_PUBLIC_KEY"
 ```
 
-### アクセス方法
+### Access Method
 
 ```bash
-# ポートフォワード（ClusterIP使用時）
+# Port forward (when using ClusterIP)
 kubectl port-forward svc/my-workspace-ssh-workspace 2222:22
 
-# SSH接続
+# SSH connection
 ssh developer@localhost -p 2222
 ```
 
-## ⚙️ 主要設定
+## ⚙️ Main Configuration
 
-### 必須設定
+### Required Configuration
 
 ```yaml
 user:
-  name: "username"          # 必須: ユーザー名
+  name: "username"          # Required: Username
 ssh:
-  publicKeys:               # 必須: SSH公開鍵（配列）
+  publicKeys:               # Required: SSH public keys (array)
     - "ssh-ed25519 AAAAC3..."
 ```
 
-### よく使用される設定
+### Commonly Used Configuration
 
 ```yaml
-# 永続化
+# Persistence
 persistence:
   enabled: true
   size: 20Gi
 
-# sudo権限
+# sudo privileges
 user:
   sudo: true
 
-# 外部アクセス
+# External access
 service:
   type: LoadBalancer
 
-# 監視
+# Monitoring
 monitoring:
   enabled: true
 
-# セキュリティレベル
+# Security level
 security:
   level: high  # basic/standard/high
 ```
 
-## 📊 管理コマンド
+## 📊 Management Commands
 
-### インストール・更新
+### Install & Update
 
 ```bash
-# インストール
+# Install
 helm install workspace ./ssh-workspace -f values.yaml
 
-# 設定確認
+# Configuration check
 helm template workspace ./ssh-workspace -f values.yaml
 
-# アップグレード
+# Upgrade
 helm upgrade workspace ./ssh-workspace -f values.yaml
 
-# アンインストール
+# Uninstall
 helm uninstall workspace
 ```
 
-### 監視・デバッグ
+### Monitor & Debug
 
 ```bash
-# 状態確認
+# Status check
 kubectl get all -l app.kubernetes.io/instance=workspace
 
-# ログ確認
+# Log check
 kubectl logs -l app.kubernetes.io/instance=workspace -f
 
-# Helmテスト実行
+# Run Helm tests
 helm test workspace
 
-# Pod内アクセス（デバッグ用）
+# Pod access (for debugging)
 kubectl exec -it deployment/workspace-ssh-workspace -- /bin/bash
 ```
 
-## 🔧 カスタマイズ
+## 🔧 Customization
 
-### values.yamlの作成
+### Creating values.yaml
 
 ```yaml
 # myvalues.yaml
@@ -169,57 +169,57 @@ resources:
 
 ### Helm Hooks
 
-| Hook | タイミング | 用途 |
-|------|-----------|------|
-| pre-install | インストール前 | SSH公開鍵・設定値検証 |
-| post-install | インストール後 | 初期化完了確認 |
-| test | テスト実行時 | SSH接続・リソース検証 |
+| Hook | Timing | Purpose |
+|------|--------|---------|
+| pre-install | Before installation | SSH public key & configuration validation |
+| post-install | After installation | Initialization completion check |
+| test | During test execution | SSH connection & resource validation |
 
-## 🔒 セキュリティ機能
+## 🔒 Security Features
 
-### セキュリティレベル
+### Security Levels
 
-| レベル | 用途 | 特徴 |
-|--------|------|------|
-| basic | 開発・テスト | 最小限制限 |
-| standard | 推奨 | readOnlyRootFilesystem有効 |
-| high | 本番環境 | AppArmor + 厳格SSH設定 |
+| Level | Purpose | Features |
+|-------|---------|----------|
+| basic | Development/Testing | Minimal restrictions |
+| standard | Recommended | readOnlyRootFilesystem enabled |
+| high | Production | AppArmor + strict SSH settings |
 
-### セキュリティ機能
+### Security Features
 
-- 公開鍵認証のみ（パスワード認証無効）
-- Pod Security Context適用
-- Capabilities制限
-- ネットワークポリシー対応（外部設定）
-- リソース分離（emptyDir, PVC）
+- Public key authentication only (password authentication disabled)
+- Pod Security Context applied
+- Capabilities restrictions
+- Network policy support (external configuration)
+- Resource isolation (emptyDir, PVC)
 
-## 🌐 ネットワークアクセス
+## 🌐 Network Access
 
-### Service Type別アクセス方法
+### Access Methods by Service Type
 
-| Type | アクセス方法 | 用途 |
-|------|-------------|------|
-| ClusterIP | port-forward | 開発・テスト |
-| NodePort | NodeIP:NodePort | 内部ネットワーク |
-| LoadBalancer | 外部IP:Port | 本番環境 |
+| Type | Access Method | Use Case |
+|------|---------------|----------|
+| ClusterIP | port-forward | Development/Testing |
+| NodePort | NodeIP:NodePort | Internal network |
+| LoadBalancer | External IP:Port | Production |
 
-### Ingress対応
+### Ingress Support
 
-TCP Ingress Controllerが必要：
+Requires TCP Ingress Controller:
 - NGINX Ingress Controller
 - HAProxy Ingress Controller
 - Traefik
 
-## 📈 監視・メトリクス
+## 📈 Monitoring & Metrics
 
-### 対応メトリクス
+### Supported Metrics
 
-- SSH接続数
-- レスポンス時間
-- 認証失敗数
-- リソース使用量（CPU・メモリ・ストレージ）
+- SSH connection count
+- Response time
+- Authentication failure count
+- Resource usage (CPU, memory, storage)
 
-### Prometheus連携
+### Prometheus Integration
 
 ```yaml
 monitoring:
@@ -229,55 +229,55 @@ monitoring:
     interval: 30s
 ```
 
-## 🔄 アップグレード・移行
+## 🔄 Upgrade & Migration
 
-### アップグレード戦略
+### Upgrade Strategy
 
-- **Recreate**: ダウンタイムあり（デフォルト）
-- データ保護: `helm.sh/resource-policy: keep`
+- **Recreate**: With downtime (default)
+- Data protection: `helm.sh/resource-policy: keep`
 
-### データ保護対象
+### Data Protection Targets
 
 - PersistentVolumeClaim
-- ConfigMap（SSH公開鍵）
-- Secret（SSHホストキー）
+- ConfigMap (SSH public keys)
+- Secret (SSH host keys)
 
-## 🆘 トラブルシューティング
+## 🆘 Troubleshooting
 
-詳細は [../USAGE.md](../USAGE.md) を参照してください。
+See [../USAGE.md](../USAGE.md) for detailed troubleshooting.
 
-### よくある問題
+### Common Issues
 
-1. **SSH公開鍵が無効**
+1. **Invalid SSH public key**
    ```bash
    helm template workspace ./ssh-workspace --debug
    ```
 
-2. **Pod起動失敗**
+2. **Pod startup failed**
    ```bash
    kubectl describe pod -l app.kubernetes.io/instance=workspace
    ```
 
-3. **接続失敗**
+3. **Connection failed**
    ```bash
    kubectl logs -l app.kubernetes.io/instance=workspace
    ```
 
-## 🧪 テスト
+## 🧪 Testing
 
 ```bash
-# 全テスト実行
+# Run all tests
 helm test workspace
 
-# 個別テスト実行
+# Run individual test
 kubectl apply -f templates/tests/ssh-connection-test.yaml
 ```
 
-## 📝 カスタムChart作成
+## 📝 Custom Chart Creation
 
-このChartをベースにカスタマイズ：
+Customize based on this Chart:
 
-1. `Chart.yaml` の名前・バージョン変更
-2. `values.yaml` のデフォルト値調整
-3. `templates/` のリソース追加・変更
-4. `values.schema.json` の検証ルール更新
+1. Change name & version in `Chart.yaml`
+2. Adjust default values in `values.yaml`
+3. Add/modify resources in `templates/`
+4. Update validation rules in `values.schema.json`

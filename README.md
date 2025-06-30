@@ -1,28 +1,28 @@
 # SSH Workspace
 
-SSH でアクセスできる作業用のシェル環境を構築するプロジェクト。
-DockerイメージとKubernetes用Helm Chartを提供します。
+A project to build SSH-accessible workspace environments.
+Provides Docker images and Kubernetes Helm Charts.
 
-## 📁 プロジェクト構造
+## 📁 Project Structure
 
 ```
 ssh-workspace/
-├── README.md              # このファイル（仕様書）
-├── USAGE.md              # 使用方法ガイド
-├── docker/               # Dockerイメージ
-│   ├── Dockerfile        # イメージ定義
-│   ├── config/           # SSH設定
-│   ├── scripts/          # 初期化スクリプト
-│   └── README.md         # Docker用ドキュメント
+├── README.md              # This file (specification)
+├── USAGE.md              # Usage guide
+├── docker/               # Docker image
+│   ├── Dockerfile        # Image definition
+│   ├── config/           # SSH configuration
+│   ├── scripts/          # Initialization scripts
+│   └── README.md         # Docker documentation
 └── helm/                 # Helm Chart
-    ├── ssh-workspace/    # Chart本体
-    ├── example-values.yaml # 設定例
-    └── README.md         # Helm用ドキュメント
+    ├── ssh-workspace/    # Chart main
+    ├── example-values.yaml # Configuration examples
+    └── README.md         # Helm documentation
 ```
 
-## 🚀 クイックスタート
+## 🚀 Quick Start
 
-### Dockerで実行
+### Run with Docker
 
 ```bash
 cd docker
@@ -37,7 +37,7 @@ docker run -d -p 2222:22 \
 ssh developer@localhost -p 2222
 ```
 
-### Kubernetesで実行
+### Run with Kubernetes
 
 ```bash
 cd helm
@@ -49,111 +49,111 @@ kubectl port-forward svc/workspace-ssh-workspace 2222:22
 ssh developer@localhost -p 2222
 ```
 
-## 1. 概要・基本機能
+## 1. Overview & Basic Features
 
-### コンセプト
-- 1デプロイあたり1ユーザー専用のSSH作業環境
-- 高セキュリティなKubernetes上のSSHサーバー
-- ホームディレクトリの永続化オプション
+### Concept
+- Dedicated SSH workspace environment per deployment per user
+- High-security SSH server on Kubernetes
+- Optional home directory persistence
 
-### 基本構成
-- **ベースイメージ**: Ubuntu（最低限のSSH環境パッケージ）
-- **リソース管理**: ConfigMap, Secret, PVC を積極活用
-- **永続化**: PVC, ConfigMap, Secret は Helm Release 削除後も保持
+### Basic Architecture
+- **Base Image**: Ubuntu (minimal SSH environment packages)
+- **Resource Management**: Active use of ConfigMap, Secret, PVC
+- **Persistence**: PVC, ConfigMap, Secret retained after Helm Release deletion
 
-## 2. SSH・ユーザ設定
+## 2. SSH & User Configuration
 
-### SSH機能
-| 項目 | 設定値 | 備考 |
-|------|--------|------|
-| 認証方式 | 公開鍵のみ | PasswordAuthentication no |
-| ログ出力 | 標準出力 | sshd -D -e オプション |
-| ホストキー管理 | Secret | 初回起動時自動生成 |
-| 接続試行 | 3回まで | MaxAuthTries 3 |
-| 接続タイムアウト | 30秒 | LoginGraceTime 30 |
-| Keep-Alive | 300秒間隔 | ClientAliveInterval 300 |
-| ポート転送 | 許可 | AllowTcpForwarding yes |
-| Gateway | 無効 | GatewayPorts no |
-| Root Login | 無効 | PermitRootLogin no |
+### SSH Features
+| Item | Setting | Notes |
+|------|---------|-------|
+| Authentication | Public key only | PasswordAuthentication no |
+| Log output | Standard output | sshd -D -e option |
+| Host key management | Secret | Auto-generated on first boot |
+| Connection attempts | Up to 3 times | MaxAuthTries 3 |
+| Connection timeout | 30 seconds | LoginGraceTime 30 |
+| Keep-Alive | 300 second interval | ClientAliveInterval 300 |
+| Port forwarding | Allowed | AllowTcpForwarding yes |
+| Gateway | Disabled | GatewayPorts no |
+| Root Login | Disabled | PermitRootLogin no |
 
-### ユーザ設定
-- **作成**: 指定UID/GIDで自動作成（存在しない場合）
-- **SSH公開鍵**: **必須** - ConfigMap経由で提供
-- **ユーザ名**: **必須** - ユーザ作成に使用
-- **UID/GID**: オプション（未指定時は自動割り当て）
-- **ホームディレクトリ**: 永続化オプション（10GiB）、無効時はemptyDir使用
-- **sudo権限**: オプション（無効）
-- **設定ファイル**: ディストリビューションデフォルト使用
+### User Configuration
+- **Creation**: Auto-created with specified UID/GID (if not exists)
+- **SSH Public Key**: **Required** - Provided via ConfigMap
+- **Username**: **Required** - Used for user creation
+- **UID/GID**: Optional (auto-assigned if not specified)
+- **Home Directory**: Persistence option (10GiB), uses emptyDir when disabled
+- **sudo Privileges**: Optional (disabled by default)
+- **Configuration Files**: Uses distribution defaults
 
-### X11転送
-- ローカルホストからの接続のみ許可
-- sshdの転送オプション使用
+### X11 Forwarding
+- Only allows connections from localhost
+- Uses sshd forwarding options
 
-## 3. セキュリティ設定
+## 3. Security Configuration
 
-### セキュリティレベル
-| レベル | 用途 | readOnlyRootFilesystem | 追加機能 |
-|--------|------|------------------------|----------|
-| Basic | 開発・テスト | false | 最小限制限 |
-| Standard | 推奨 | true | seccomp有効 |
-| High | 本番環境 | true | seccomp RuntimeDefault |
+### Security Levels
+| Level | Purpose | readOnlyRootFilesystem | Additional Features |
+|-------|---------|------------------------|-------------------|
+| Basic | Development/Testing | false | Minimal restrictions |
+| Standard | Recommended | true | seccomp enabled |
+| High | Production | true | seccomp RuntimeDefault |
 
 ### Pod Security Context
-- **runAsNonRoot**: false（root実行必須）
-- **readOnlyRootFilesystem**: true（Basicレベル時はfalse）
-- **allowPrivilegeEscalation**: false（sudo有効時は自動でtrue）
+- **runAsNonRoot**: false (root execution required)
+- **readOnlyRootFilesystem**: true (false for Basic level)
+- **allowPrivilegeEscalation**: false (auto true when sudo enabled)
 
 ### Capabilities
 - **drop**: ["ALL"]
 - **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
-- **sudo有効時**: ["SETPCAP", "SYS_ADMIN"]を追加
+- **When sudo enabled**: ["SETPCAP", "SYS_ADMIN"] added
 
-### ファイルシステム
-- **読み取り専用ルート**: セキュリティ強化
-- **emptyDir マウント**:
-  - /var/run: PIDファイル（10Mi）
-  - /tmp: 一時ファイル・X11ソケット（100Mi）
-  - /var/empty: sshd特権分離プロセス用
+### File System
+- **Read-only root**: Security enhancement
+- **emptyDir mounts**:
+  - /var/run: PID files (10Mi)
+  - /tmp: Temporary files & X11 sockets (100Mi)
+  - /var/empty: For sshd privilege separation process
 
-## 4. サービス・アクセス設定
+## 4. Service & Access Configuration
 
-### Service・Network
-| 項目 | デフォルト | 選択肢 |
-|------|------------|--------|
+### Service & Network
+| Item | Default | Options |
+|------|---------|---------|
 | Service Type | ClusterIP | NodePort/LoadBalancer |
-| SSH Port | 22 | カスタマイズ可能 |
-| 外部公開 | SSH のみ | localhost アクセス許可 |
-| Ingress | 無効 | TLS終端・トンネリング対応 |
+| SSH Port | 22 | Customizable |
+| External Access | SSH only | localhost access allowed |
+| Ingress | Disabled | TLS termination & tunneling support |
 
-### ネットワークセキュリティ
-- 不要なポートの無効化
-- ネットワークレベル制限は外部NetworkPolicyで実施
+### Network Security
+- Disable unnecessary ports
+- Network-level restrictions implemented via external NetworkPolicy
 
-## 5. 監視・運用
+## 5. Monitoring & Operations
 
-### ヘルスチェック
-- **Liveness**: SSHプロセス生存確認（/usr/sbin/sshd -t）
-- **Readiness**: SSHポート接続確認
-- **Shutdown**: terminationGracePeriod対応
+### Health Checks
+- **Liveness**: SSH process survival check (/usr/sbin/sshd -t)
+- **Readiness**: SSH port connection check
+- **Shutdown**: terminationGracePeriod support
 
-### 監視・メトリクス（オプション）
-- **ssh_exporter**: サイドカーコンテナ
-- **収集データ**: SSH接続数、レスポンス時間、認証失敗数
-- **Prometheus**: ServiceMonitor設定
-- **標準メトリクス**: CPU・メモリ・PVC使用量
+### Monitoring & Metrics (Optional)
+- **ssh_exporter**: Sidecar container
+- **Collected Data**: SSH connection count, response time, authentication failures
+- **Prometheus**: ServiceMonitor configuration
+- **Standard Metrics**: CPU, memory, PVC usage
 
-### エラーハンドリング・運用
-| 状況 | 対応 |
-|------|------|
-| 初期化失敗 | pre-install hookでエラー出力 |
-| SSH公開鍵無効 | 起動停止 |
-| UID/GID競合 | エラーで起動停止 |
-| PVCマウント失敗 | Pod Pending状態 |
-| アップグレード | Recreate戦略（ダウンタイム許容） |
-| データ保護 | `helm.sh/resource-policy: keep` |
-| 自動復旧 | restartPolicy Always |
+### Error Handling & Operations
+| Situation | Response |
+|-----------|----------|
+| Initialization failure | Error output via pre-install hook |
+| Invalid SSH public key | Stop startup |
+| UID/GID conflict | Error and stop startup |
+| PVC mount failure | Pod Pending state |
+| Upgrade | Recreate strategy (downtime acceptable) |
+| Data protection | `helm.sh/resource-policy: keep` |
+| Auto recovery | restartPolicy Always |
 
-## 6. Helm Chart・技術仕様
+## 6. Helm Chart & Technical Specifications
 
 ### Chart.yaml
 ```yaml
@@ -169,32 +169,32 @@ maintainers:
     email: maintainer@example.com
 ```
 
-### Values.yaml構造
+### Values.yaml Structure
 ```yaml
 image:
-  repository: # UbuntuベースSSHサーバー
-  tag: # セマンティックバージョン
-  pullPolicy: # latest=Always, 固定=IfNotPresent
-  pullSecrets: [] # Private Registry対応
+  repository: # Ubuntu-based SSH server
+  tag: # Semantic version
+  pullPolicy: # latest=Always, fixed=IfNotPresent
+  pullSecrets: [] # Private Registry support
 
 user:
-  name: "" # ユーザ名（必須）
-  uid: null # ユーザID（オプション、未指定時は自動割り当て）
-  gid: null # グループID（オプション、未指定時は自動割り当て）
-  shell: /bin/bash # ログインシェル
-  additionalGroups: [] # 追加グループ
-  sudo: false # sudo権限
+  name: "" # Username (required)
+  uid: null # User ID (optional, auto-assigned if not specified)
+  gid: null # Group ID (optional, auto-assigned if not specified)
+  shell: /bin/bash # Login shell
+  additionalGroups: [] # Additional groups
+  sudo: false # sudo privileges
 
 ssh:
-  publicKeys: [] # SSH公開鍵（必須、配列形式）
-  port: 22 # SSHポート
-  config: {} # カスタム設定
+  publicKeys: [] # SSH public keys (required, array format)
+  port: 22 # SSH port
+  config: {} # Custom configuration
 
 persistence:
-  enabled: false # 永続化有効/無効
-  size: 10Gi # ストレージサイズ
-  storageClass: "" # ストレージクラス
-  accessModes: [ReadWriteOnce] # アクセスモード
+  enabled: false # Enable/disable persistence
+  size: 10Gi # Storage size
+  storageClass: "" # Storage class
+  accessModes: [ReadWriteOnce] # Access mode
 
 security:
   level: standard # basic/standard/high
@@ -202,37 +202,37 @@ security:
   podSecurityContext: {} # Container Security Context
 
 service:
-  type: ClusterIP # Service Type
-  port: 22 # Service Port
+  type: ClusterIP # Service type
+  port: 22 # Service port
 
-resources: {} # CPU・メモリ制限
-timezone: UTC # タイムゾーン（tzdataパッケージ）
+resources: {} # CPU & memory limits
+timezone: UTC # Timezone (tzdata package)
 monitoring:
-  enabled: false # ssh_exporter有効/無効
+  enabled: false # Enable/disable ssh_exporter
 ingress:
-  enabled: false # Ingress有効/無効
-  # annotations, className, TLS設定等
+  enabled: false # Enable/disable Ingress
+  # annotations, className, TLS configuration, etc.
 
-# デプロイ時決定パラメータ以外は全てデフォルト値設定済み
+# All parameters except deployment-time decisions have default values
 ```
 
-### Helm機能
-- **Schema**: values.schema.jsonによる型検証
+### Helm Features
+- **Schema**: Type validation via values.schema.json
 - **Hooks**: 
-  - pre-install: SSH公開鍵検証（必須）
-  - post-install: 初期化完了確認
-  - pre-upgrade: 互換性確認
-  - test: SSH接続テスト
-- **NOTES.txt**: SSH接続手順、永続化警告、トラブルシューティング
-- **Labels**: app.kubernetes.io/* 標準ラベル
-- **必須パラメータ**: SSH公開鍵、ユーザ名
-- **Values設計**: デプロイ時決定事項以外は全てオプション（デフォルト値提供）
+  - pre-install: SSH public key validation (required)
+  - post-install: Initialization completion check
+  - pre-upgrade: Compatibility check
+  - test: SSH connection test
+- **NOTES.txt**: SSH connection procedures, persistence warnings, troubleshooting
+- **Labels**: app.kubernetes.io/* standard labels
+- **Required Parameters**: SSH public key, username
+- **Values Design**: All optional except deployment-time decisions (default values provided)
 
-## 7. 制限事項
+## 7. Limitations
 
-- **単一ユーザー専用**: マルチユーザー非対応
-- **root実行必須**: セキュリティコンテキストで制限
-- **永続化範囲**: ホームディレクトリのみ
-- **X11転送**: ローカルホスト経由のみ
-- **外部公開ポート**: SSH以外は不可
-- **追加パッケージ**: カスタムイメージで対応
+- **Single user only**: Multi-user not supported
+- **Root execution required**: Restricted by security context
+- **Persistence scope**: Home directory only
+- **X11 forwarding**: Localhost only
+- **External exposed ports**: SSH only
+- **Additional packages**: Supported via custom images

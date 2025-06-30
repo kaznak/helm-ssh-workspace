@@ -1,60 +1,60 @@
 # SSH Workspace Docker Image
 
-SSH経由でアクセス可能なワークスペース環境のDockerイメージです。
+Docker image for SSH-accessible workspace environment.
 
-## 📁 ディレクトリ構造
+## 📁 Directory Structure
 
 ```
 docker/
-├── Dockerfile              # メインイメージ定義
-├── .dockerignore           # Docker build除外設定
-├── config/                 # 設定ファイル
-│   └── sshd_config        # SSH設定
-├── scripts/                # 実行スクリプト
-│   ├── entrypoint.sh      # コンテナ初期化
-│   └── generate-host-keys.sh  # SSHホストキー生成
-└── README.md              # このファイル
+├── Dockerfile              # Main image definition
+├── .dockerignore           # Docker build exclusion settings
+├── config/                 # Configuration files
+│   └── sshd_config        # SSH configuration
+├── scripts/                # Executable scripts
+│   ├── entrypoint.sh      # Container initialization
+│   └── generate-host-keys.sh  # SSH host key generation
+└── README.md              # This file
 ```
 
-## 🚀 イメージのビルド
+## 🚀 Image Build
 
 ```bash
-# プロジェクトルートから
+# From project root
 cd docker
 docker build -t ssh-workspace:latest .
 
-# または、プロジェクトルートから
+# Or, from project root
 docker build -f docker/Dockerfile -t ssh-workspace:latest .
 ```
 
-## ⚙️ 環境変数
+## ⚙️ Environment Variables
 
-| 変数名 | 必須 | デフォルト | 説明 |
-|--------|------|-----------|------|
-| `SSH_USER` | ✅ | - | SSHユーザー名 |
-| `SSH_USER_UID` | ❌ | 1000 | ユーザーUID |
-| `SSH_USER_GID` | ❌ | 1000 | ユーザーGID |
-| `SSH_USER_SHELL` | ❌ | /bin/bash | ログインシェル |
-| `SSH_USER_SUDO` | ❌ | false | sudo権限 |
-| `SSH_USER_ADDITIONAL_GROUPS` | ❌ | - | 追加グループ（カンマ区切り） |
-| `TZ` | ❌ | UTC | タイムゾーン（例: Asia/Tokyo） |
+| Variable Name | Required | Default | Description |
+|---------------|----------|---------|-------------|
+| `SSH_USER` | ✅ | - | SSH username |
+| `SSH_USER_UID` | ❌ | 1000 | User UID |
+| `SSH_USER_GID` | ❌ | 1000 | User GID |
+| `SSH_USER_SHELL` | ❌ | /bin/bash | Login shell |
+| `SSH_USER_SUDO` | ❌ | false | sudo privileges |
+| `SSH_USER_ADDITIONAL_GROUPS` | ❌ | - | Additional groups (comma-separated) |
+| `TZ` | ❌ | UTC | Timezone (e.g., Asia/Tokyo) |
 
-## 📂 必要なマウント
+## 📂 Required Mounts
 
-| パス | 用途 | 必須 |
-|------|------|------|
-| `/etc/ssh-keys/authorized_keys` | SSH公開鍵 | ✅ |
-| `/home/{username}` | ホームディレクトリ | ❌ |
+| Path | Purpose | Required |
+|------|---------|----------|
+| `/etc/ssh-keys/authorized_keys` | SSH public keys | ✅ |
+| `/home/{username}` | Home directory | ❌ |
 
-## 🔧 使用例
+## 🔧 Usage Examples
 
-### 基本的な実行
+### Basic Execution
 
 ```bash
-# SSH公開鍵を準備
+# Prepare SSH public key
 echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
 
-# コンテナ実行
+# Run container
 docker run -d \
   --name ssh-workspace \
   -p 2222:22 \
@@ -62,14 +62,14 @@ docker run -d \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
 
-# SSH接続
+# SSH connection
 ssh developer@localhost -p 2222
 ```
 
-### 永続化ありの実行
+### Execution with Persistence
 
 ```bash
-# ホームディレクトリを永続化
+# Create persistent home directory
 docker volume create ssh-workspace-home
 
 docker run -d \
@@ -83,20 +83,20 @@ docker run -d \
   ssh-workspace:latest
 ```
 
-### タイムゾーン設定
+### Timezone Configuration
 
 ```bash
-# 利用可能なタイムゾーン確認
+# Check available timezones
 docker run --rm ssh-workspace:latest timedatectl list-timezones | head -20
 
-# 日本時間で実行
+# Run with Japan time
 docker run -d \
   -e TZ=Asia/Tokyo \
   -e SSH_USER=developer \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
 
-# アメリカ東部時間で実行
+# Run with US Eastern time
 docker run -d \
   -e TZ=America/New_York \
   -e SSH_USER=developer \
@@ -104,48 +104,48 @@ docker run -d \
   ssh-workspace:latest
 ```
 
-## 🔒 セキュリティ機能
+## 🔒 Security Features
 
-- SSH公開鍵認証のみ（パスワード認証無効）
-- 権限分離プロセス使用
-- 最小限の権限で実行
-- ホストキー自動生成
+- SSH public key authentication only (password authentication disabled)
+- Privilege separation process usage
+- Runs with minimal privileges
+- Automatic host key generation
 
-## 🛠️ 開発者向け
+## 🛠️ Developer Guide
 
-### スクリプトの修正
+### Script Modification
 
-1. `scripts/` ディレクトリのスクリプトを編集
-2. イメージを再ビルド
-3. テスト実行
+1. Edit scripts in `scripts/` directory
+2. Rebuild image
+3. Test execution
 
-### 設定の変更
+### Configuration Changes
 
-1. `config/sshd_config` を編集
-2. イメージを再ビルド
-3. 設定確認: `docker exec container-name /usr/sbin/sshd -T`
+1. Edit `config/sshd_config`
+2. Rebuild image
+3. Verify configuration: `docker exec container-name /usr/sbin/sshd -T`
 
-## 🐞 トラブルシューティング
+## 🐞 Troubleshooting
 
-### よくある問題
+### Common Issues
 
-1. **権限エラー**
+1. **Permission Errors**
    ```bash
-   # authorized_keysの権限確認
+   # Check authorized_keys permissions
    docker exec container-name ls -la /etc/ssh-keys/
    ```
 
-2. **SSH接続失敗**
+2. **SSH Connection Failed**
    ```bash
-   # ログ確認
+   # Check logs
    docker logs container-name
    
-   # SSH設定確認
+   # Check SSH configuration
    docker exec container-name /usr/sbin/sshd -T
    ```
 
-3. **ユーザー作成失敗**
+3. **User Creation Failed**
    ```bash
-   # 環境変数確認
+   # Check environment variables
    docker exec container-name env | grep SSH_USER
    ```
