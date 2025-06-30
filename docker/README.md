@@ -37,7 +37,7 @@ docker build -f docker/Dockerfile -t ssh-workspace:latest .
 | `SSH_USER_SHELL` | ❌ | /bin/bash | ログインシェル |
 | `SSH_USER_SUDO` | ❌ | false | sudo権限 |
 | `SSH_USER_ADDITIONAL_GROUPS` | ❌ | - | 追加グループ（カンマ区切り） |
-| `TZ` | ❌ | UTC | タイムゾーン |
+| `TZ` | ❌ | UTC | タイムゾーン（例: Asia/Tokyo） |
 
 ## 📂 必要なマウント
 
@@ -77,8 +77,30 @@ docker run -d \
   -p 2222:22 \
   -e SSH_USER=developer \
   -e SSH_USER_SUDO=true \
+  -e TZ=Asia/Tokyo \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   -v ssh-workspace-home:/home/developer \
+  ssh-workspace:latest
+```
+
+### タイムゾーン設定
+
+```bash
+# 利用可能なタイムゾーン確認
+docker run --rm ssh-workspace:latest timedatectl list-timezones | head -20
+
+# 日本時間で実行
+docker run -d \
+  -e TZ=Asia/Tokyo \
+  -e SSH_USER=developer \
+  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  ssh-workspace:latest
+
+# アメリカ東部時間で実行
+docker run -d \
+  -e TZ=America/New_York \
+  -e SSH_USER=developer \
+  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
 ```
 

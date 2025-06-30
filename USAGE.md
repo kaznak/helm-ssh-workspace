@@ -42,6 +42,28 @@ user:
     - wheel
 ```
 
+### タイムゾーン設定
+
+```yaml
+timezone: "Asia/Tokyo"    # タイムゾーン設定
+```
+
+#### 利用可能なタイムゾーン一覧
+```bash
+# コンテナ内で確認
+kubectl exec deployment/workspace-ssh-workspace -- timedatectl list-timezones
+
+# 主要なタイムゾーン例
+# UTC, GMT                    # 協定世界時
+# Asia/Tokyo                  # 日本標準時 (JST)
+# America/New_York            # アメリカ東部標準時
+# America/Los_Angeles         # アメリカ太平洋標準時
+# Europe/London               # イギリス
+# Europe/Paris                # フランス・ドイツ・中欧
+# Asia/Shanghai               # 中国標準時
+# Asia/Seoul                  # 韓国標準時
+```
+
 ### SSH設定
 
 ```yaml
