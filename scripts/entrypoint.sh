@@ -89,7 +89,7 @@ if [ -n "$TZ" ]; then
 fi
 
 # SSH ホストキー生成
-/usr/local/bin/generate-host-keys.sh
+/opt/ssh-workspace/bin/generate-host-keys.sh
 
 # SSH設定の妥当性確認
 echo "Validating SSH configuration..."

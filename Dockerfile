@@ -27,15 +27,14 @@ RUN apt-get update && apt-get install -y \
 
 # SSH設定
 RUN mkdir -p /etc/ssh/sshd_config.d
-COPY sshd_config /etc/ssh/sshd_config
+COPY config/sshd_config /etc/ssh/sshd_config
 
-# SSH ホストキー生成用スクリプト
-COPY generate-host-keys.sh /usr/local/bin/generate-host-keys.sh
-RUN chmod +x /usr/local/bin/generate-host-keys.sh
+# アプリケーションディレクトリ作成
+RUN mkdir -p /opt/ssh-workspace/bin
 
-# エントリーポイントスクリプト
-COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+# スクリプト類をアプリケーション専用ディレクトリにコピー
+COPY scripts/ /opt/ssh-workspace/bin/
+RUN chmod +x /opt/ssh-workspace/bin/*.sh
 
 # 権限分離用ディレクトリ
 RUN mkdir -p /var/empty && \
@@ -49,5 +48,5 @@ ENV TZ=UTC
 EXPOSE 22
 
 # エントリーポイント
-ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+ENTRYPOINT ["/opt/ssh-workspace/bin/entrypoint.sh"]
 CMD ["/usr/sbin/sshd", "-D", "-e"]

@@ -1,0 +1,33 @@
+# Documentation
+*.md
+README.md
+USAGE.md
+
+# Helm Chart
+ssh-workspace/
+example-values.yaml
+
+# Git
+.git/
+.gitignore
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.orig
+
+# Development files
+test/
+tests/
+examples/
