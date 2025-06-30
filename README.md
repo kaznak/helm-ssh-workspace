@@ -179,3 +179,62 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - トラブルシューティングガイド
 - 制限事項・注意点の明記
 - セキュリティ設定の説明
+
+### Chart.yaml 要件
+
+- Chart メタデータ（Helm ベストプラクティス準拠）
+  - name: ssh-workspace
+  - version: セマンティックバージョニング
+  - description: SSH accessible workspace environment
+  - type: application
+  - maintainers: 適切な連絡先情報
+  - keywords: [ssh, workspace, development]
+  - sources: Git リポジトリ URL
+
+### Values.yaml 構造定義
+
+- 階層構造による設定の整理（Helm ベストプラクティス準拠）
+  - image: repository, tag, pullPolicy
+  - user: name, uid, gid, shell, additionalGroups
+  - ssh: publicKeys, port, config
+  - persistence: enabled, size, storageClass, accessModes
+  - resources: requests, limits
+  - service: type, port
+  - security: securityContext, podSecurityContext
+  - timezone: デフォルト UTC
+- values.schema.json による型検証
+
+### Helm Hooks 設定
+
+- pre-install: SSH公開鍵の妥当性チェック
+- post-install: 初期化完了とSSH接続可能性の確認
+- pre-upgrade: 設定の互換性確認
+- post-upgrade: アップグレード後の動作確認
+- pre-delete: 永続化データの警告表示
+- test: SSH接続テストの実行
+
+### NOTES.txt 要件
+
+- インストール後の案内（Helm ベストプラクティス準拠）
+  - SSH接続コマンドの表示
+  - ポート転送方法の説明
+  - 永続化設定の確認方法
+  - エフェメラルストレージ使用時の警告
+- 設定確認手順とトラブルシューティング情報
+
+### 追加機能
+
+- 追加パッケージインストール機能
+  - values.yaml で追加パッケージリストを指定可能
+  - apt install での自動インストール
+- Ingress 対応（オプション、デフォルト無効）
+  - values.yaml での Ingress 設定可能
+  - TLS 終端対応
+
+### 制限事項
+
+- 単一ユーザー専用（マルチユーザー非対応）
+- root 実行が必要（セキュリティコンテキストで制限）
+- 永続化はホームディレクトリのみ
+- X11転送はローカルホスト経由のみ
+- SSH以外のポートは外部公開不可
