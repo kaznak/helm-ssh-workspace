@@ -11,7 +11,9 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - 高セキュリティな環境を提供する
 - ネットワークポリシーは外付けするため不要
 - ssh サーバのベースイメージはまず ubuntu で作成する
-- 合わせて導入するパッケージに関しては、差し当たっては ssh 環境を実現するために最低限必要なものとする。
+- 合わせて導入するパッケージに関しては、さし当たっては ssh 環境を実現するために最低限必要なものとする。
+- デフォルトシェルはディストリビューション（Ubuntu）のデフォルトを使用
+- PVC の StorageClass, AccessMode は values.yaml で設定可能にする
 - リソース制限に関しては values.yaml で設定できるようにし、デフォルトでは制限なしとする。
 - セキュリティ強化のため、ルートファイルシステムを読み取り専用にする
   - sshd が書き込みを必要とするディレクトリは emptyDir でマウント
@@ -32,6 +34,17 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - X11 転送はローカルホストからの接続のみ受け付けるよう制限する
   - ユーザは sshd の転送オプションを使用して利用する想定
 - ログは標準出力に出力する（sshd -D -e オプションを使用）
+- セキュリティ強化設定（推奨値）
+  - PasswordAuthentication no
+  - PermitEmptyPasswords no
+  - MaxAuthTries 3
+  - LoginGraceTime 30
+  - ClientAliveInterval 300
+  - ClientAliveCountMax 2
+  - AllowTcpForwarding yes（ポート転送を許可）
+  - GatewayPorts no
+  - PermitRootLogin no
+  - Protocol 2
 
 ### ログインユーザに関して
 
@@ -39,6 +52,10 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - デプロイ時に環境変数でログインを許可するユーザをuid/gidともに指定できる
 - ユーザの設定に基づき sshd の AllowUsers の設定が反映される
 - ユーザの設定に基づき、ユーザが存在しなければ作成される
+- ユーザのシステム設定は values.yaml で詳細設定可能
+  - ログインシェル（デフォルトは /bin/bash）
+  - 追加グループ
+- ユーザのホームディレクトリ設定ファイルはディストリビューションデフォルトを使用
 - ユーザのホームディレクトリを永続化するオプションを提供する
   - 同ボリュームのパラメータに関しては values.yaml で設定できるようにする
   - サイズはデフォルトで 10GiB とする
@@ -50,6 +67,8 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - Service Type は values.yaml で設定可能とし、デフォルトは ClusterIP
 - SSH接続ポートは values.yaml で設定可能とし、デフォルトは 22
 - 外部からのアクセス方法（NodePort, LoadBalancer, Ingress等）は環境に応じて選択
+- 外部公開するポートは SSH のみに制限
+- localhost からのアクセスは基本的に許可
 
 ### ヘルスチェック・監視
 
@@ -62,3 +81,26 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - 初回起動時にユーザ作成、SSH公開鍵配置を自動実行
 - ConfigMap/Secret 更新時の設定反映は Pod 再起動で対応
 - ホストキーは Secret で管理し、初回起動時に存在しなければ自動生成
+- エラーハンドリングは Kubernetes のベストプラクティスに従う
+  - 初期化失敗時は Init Container で適切なエラーを出力
+  - SSH公開鍵が無効な場合は起動を停止
+  - PVCマウント失敗時は Pod を Pending 状態にする
+
+### セキュリティ詳細設定
+
+- Pod Security Context（推奨値）
+  - runAsNonRoot: false（root実行が必要）
+  - readOnlyRootFilesystem: true
+  - allowPrivilegeEscalation: false
+- Security Context（推奨値）
+  - capabilities:
+    - drop: ["ALL"]
+    - add: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
+
+### 監視・メトリクス
+
+- Prometheus メトリクス（オプション）
+  - SSH接続数
+  - プロセス数
+  - メモリ・CPU使用量
+  - ファイルシステム使用量
