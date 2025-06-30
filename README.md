@@ -62,6 +62,7 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - ユーザのSSH公開鍵はホームディレクトリに含めるほか、 configmap や secret でも提供できるようにする。
 - sudo で root になれるかどうかはオプションで、デフォルトでは off
   - sudo有効時は必要なcapabilitiesを自動的に追加設定
+- sudo有効時は allowPrivilegeEscalation: true に自動設定
 
 ### サービス・アクセス設定
 
@@ -82,6 +83,7 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - 初回起動時にユーザ作成、SSH公開鍵配置を自動実行
 - ConfigMap/Secret 更新時の設定反映は Pod 再起動で対応
 - ホストキーは Secret で管理し、初回起動時に存在しなければ自動生成
+  - インスタンス固有のホストキー生成で一意性確保
 - エラーハンドリングは Kubernetes のベストプラクティスに従う
   - 初期化失敗時は Init Container で適切なエラーを出力
   - SSH公開鍵が無効な場合は起動を停止
@@ -106,10 +108,10 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 ### 監視・メトリクス
 
 - Prometheus メトリクス（オプション）
-  - SSH接続数
-  - プロセス数
-  - メモリ・CPU使用量
-  - ファイルシステム使用量
+  - SSH接続数: ssh_exporter またはカスタムスクリプトで実装
+  - プロセス数: node_exporter 連携またはカスタムメトリクス
+  - メモリ・CPU使用量: Kubernetes 標準メトリクス
+  - ファイルシステム使用量: PVC 使用量監視
 
 ### アップグレード戦略
 
@@ -178,8 +180,9 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - 不要なポートの無効化
   - ネットワークレベル制限は外部NetworkPolicyで実施
 - セキュリティレベル選択（オプション）
-  - Basic/Standard/High の段階的設定
-  - 用途に応じたセキュリティ設定の簡素化
+  - Basic: 開発・テスト用（readOnlyRootFilesystem: false、最小限制限）
+  - Standard: 推奨設定（readOnlyRootFilesystem: true、seccomp有効）
+  - High: 本番環境用（Standard + AppArmor、厳格なSSH設定）
 
 ### ドキュメント・使用例
 
@@ -204,7 +207,8 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 
 - 階層構造による設定の整理（Helm ベストプラクティス準拠）
   - image: repository, tag, pullPolicy
-  - user: name, uid, gid, shell, additionalGroups
+  - user: name, uid, gid, shell, additionalGroups, sudo
+  - デプロイ時にのみ決定すべきパラメータ以外は全てオプション
   - ssh: publicKeys, port, config
   - persistence: enabled, size, storageClass, accessModes
   - resources: requests, limits
@@ -234,8 +238,9 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 ### 追加機能
 
 - Ingress 対応（オプション、デフォルト無効）
-  - values.yaml での Ingress 設定可能
-  - TLS 終端対応
+  - Helm Chart ベストプラクティスに従った Ingress 設定
+  - TLS 終端対応、annotations、ingressClassName 設定可能
+  - SSH over HTTP/HTTPS トンネリング対応
 - カスタムイメージ対応
   - 追加パッケージが必要な場合はカスタムイメージを作成
   - values.yaml でイメージを変更可能
