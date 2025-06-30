@@ -1,6 +1,53 @@
-# SSH Workspace Helm Chart
+# SSH Workspace
 
-SSH でアクセスできる作業用のシェル環境を構築する Helm Chart
+SSH でアクセスできる作業用のシェル環境を構築するプロジェクト。
+DockerイメージとKubernetes用Helm Chartを提供します。
+
+## 📁 プロジェクト構造
+
+```
+ssh-workspace/
+├── README.md              # このファイル（仕様書）
+├── USAGE.md              # 使用方法ガイド
+├── docker/               # Dockerイメージ
+│   ├── Dockerfile        # イメージ定義
+│   ├── config/           # SSH設定
+│   ├── scripts/          # 初期化スクリプト
+│   └── README.md         # Docker用ドキュメント
+└── helm/                 # Helm Chart
+    ├── ssh-workspace/    # Chart本体
+    ├── example-values.yaml # 設定例
+    └── README.md         # Helm用ドキュメント
+```
+
+## 🚀 クイックスタート
+
+### Dockerで実行
+
+```bash
+cd docker
+docker build -t ssh-workspace .
+
+echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
+docker run -d -p 2222:22 \
+  -e SSH_USER=developer \
+  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  ssh-workspace
+
+ssh developer@localhost -p 2222
+```
+
+### Kubernetesで実行
+
+```bash
+cd helm
+helm install workspace ./ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
+
+kubectl port-forward svc/workspace-ssh-workspace 2222:22
+ssh developer@localhost -p 2222
+```
 
 ## 1. 概要・基本機能
 
