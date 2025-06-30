@@ -1,0 +1,38 @@
+{{- include "ssh-workspace.validateValues" . }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-ssh-keys
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  authorized_keys: |
+{{- range .Values.ssh.publicKeys }}
+    {{ . }}
+{{- end }}
+---
+{{- if .Values.ssh.config }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-ssh-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/resource-policy: keep
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+data:
+  custom_config: |
+{{- range $key, $value := .Values.ssh.config }}
+    {{ $key }} {{ $value }}
+{{- end }}
+{{- end }}

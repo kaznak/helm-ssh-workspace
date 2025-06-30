@@ -1,0 +1,90 @@
+# SSH Workspace Helm Chart - Example Values
+# This file shows examples of how to configure the SSH workspace
+
+# Basic configuration example
+# user:
+#   name: "developer"
+#   sudo: false
+# ssh:
+#   publicKeys:
+#     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... user@example.com"
+
+# Production configuration example with persistence
+# user:
+#   name: "devuser"
+#   uid: 1001
+#   gid: 1001
+#   sudo: true
+#   additionalGroups:
+#     - "docker"
+# ssh:
+#   publicKeys:
+#     - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user1@company.com"
+#     - "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQD... user2@company.com"
+# persistence:
+#   enabled: true
+#   size: 50Gi
+#   storageClass: "fast-ssd"
+# security:
+#   level: high
+# service:
+#   type: LoadBalancer
+# resources:
+#   limits:
+#     cpu: 2
+#     memory: 4Gi
+#   requests:
+#     cpu: 500m
+#     memory: 1Gi
+
+# Development configuration example
+# user:
+#   name: "testuser"
+#   shell: /bin/zsh
+# ssh:
+#   publicKeys:
+#     - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... dev@localhost"
+# security:
+#   level: basic
+# monitoring:
+#   enabled: true
+# timezone: "Asia/Tokyo"
+
+# High-security configuration example
+# user:
+#   name: "secureuser"
+#   uid: 2000
+#   gid: 2000
+#   sudo: false
+# ssh:
+#   publicKeys:
+#     - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... secure@company.com"
+#   config:
+#     MaxAuthTries: "2"
+#     LoginGraceTime: "20"
+#     ClientAliveInterval: "180"
+# persistence:
+#   enabled: true
+#   size: 20Gi
+# security:
+#   level: high
+# service:
+#   type: ClusterIP
+# podDisruptionBudget:
+#   enabled: true
+#   minAvailable: 1
+
+# Multi-environment configuration
+# user:
+#   name: "{{ .Values.global.username | default \"defaultuser\" }}"
+#   uid: "{{ .Values.global.uid | default 1000 }}"
+# ssh:
+#   publicKeys:
+# {{- range .Values.global.authorizedKeys }}
+#     - "{{ . }}"
+# {{- end }}
+# persistence:
+#   enabled: "{{ .Values.global.persistence | default false }}"
+#   size: "{{ .Values.global.storageSize | default \"10Gi\" }}"
+# security:
+#   level: "{{ .Values.global.securityLevel | default \"standard\" }}"

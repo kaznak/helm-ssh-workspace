@@ -1,0 +1,113 @@
+🚀 SSH Workspace has been deployed successfully!
+
+📋 Deployment Information:
+   Release Name: {{ .Release.Name }}
+   Namespace:    {{ .Release.Namespace }}
+   Username:     {{ .Values.user.name }}
+   {{- if .Values.user.uid }}
+   User ID:      {{ .Values.user.uid }}
+   {{- end }}
+   {{- if .Values.user.sudo }}
+   Sudo Access:  ✓ Enabled
+   {{- else }}
+   Sudo Access:  ✗ Disabled
+   {{- end }}
+
+🔌 Connection Information:
+{{- if eq .Values.service.type "ClusterIP" }}
+   Service Type: ClusterIP (internal access only)
+   
+   To access your SSH workspace from within the cluster:
+   ssh {{ .Values.user.name }}@{{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local -p {{ .Values.service.port }}
+   
+   To access from outside the cluster, use port-forwarding:
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "ssh-workspace.fullname" . }} {{ .Values.service.port }}:{{ .Values.service.port }}
+   ssh {{ .Values.user.name }}@localhost -p {{ .Values.service.port }}
+
+{{- else if eq .Values.service.type "NodePort" }}
+   Service Type: NodePort
+   
+   Get the NodePort:
+   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ssh-workspace.fullname" . }})
+   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+   
+   Connect using:
+   ssh {{ .Values.user.name }}@$NODE_IP -p $NODE_PORT
+
+{{- else if eq .Values.service.type "LoadBalancer" }}
+   Service Type: LoadBalancer
+   
+   Get the LoadBalancer IP (may take a few minutes):
+   kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ssh-workspace.fullname" . }} -w
+   
+   Once available, connect using:
+   ssh {{ .Values.user.name }}@<EXTERNAL-IP> -p {{ .Values.service.port }}
+{{- end }}
+
+💾 Storage Information:
+{{- if .Values.persistence.enabled }}
+   ✓ Persistent storage is ENABLED
+   📁 Home directory: /home/{{ .Values.user.name }}
+   💽 Storage size: {{ .Values.persistence.size }}
+   🔒 Data will persist across pod restarts
+{{- else }}
+   ⚠️  Persistent storage is DISABLED
+   📁 Home directory: /home/{{ .Values.user.name }} (temporary)
+   🗑️  Data will be LOST when pod restarts
+{{- end }}
+
+🔐 Security Level: {{ .Values.security.level | title }}
+{{- if eq .Values.security.level "basic" }}
+   ⚠️  Basic security level - suitable for development only
+{{- else if eq .Values.security.level "standard" }}
+   ✓ Standard security level - recommended for most use cases
+{{- else if eq .Values.security.level "high" }}
+   🔒 High security level - suitable for production environments
+{{- end }}
+
+{{- if .Values.monitoring.enabled }}
+
+📊 Monitoring:
+   ✓ SSH metrics collection is ENABLED
+   📈 Metrics port: {{ .Values.monitoring.port }}
+   {{- if .Values.monitoring.serviceMonitor.enabled }}
+   📊 Prometheus ServiceMonitor is enabled
+   {{- end }}
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+🌐 Ingress:
+   ✓ Ingress is ENABLED
+   {{- range .Values.ingress.hosts }}
+   🔗 Host: {{ .host }}
+   {{- end }}
+{{- end }}
+
+🔧 Management Commands:
+   Check status:           kubectl get all -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+   View logs:              kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -f
+   Run tests:              helm test {{ .Release.Name }} -n {{ .Release.Namespace }}
+   {{- if .Values.persistence.enabled }}
+   Check storage:          kubectl get pvc -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+   {{- end }}
+
+🚨 Important Notes:
+{{- if not .Values.persistence.enabled }}
+   ⚠️  WITHOUT persistent storage, all data will be lost when the pod restarts!
+   💡 To enable persistence, set: --set persistence.enabled=true
+{{- end }}
+
+   🔒 Only key-based SSH authentication is allowed
+   🚫 Password authentication is disabled for security
+   📧 Contact your administrator if you encounter connection issues
+
+🆘 Troubleshooting:
+   Connection refused:     Check if the pod is running and ready
+   Permission denied:      Verify your SSH private key matches the configured public key
+   Timeout:               Check network connectivity and firewall rules
+   Pod not starting:      Check the logs for initialization errors
+
+   For detailed troubleshooting, visit: https://github.com/example/ssh-workspace/docs/troubleshooting
+
+Happy coding! 🎉

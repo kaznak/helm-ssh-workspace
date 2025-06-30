@@ -1,0 +1,291 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "SSH Workspace Helm Chart Values Schema",
+  "required": [
+    "user",
+    "ssh"
+  ],
+  "properties": {
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "description": "Container image repository"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Container image tag"
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": ["Always", "Never", "IfNotPresent"],
+          "description": "Image pull policy"
+        },
+        "pullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          },
+          "description": "Image pull secrets"
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z_][a-z0-9_-]*$",
+          "description": "Username for SSH access"
+        },
+        "uid": {
+          "type": ["integer", "null"],
+          "minimum": 1000,
+          "maximum": 65535,
+          "description": "User ID"
+        },
+        "gid": {
+          "type": ["integer", "null"],
+          "minimum": 1000,
+          "maximum": 65535,
+          "description": "Group ID"
+        },
+        "shell": {
+          "type": "string",
+          "enum": ["/bin/bash", "/bin/sh", "/bin/zsh", "/bin/fish"],
+          "description": "Login shell"
+        },
+        "additionalGroups": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional groups for the user"
+        },
+        "sudo": {
+          "type": "boolean",
+          "description": "Enable sudo privileges"
+        }
+      }
+    },
+    "ssh": {
+      "type": "object",
+      "required": ["publicKeys"],
+      "properties": {
+        "publicKeys": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521) ",
+            "description": "SSH public key"
+          },
+          "description": "SSH public keys for authentication"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "SSH port"
+        },
+        "config": {
+          "type": "object",
+          "description": "Additional SSH configuration"
+        }
+      }
+    },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable persistent home directory"
+        },
+        "size": {
+          "type": "string",
+          "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)$",
+          "description": "Storage size"
+        },
+        "storageClass": {
+          "type": "string",
+          "description": "Storage class name"
+        },
+        "accessModes": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["ReadWriteOnce", "ReadOnlyMany", "ReadWriteMany"]
+          },
+          "description": "Access modes"
+        }
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "level": {
+          "type": "string",
+          "enum": ["basic", "standard", "high"],
+          "description": "Security level"
+        },
+        "securityContext": {
+          "type": "object",
+          "description": "Pod security context"
+        },
+        "podSecurityContext": {
+          "type": "object",
+          "description": "Container security context"
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["ClusterIP", "NodePort", "LoadBalancer"],
+          "description": "Service type"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Service port"
+        },
+        "nodePort": {
+          "type": "integer",
+          "minimum": 30000,
+          "maximum": 32767,
+          "description": "Node port (for NodePort type)"
+        }
+      }
+    },
+    "resources": {
+      "type": "object",
+      "description": "Resource limits and requests"
+    },
+    "nodeSelector": {
+      "type": "object",
+      "description": "Node selector"
+    },
+    "tolerations": {
+      "type": "array",
+      "description": "Tolerations"
+    },
+    "affinity": {
+      "type": "object",
+      "description": "Affinity rules"
+    },
+    "timezone": {
+      "type": "string",
+      "description": "Timezone"
+    },
+    "monitoring": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable monitoring"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "Metrics port"
+        },
+        "serviceMonitor": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Create ServiceMonitor"
+            },
+            "interval": {
+              "type": "string",
+              "pattern": "^[0-9]+(s|m|h)$",
+              "description": "Scrape interval"
+            }
+          }
+        }
+      }
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable Ingress"
+        },
+        "className": {
+          "type": "string",
+          "description": "Ingress class name"
+        },
+        "annotations": {
+          "type": "object",
+          "description": "Ingress annotations"
+        },
+        "hosts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "host": {
+                "type": "string"
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "path": {
+                      "type": "string"
+                    },
+                    "pathType": {
+                      "type": "string",
+                      "enum": ["Exact", "Prefix", "ImplementationSpecific"]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "description": "Ingress hosts"
+        },
+        "tls": {
+          "type": "array",
+          "description": "TLS configuration"
+        }
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "Additional labels"
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Additional annotations"
+    },
+    "podDisruptionBudget": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable PodDisruptionBudget"
+        },
+        "minAvailable": {
+          "type": ["integer", "string"],
+          "description": "Minimum available pods"
+        },
+        "maxUnavailable": {
+          "type": ["integer", "string"],
+          "description": "Maximum unavailable pods"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-post-install-check
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: post-install
+  annotations:
+    "helm.sh/hook": post-install,post-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: post-install
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: initialization-check
+        image: alpine:3.18
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Checking SSH workspace initialization..."
+          
+          # apk update and install netcat
+          apk add --no-cache netcat-openbsd
+          
+          # Pod の準備完了を待つ（最大5分）
+          echo "Waiting for SSH workspace pod to be ready..."
+          timeout=300
+          counter=0
+          
+          while [ $counter -lt $timeout ]; do
+            if nc -z {{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local {{ .Values.service.port }}; then
+              echo "✓ SSH service is accessible"
+              break
+            fi
+            counter=$((counter + 5))
+            sleep 5
+          done
+          
+          if [ $counter -ge $timeout ]; then
+            echo "Error: SSH service is not accessible after ${timeout} seconds"
+            exit 1
+          fi
+          
+          echo "✓ SSH workspace initialization completed successfully"
+          echo "✓ SSH service is running on port {{ .Values.service.port }}"
+          {{- if .Values.persistence.enabled }}
+          echo "✓ Persistent storage is enabled ({{ .Values.persistence.size }})"
+          {{- else }}
+          echo "! Persistent storage is disabled - data will be lost on pod restart"
+          {{- end }}
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 32Mi

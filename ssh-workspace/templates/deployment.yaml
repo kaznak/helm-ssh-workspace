@@ -1,0 +1,179 @@
+{{- include "ssh-workspace.validateValues" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "ssh-workspace.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+        {{- with .Values.labels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.annotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- include "ssh-workspace.podSecurityContext" . | nindent 8 }}
+      terminationGracePeriodSeconds: 30
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: ssh-workspace
+          image: {{ include "ssh-workspace.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: ssh
+              containerPort: {{ .Values.ssh.port }}
+              protocol: TCP
+          env:
+            - name: SSH_USER
+              value: {{ .Values.user.name | quote }}
+            - name: SSH_USER_UID
+              value: {{ .Values.user.uid | default 1000 | quote }}
+            - name: SSH_USER_GID
+              value: {{ .Values.user.gid | default 1000 | quote }}
+            - name: SSH_USER_SHELL
+              value: {{ .Values.user.shell | quote }}
+            - name: SSH_USER_SUDO
+              value: {{ .Values.user.sudo | quote }}
+            {{- if .Values.user.additionalGroups }}
+            - name: SSH_USER_ADDITIONAL_GROUPS
+              value: {{ join "," .Values.user.additionalGroups | quote }}
+            {{- end }}
+            - name: TZ
+              value: {{ .Values.timezone | quote }}
+          livenessProbe:
+            exec:
+              command:
+                - /usr/sbin/sshd
+                - -t
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: ssh
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- include "ssh-workspace.securityContext" . | nindent 12 }}
+          volumeMounts:
+            - name: ssh-keys
+              mountPath: /etc/ssh-keys
+              readOnly: true
+            {{- if .Values.persistence.enabled }}
+            - name: home
+              mountPath: /home/{{ .Values.user.name }}
+            {{- else }}
+            - name: home
+              mountPath: /home/{{ .Values.user.name }}
+            {{- end }}
+            {{- if ne .Values.security.level "basic" }}
+            - name: tmp
+              mountPath: /tmp
+            - name: var-run
+              mountPath: /var/run
+            - name: var-empty
+              mountPath: /var/empty
+            {{- end }}
+            {{- if .Values.ssh.config }}
+            - name: ssh-config
+              mountPath: /etc/ssh/sshd_config.d/custom.conf
+              subPath: custom_config
+              readOnly: true
+            {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        {{- if .Values.monitoring.enabled }}
+        - name: ssh-exporter
+          image: quay.io/prometheus/ssh_exporter:latest
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.monitoring.port }}
+              protocol: TCP
+          args:
+            - --config.file=/etc/ssh_exporter/config.yml
+            - --web.listen-address=:{{ .Values.monitoring.port }}
+          volumeMounts:
+            - name: ssh-exporter-config
+              mountPath: /etc/ssh_exporter
+              readOnly: true
+          resources:
+            limits:
+              cpu: 50m
+              memory: 64Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+        {{- end }}
+      volumes:
+        - name: ssh-keys
+          configMap:
+            name: {{ include "ssh-workspace.fullname" . }}-ssh-keys
+            defaultMode: 0600
+        {{- if .Values.persistence.enabled }}
+        - name: home
+          persistentVolumeClaim:
+            claimName: {{ include "ssh-workspace.fullname" . }}-home
+        {{- else }}
+        - name: home
+          emptyDir: {}
+        {{- end }}
+        {{- if ne .Values.security.level "basic" }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 100Mi
+        - name: var-run
+          emptyDir:
+            sizeLimit: 10Mi
+        - name: var-empty
+          emptyDir:
+            sizeLimit: 1Mi
+        {{- end }}
+        {{- if .Values.ssh.config }}
+        - name: ssh-config
+          configMap:
+            name: {{ include "ssh-workspace.fullname" . }}-ssh-config
+        {{- end }}
+        {{- if .Values.monitoring.enabled }}
+        - name: ssh-exporter-config
+          configMap:
+            name: {{ include "ssh-workspace.fullname" . }}-ssh-exporter-config
+        {{- end }}

@@ -1,0 +1,79 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-pre-install-validation
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: validation
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+    {{- with .Values.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: validation
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: ssh-key-validator
+        image: alpine:3.18
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          echo "Validating SSH public keys..."
+          
+          # SSH 公開鍵の形式チェック
+          {{- range $index, $key := .Values.ssh.publicKeys }}
+          echo "Validating key {{ add1 $index }}..."
+          echo "{{ $key }}" | ssh-keygen -l -f - >/dev/null 2>&1 || {
+            echo "Error: Invalid SSH public key format at index {{ $index }}"
+            echo "Key: {{ $key }}"
+            exit 1
+          }
+          {{- end }}
+          
+          # ユーザー名の検証
+          if [ -z "{{ .Values.user.name }}" ]; then
+            echo "Error: user.name is required"
+            exit 1
+          fi
+          
+          # ユーザー名の形式チェック
+          if ! echo "{{ .Values.user.name }}" | grep -qE '^[a-z_][a-z0-9_-]*$'; then
+            echo "Error: Invalid username format: {{ .Values.user.name }}"
+            echo "Username must start with lowercase letter or underscore and contain only lowercase letters, numbers, underscores, and hyphens"
+            exit 1
+          fi
+          
+          # UID/GID範囲チェック
+          {{- if .Values.user.uid }}
+          if [ {{ .Values.user.uid }} -lt 1000 ] || [ {{ .Values.user.uid }} -gt 65535 ]; then
+            echo "Error: UID must be between 1000 and 65535"
+            exit 1
+          fi
+          {{- end }}
+          
+          {{- if .Values.user.gid }}
+          if [ {{ .Values.user.gid }} -lt 1000 ] || [ {{ .Values.user.gid }} -gt 65535 ]; then
+            echo "Error: GID must be between 1000 and 65535"
+            exit 1
+          fi
+          {{- end }}
+          
+          echo "✓ All validations passed successfully"
+        resources:
+          limits:
+            cpu: 100m
+            memory: 64Mi
+          requests:
+            cpu: 50m
+            memory: 32Mi
