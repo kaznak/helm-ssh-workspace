@@ -13,6 +13,9 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
 - ssh サーバのベースイメージはまず ubuntu で作成する
 - 合わせて導入するパッケージに関しては、差し当たっては ssh 環境を実現するために最低限必要なものとする。
 - リソース制限に関しては values.yaml で設定できるようにし、デフォルトでは制限なしとする。
+- セキュリティ強化のため、ルートファイルシステムを読み取り専用にする
+  - sshd が書き込みを必要とするディレクトリ（/var/run, /var/log, /tmp, /var/empty）は emptyDir でマウント
+  - ログは標準出力にリダイレクトして Kubernetes のログ機能を活用
 
 ### sshd に関して
 
@@ -36,3 +39,21 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - サイズはデフォルトで 10GiB とする
 - ユーザのSSH公開鍵はホームディレクトリに含めるほか、 configmap や secret でも提供できるようにする。
 - sudo で root になれるかどうかはオプションで、デフォルトでは off
+
+### サービス・アクセス設定
+
+- Service Type は values.yaml で設定可能とし、デフォルトは ClusterIP
+- SSH接続ポートは values.yaml で設定可能とし、デフォルトは 22
+- 外部からのアクセス方法（NodePort, LoadBalancer, Ingress等）は環境に応じて選択
+
+### ヘルスチェック・監視
+
+- Liveness Probe: SSH プロセスの生存確認（/usr/sbin/sshd -t でコンフィグ検証）
+- Readiness Probe: SSH ポートへの接続確認
+- ログレベルは values.yaml で設定可能とし、デフォルトは INFO
+
+### 初期化・運用
+
+- 初回起動時にユーザ作成、SSH公開鍵配置を自動実行
+- ConfigMap/Secret 更新時の設定反映は Pod 再起動で対応
+- ホストキーは Secret で管理し、初回起動時に存在しなければ自動生成
