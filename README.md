@@ -104,3 +104,23 @@ SSH でアクセスできる作業用のシェル環境を構築する Helm Char
   - プロセス数
   - メモリ・CPU使用量
   - ファイルシステム使用量
+
+### アップグレード戦略
+
+- データ永続化の保護
+  - PVC, ConfigMap, Secret に `helm.sh/resource-policy: keep` アノテーションを設定
+  - アップグレード時にもユーザデータとSSHホストキーを保持
+- Rolling Update 戦略
+  - Deployment の `strategy.type: RollingUpdate` を使用
+  - `maxUnavailable: 0` でダウンタイムを最小化
+  - readinessProbe によるトラフィック制御
+- 設定の下位互換性
+  - values.yaml の新規オプション追加時も既存設定を保護
+  - デフォルト値の適切な設定による後方互換性確保
+- Init Container での前処理
+  - アップグレード時の設定ファイル形式変更対応
+  - ホームディレクトリの権限・所有者修正
+  - 既存SSH接続への影響最小化
+- ロールバック対応
+  - 問題発生時の迅速なロールバック機能
+  - アップグレード前の状態確認とバックアップ
