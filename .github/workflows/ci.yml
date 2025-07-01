@@ -42,7 +42,8 @@ jobs:
         run: |
           helm lint helm/ssh-workspace \
             --set user.name="testuser" \
-            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com'
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
+            --debug
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.8.0
@@ -53,11 +54,11 @@ jobs:
       - name: Build Docker image
         run: |
           # Use a local tag name for testing
-          docker build -t localhost/ssh-workspace:test docker/
+          docker build -t localhost/ssh-workspace:test docker/ --progress=plain
 
       - name: Load image into kind
         run: |
-          kind load docker-image localhost/ssh-workspace:test --name test-cluster
+          kind load docker-image localhost/ssh-workspace:test --name test-cluster -v 3
 
       - name: Validate Helm Chart Templates with Kubernetes
         run: |
@@ -67,32 +68,56 @@ jobs:
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
             --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
-            --validate
+            --validate \
+            --debug
           echo "✓ Helm template validation with Kubernetes API successful"
 
       - name: Install Helm Chart
         run: |
+          echo "=== Installing Helm Chart with debug ==="
           helm install test-workspace helm/ssh-workspace \
             --set image.repository=localhost/ssh-workspace \
             --set image.tag=test \
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
             --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
-            --wait --timeout=300s
+            --debug \
+            --verbose \
+            --wait --timeout=300s &
+          HELM_PID=$!
+          
+          # Monitor in background
+          while kill -0 $HELM_PID 2>/dev/null; do
+            echo "=== Checking cluster status ==="
+            kubectl get pods -A | grep -E "(test-workspace|pre-install)" || echo "No test-workspace pods found"
+            kubectl get events --sort-by='.lastTimestamp' | tail -10 || echo "No events found"
+            sleep 30
+          done
+          
+          wait $HELM_PID
 
       - name: Run Helm Tests
         run: |
-          helm test test-workspace --timeout=300s
+          helm test test-workspace --timeout=300s --debug --verbose
 
       - name: Check deployment status
         run: |
-          kubectl get all -l app.kubernetes.io/instance=test-workspace
+          echo "=== Getting all resources ==="
+          kubectl get all -l app.kubernetes.io/instance=test-workspace -o wide
+          echo "=== Describing pods ==="
           kubectl describe pod -l app.kubernetes.io/instance=test-workspace
+          echo "=== Pod logs ==="
+          kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --tail=100 || echo "No logs available"
+          echo "=== Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | grep test-workspace || echo "No events found"
 
       - name: Cleanup
         if: always()
         run: |
-          helm uninstall test-workspace || true
+          echo "=== Cleaning up ==="
+          helm uninstall test-workspace --debug || true
+          echo "=== Final cluster state ==="
+          kubectl get all -A | grep test-workspace || echo "No remaining test-workspace resources"
 
   build:
     name: Build and Push
