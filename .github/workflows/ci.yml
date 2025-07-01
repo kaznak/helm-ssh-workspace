@@ -82,7 +82,6 @@ jobs:
             --set user.name="testuser" \
             --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
             --debug \
-            --verbose \
             --wait --timeout=300s &
           HELM_PID=$!
           
@@ -98,7 +97,7 @@ jobs:
 
       - name: Run Helm Tests
         run: |
-          helm test test-workspace --timeout=300s --debug --verbose
+          helm test test-workspace --timeout=300s --debug
 
       - name: Check deployment status
         run: |
