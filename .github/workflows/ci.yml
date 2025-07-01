@@ -29,13 +29,15 @@ jobs:
 
       - name: Lint Helm Chart
         run: |
-          helm lint helm/ssh-workspace
+          helm lint helm/ssh-workspace \
+            --set user.name="testuser" \
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com'
 
       - name: Validate Helm Chart
         run: |
           helm template test helm/ssh-workspace \
             --set user.name="testuser" \
-            --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com" \
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com' \
             --validate
 
       - name: Check Dockerfile with hadolint
@@ -78,7 +80,7 @@ jobs:
             --set image.tag=test \
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
-            --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h test@example.com" \
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h test@example.com' \
             --wait --timeout=300s
 
       - name: Run Helm Tests

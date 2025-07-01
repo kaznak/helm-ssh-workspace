@@ -44,7 +44,9 @@ jobs:
 
       - name: Lint Helm Chart
         run: |
-          helm lint helm/ssh-workspace
+          helm lint helm/ssh-workspace \
+            --set user.name="testuser" \
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com'
 
       - name: Set Chart Version
         id: version
