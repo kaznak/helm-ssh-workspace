@@ -29,19 +29,19 @@ spec:
         - -c
         - |
           set -e
-          echo "Installing openssh-keygen..."
-          apk add --no-cache openssh-keygen >/dev/null 2>&1
-          
           echo "Validating SSH public keys..."
           
-          # SSH 公開鍵の形式チェック
+          # Basic SSH 公開鍵の形式チェック (without ssh-keygen)
           {{- range $index, $key := .Values.ssh.publicKeys }}
           echo "Validating key {{ add1 $index }}..."
-          echo "{{ $key }}" | ssh-keygen -l -f - >/dev/null 2>&1 || {
+          
+          # Check basic SSH key format (type + base64 + optional comment)
+          if ! echo "{{ $key }}" | grep -qE '^(ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp[0-9]+) [A-Za-z0-9+/]+=* '; then
             echo "Error: Invalid SSH public key format at index {{ $index }}"
             echo "Key: {{ $key }}"
             exit 1
-          }
+          fi
+          echo "✓ Key {{ add1 $index }} format is valid"
           {{- end }}
           
           # ユーザー名の検証
