@@ -161,8 +161,33 @@ jobs:
 
 すべての修正を適用することで、GitHub Actions は正常に動作するようになりました。
 
+### 5. Helm Template の --validate フラグエラー
+
+#### エラーメッセージ
+```
+Error: Kubernetes cluster unreachable: Get "http://localhost:8080/version": dial tcp [::1]:8080: connect: connection refused
+```
+
+#### 原因
+`helm template --validate` コマンドは Kubernetes API サーバーへの接続を必要としますが、CI 環境には Kubernetes クラスターが存在しません。
+
+#### 解決方法
+`--validate` フラグを削除：
+
+```yaml
+- name: Validate Helm Chart
+  run: |
+    helm template test helm/ssh-workspace \
+      --set user.name="testuser" \
+      --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com'
+    # --validate を削除
+```
+
+**注意:** `helm template` は純粋なテンプレート検証を行い、`--validate` は追加で Kubernetes API の検証を行います。CI 環境では前者で十分です。
+
 ## 参考リンク
 
 - [GitHub Actions permissions documentation](https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs)
 - [Helm lint documentation](https://helm.sh/docs/helm/helm_lint/)
+- [Helm template documentation](https://helm.sh/docs/helm/helm_template/)
 - [Docker build-push-action documentation](https://github.com/docker/build-push-action)
