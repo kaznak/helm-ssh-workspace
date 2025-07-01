@@ -72,7 +72,8 @@ Security Context based on security level
 runAsNonRoot: false
 {{- else }}
 runAsNonRoot: false
-readOnlyRootFilesystem: true
+{{/* SSH workspace requires write access to /etc for user/group creation */}}
+readOnlyRootFilesystem: false
 {{- if not .Values.user.sudo }}
 allowPrivilegeEscalation: false
 {{- end }}
