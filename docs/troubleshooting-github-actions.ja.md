@@ -158,6 +158,21 @@ jobs:
 1. 厳密なスキーマ検証と空のデフォルト値の組み合わせ
 2. GitHub Actions の権限設定の不足
 3. ワークフロー間の依存関係の考慮不足
+4. Pre-installフックでのネットワーク依存とパッケージ管理の問題
+5. 無効なテストデータ（SSH公開鍵）の使用
+6. ワークフロー修正時の部分的な置換による不整合
+
+## 教訓
+
+### CI/CD設計時の注意点
+- **ネットワーク依存の最小化**: 外部パッケージのダウンロードを避け、必要な機能が既に含まれるイメージを使用
+- **テストデータの品質**: 実際の本番データと同じ形式・制約を満たすテストデータを使用
+- **設定の一元化**: 同じ値を複数箇所で使用する場合は環境変数やテンプレート化を検討
+
+### トラブルシューティングのアプローチ
+1. **段階的なデバッグ**: 詳細なログ出力を追加して問題箇所を特定
+2. **根本原因の追求**: 表面的な症状ではなく、根本的な原因を特定
+3. **包括的な修正確認**: 一括置換や修正後は全体を確認
 
 すべての修正を適用することで、GitHub Actions は正常に動作するようになりました。
 
@@ -184,6 +199,97 @@ Error: Kubernetes cluster unreachable: Get "http://localhost:8080/version": dial
 ```
 
 **注意:** `helm template` は純粋なテンプレート検証を行い、`--validate` は追加で Kubernetes API の検証を行います。CI 環境では前者で十分です。
+
+### 6. Pre-install フックでのパッケージインストールタイムアウト
+
+#### エラーメッセージ
+```
+Error: INSTALLATION FAILED: failed pre-install: 1 error occurred:
+	* timed out waiting for the condition
+```
+
+#### 原因
+`alpine:3.18` イメージを使用したpre-installフックで `apk add openssh-keygen` を実行していましたが：
+1. `openssh-keygen` は存在しないパッケージ名（正しくは `openssh-client`）
+2. パッケージダウンロードでネットワークアクセスが必要
+3. CI環境での不安定なネットワーク接続
+
+#### 解決方法
+SSH-workspaceイメージを使用してネットワーク依存を排除：
+
+```yaml
+# 修正前
+- name: ssh-key-validator
+  image: alpine:3.18
+  command:
+  - /bin/sh
+  - -c
+  - |
+    apk add --no-cache openssh-keygen
+    # ssh-keygen validation...
+
+# 修正後
+- name: ssh-key-validator
+  image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+  imagePullPolicy: {{ .Values.image.pullPolicy }}
+  command:
+  - /bin/sh
+  - -c
+  - |
+    # ssh-keygen validation (already available)
+```
+
+### 7. 無効なSSH公開鍵形式による検証失敗
+
+#### エラーメッセージ
+```
+Error: INSTALLATION FAILED: context deadline exceeded
+```
+
+#### 原因
+テスト用のダミーSSH公開鍵が無効な形式でした：
+```
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com
+```
+SSH ED25519鍵のbase64部分が短すぎて、`ssh-keygen -l -f -` による検証が失敗していました。
+
+#### 解決方法
+有効なSSH ED25519公開鍵に置換：
+
+```yaml
+# 修正前（無効）
+--set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com'
+
+# 修正後（有効）
+--set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com'
+```
+
+### 8. ワークフローでの部分的な置換による不整合
+
+#### 問題
+`replace_all=true` での一括置換時に、一部のステップでSSH鍵が更新されない問題が発生。
+
+#### 原因
+コマンドラインの微妙な差異により、完全一致せず一部の置換が失敗：
+- `helm lint` ステップ：置換成功
+- `helm template` ステップ：置換失敗（古い鍵が残存）
+- `helm install` ステップ：置換失敗（古い鍵が残存）
+
+#### 解決方法
+各ステップを個別に確認し、手動で修正：
+
+```bash
+# 問題の特定
+grep -n "ssh.publicKeys" .github/workflows/ci.yml
+
+# 個別修正
+# 69行目と80行目の古いSSH鍵を新しい有効な鍵に置換
+```
+
+#### 予防策
+- 複数箇所で同じ値を使用する場合は、環境変数として定義
+- 一括置換後は必ず全ファイルを確認
+- テンプレート化やDRY原則の適用を検討
 
 ## 参考リンク
 
