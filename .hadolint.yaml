@@ -1,0 +1,23 @@
+# Hadolint configuration
+# https://github.com/hadolint/hadolint
+
+ignored:
+  # Pin versions in apt get install
+  # Ignored because: Version pinning in Ubuntu can be complex and reduces maintainability
+  - DL3008
+  
+  # Avoid additional packages by specifying `--no-install-recommends`
+  # Ignored because: Development environment may need recommended packages
+  - DL3015
+
+# Trust specific registries
+trustedRegistries:
+  - docker.io
+  - ghcr.io
+
+# Override severity levels if needed
+# override:
+#   error:
+#   warning:
+#   info:
+#   style:
