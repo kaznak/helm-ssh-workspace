@@ -71,16 +71,16 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.IMAGE_NAME }}:test docker/
+          docker build -t ssh-workspace:test docker/
 
       - name: Load image into kind
         run: |
-          kind load docker-image ${{ env.IMAGE_NAME }}:test --name test-cluster
+          kind load docker-image ssh-workspace:test --name test-cluster
 
       - name: Install Helm Chart
         run: |
           helm install test-workspace helm/ssh-workspace \
-            --set image.repository=${{ env.IMAGE_NAME }} \
+            --set image.repository=ssh-workspace \
             --set image.tag=test \
             --set image.pullPolicy=Never \
             --set user.name="testuser" \

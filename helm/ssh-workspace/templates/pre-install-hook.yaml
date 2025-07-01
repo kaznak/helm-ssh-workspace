@@ -29,6 +29,9 @@ spec:
         - -c
         - |
           set -e
+          echo "Installing openssh-keygen..."
+          apk add --no-cache openssh-keygen >/dev/null 2>&1
+          
           echo "Validating SSH public keys..."
           
           # SSH 公開鍵の形式チェック
