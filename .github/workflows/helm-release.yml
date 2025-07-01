@@ -51,16 +51,21 @@ jobs:
         run: |
           if [ "${{ github.event.inputs.chart_version }}" != "auto" ] && [ -n "${{ github.event.inputs.chart_version }}" ]; then
             CHART_VERSION="${{ github.event.inputs.chart_version }}"
+            UPDATE_NEEDED=true
           elif [[ $GITHUB_REF == refs/tags/* ]]; then
             CHART_VERSION=${GITHUB_REF#refs/tags/v}
+            UPDATE_NEEDED=true
           else
             CHART_VERSION=$(yq eval '.version' helm/ssh-workspace/Chart.yaml)
+            UPDATE_NEEDED=false
           fi
           echo "chart_version=${CHART_VERSION}" >> $GITHUB_OUTPUT
+          echo "update_needed=${UPDATE_NEEDED}" >> $GITHUB_OUTPUT
           echo "Chart version: ${CHART_VERSION}"
+          echo "Update needed: ${UPDATE_NEEDED}"
 
       - name: Update Chart Version
-        if: steps.version.outputs.chart_version != 'auto'
+        if: steps.version.outputs.update_needed == 'true'
         run: |
           yq eval '.version = "${{ steps.version.outputs.chart_version }}"' -i helm/ssh-workspace/Chart.yaml
           yq eval '.appVersion = "${{ steps.version.outputs.chart_version }}"' -i helm/ssh-workspace/Chart.yaml
