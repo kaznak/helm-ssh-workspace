@@ -29,13 +29,22 @@ spec:
         - /bin/sh
         - -c
         - |
-          set -e
+          set -ex
+          echo "=== Pre-install validation started ==="
+          echo "Image: {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          echo "User: {{ .Values.user.name }}"
+          echo "SSH Keys count: {{ len .Values.ssh.publicKeys }}"
+          
+          # Check if ssh-keygen is available
+          which ssh-keygen || echo "ssh-keygen not found!"
+          ssh-keygen -h 2>&1 | head -2 || echo "ssh-keygen help failed"
+          
           echo "Validating SSH public keys..."
           
           # SSH 公開鍵の形式チェック
           {{- range $index, $key := .Values.ssh.publicKeys }}
-          echo "Validating key {{ add1 $index }}..."
-          echo "{{ $key }}" | ssh-keygen -l -f - >/dev/null 2>&1 || {
+          echo "Validating key {{ add1 $index }}: {{ $key }}"
+          echo "{{ $key }}" | ssh-keygen -l -f - 2>&1 || {
             echo "Error: Invalid SSH public key format at index {{ $index }}"
             echo "Key: {{ $key }}"
             exit 1
