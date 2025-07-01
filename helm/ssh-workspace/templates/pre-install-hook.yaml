@@ -23,7 +23,8 @@ spec:
       restartPolicy: Never
       containers:
       - name: ssh-key-validator
-        image: alpine:3.18
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
         command:
         - /bin/sh
         - -c
@@ -31,17 +32,15 @@ spec:
           set -e
           echo "Validating SSH public keys..."
           
-          # Basic SSH 公開鍵の形式チェック (without ssh-keygen)
+          # SSH 公開鍵の形式チェック
           {{- range $index, $key := .Values.ssh.publicKeys }}
           echo "Validating key {{ add1 $index }}..."
-          
-          # Check basic SSH key format (type + base64 + optional comment)
-          if ! echo "{{ $key }}" | grep -qE '^(ssh-rsa|ssh-dss|ssh-ed25519|ecdsa-sha2-nistp[0-9]+) [A-Za-z0-9+/]+=* '; then
+          echo "{{ $key }}" | ssh-keygen -l -f - >/dev/null 2>&1 || {
             echo "Error: Invalid SSH public key format at index {{ $index }}"
             echo "Key: {{ $key }}"
             exit 1
-          fi
-          echo "✓ Key {{ add1 $index }} format is valid"
+          }
+          echo "✓ Key {{ add1 $index }} is valid"
           {{- end }}
           
           # ユーザー名の検証
