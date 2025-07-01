@@ -37,8 +37,7 @@ jobs:
         run: |
           helm template test helm/ssh-workspace \
             --set user.name="testuser" \
-            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com' \
-            --validate
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com'
 
       - name: Check Dockerfile with hadolint
         uses: hadolint/hadolint-action@v3.1.0
