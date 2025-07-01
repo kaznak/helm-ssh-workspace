@@ -8,7 +8,7 @@ image:
 
 # User configuration (required)
 user:
-  name: ""  # Required: Username for SSH access
+  name: "workuser"  # Required: Username for SSH access
   uid: null  # Optional: User ID (auto-assigned if not specified)
   gid: null  # Optional: Group ID (auto-assigned if not specified)
   shell: /bin/bash  # Default login shell
@@ -17,7 +17,8 @@ user:
 
 # SSH configuration (required)
 ssh:
-  publicKeys: []  # Required: SSH public keys (array)
+  publicKeys:  # Required: SSH public keys (array)
+    - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h example@example.com"
   port: 22  # SSH port
   config: {}  # Additional SSH configuration
 

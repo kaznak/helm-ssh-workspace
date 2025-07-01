@@ -76,10 +76,11 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v1
-        if: github.event_name != 'pull_request'
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
+      # Note: artifact attestation disabled due to permission requirements
+      # - name: Generate artifact attestation
+      #   uses: actions/attest-build-provenance@v1
+      #   if: github.event_name != 'pull_request'
+      #   with:
+      #     subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      #     subject-digest: ${{ steps.build.outputs.digest }}
+      #     push-to-registry: true
