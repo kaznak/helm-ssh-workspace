@@ -19,12 +19,19 @@ env:
   IMAGE_NAME: ${{ github.repository }}/ssh-workspace
 
 jobs:
-  lint:
-    name: Lint and Validate
+  test:
+    name: Lint, Validate and Test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Check Dockerfile with hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: docker/Dockerfile
+          failure-threshold: warning
+          config: .hadolint.yaml
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -36,34 +43,6 @@ jobs:
           helm lint helm/ssh-workspace \
             --set user.name="testuser" \
             --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com'
-
-      - name: Template Helm Chart (without validation)
-        run: |
-          helm template test helm/ssh-workspace \
-            --set user.name="testuser" \
-            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI test@example.com' \
-            > /tmp/rendered-templates.yaml
-          echo "✓ Helm template rendering successful"
-
-      - name: Check Dockerfile with hadolint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: docker/Dockerfile
-          failure-threshold: warning
-          config: .hadolint.yaml
-
-  test:
-    name: Test Helm Chart
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Install Helm
-        uses: azure/setup-helm@v4
-        with:
-          version: '3.12.1'
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.8.0
@@ -80,8 +59,19 @@ jobs:
         run: |
           kind load docker-image localhost/ssh-workspace:test --name test-cluster
 
-      - name: Validate Helm Chart with Kubernetes
+      - name: Validate Helm Chart Templates
         run: |
+          # First, test without K8s validation
+          helm template test helm/ssh-workspace \
+            --set image.repository=localhost/ssh-workspace \
+            --set image.tag=test \
+            --set image.pullPolicy=Never \
+            --set user.name="testuser" \
+            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h test@example.com' \
+            > /tmp/rendered-templates.yaml
+          echo "✓ Template rendering successful"
+          
+          # Then, validate with K8s API
           helm template test helm/ssh-workspace \
             --set image.repository=localhost/ssh-workspace \
             --set image.tag=test \
@@ -89,7 +79,7 @@ jobs:
             --set user.name="testuser" \
             --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h test@example.com' \
             --validate
-          echo "✓ Helm template validation with Kubernetes API successful"
+          echo "✓ Template validation with Kubernetes API successful"
 
       - name: Install Helm Chart
         run: |
