@@ -89,7 +89,20 @@ jobs:
           while kill -0 $HELM_PID 2>/dev/null; do
             echo "=== Checking cluster status ==="
             kubectl get pods -A | grep -E "(test-workspace|pre-install)" || echo "No test-workspace pods found"
-            kubectl get events --sort-by='.lastTimestamp' | tail -10 || echo "No events found"
+            
+            # Get detailed pod information if pods exist
+            if kubectl get pods -l app.kubernetes.io/instance=test-workspace >/dev/null 2>&1; then
+              echo "=== Pod Details ==="
+              kubectl get pods -l app.kubernetes.io/instance=test-workspace -o wide
+              echo "=== Pod Descriptions ==="
+              kubectl describe pods -l app.kubernetes.io/instance=test-workspace
+              echo "=== Pod Logs ==="
+              kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --previous=false --tail=50 || echo "No current logs"
+              kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --previous=true --tail=50 || echo "No previous logs"
+            fi
+            
+            echo "=== Recent Events ==="
+            kubectl get events --sort-by='.lastTimestamp' | tail -15 || echo "No events found"
             sleep 30
           done
           
@@ -100,15 +113,34 @@ jobs:
           helm test test-workspace --timeout=300s --debug
 
       - name: Check deployment status
+        if: always()
         run: |
+          echo "=== Final Helm Status ==="
+          helm status test-workspace || echo "Helm release not found"
+          
           echo "=== Getting all resources ==="
           kubectl get all -l app.kubernetes.io/instance=test-workspace -o wide
+          
           echo "=== Describing pods ==="
           kubectl describe pod -l app.kubernetes.io/instance=test-workspace
-          echo "=== Pod logs ==="
-          kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --tail=100 || echo "No logs available"
-          echo "=== Events ==="
-          kubectl get events --sort-by='.lastTimestamp' | grep test-workspace || echo "No events found"
+          
+          echo "=== Current Pod logs ==="
+          kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --tail=100 || echo "No current logs available"
+          
+          echo "=== Previous Pod logs (if crashed) ==="
+          kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --previous=true --tail=100 || echo "No previous logs available"
+          
+          echo "=== All Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | grep test-workspace || echo "No test-workspace events found"
+          
+          echo "=== All Recent Events ==="
+          kubectl get events --sort-by='.lastTimestamp' | tail -20
+          
+          echo "=== Deployment troubleshooting ==="
+          kubectl get deployment test-workspace-ssh-workspace -o yaml || echo "Deployment not found"
+          
+          echo "=== ReplicaSet troubleshooting ==="
+          kubectl get rs -l app.kubernetes.io/instance=test-workspace -o yaml || echo "ReplicaSet not found"
 
       - name: Cleanup
         if: always()
