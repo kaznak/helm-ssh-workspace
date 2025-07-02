@@ -22,6 +22,21 @@ ssh:
   # - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h user@example.com"
   port: 2222  # SSH port
   config: {}  # Additional SSH configuration
+  
+  # Test SSH keys for automated testing (optional)
+  # These keys are added in addition to the main publicKeys for testing purposes
+  testKeys:
+    enabled: false
+    # Test key pairs - both public and private keys needed for testing
+    keyPairs: []
+    # Example:
+    # keyPairs:
+    #   - publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrShAQgt+9ZuPDQ1L2KrSwKxL8BEcqhytt7X3ZLZxai test-key@helm-test"
+    #     privateKey: |
+    #       -----BEGIN OPENSSH PRIVATE KEY-----
+    #       b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
+    #       rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
+    #       -----END OPENSSH PRIVATE KEY-----
 
 # Persistence configuration
 persistence:

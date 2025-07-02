@@ -1,0 +1,201 @@
+{{- if .Values.ssh.testKeys.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-ssh-connectivity-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  serviceAccountName: {{ include "ssh-workspace.fullname" . }}-test
+  containers:
+  - name: ssh-connectivity-test
+    image: alpine:3.18
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      
+      # Install required tools
+      apk add --no-cache openssh-client netcat-openbsd kubectl
+      
+      echo "=== Helm SSH Connectivity Test (Cluster Internal) ==="
+      echo "Configuration: {{ .Values.security.permissionStrategy }}/{{ .Values.security.level }}"
+      
+      # Load test SSH private key from secret
+      echo "Loading test SSH private key..."
+      if [ ! -f /test-ssh-keys/test-key-0 ]; then
+          echo "❌ FAIL: Test SSH private key not found"
+          exit 1
+      fi
+      
+      # Set up SSH key
+      cp /test-ssh-keys/test-key-0 /tmp/test_key
+      chmod 600 /tmp/test_key
+      echo "✓ Test SSH private key loaded"
+      
+      # Get service and pod information
+      SERVICE_NAME="{{ include "ssh-workspace.fullname" . }}-ssh-workspace"
+      SERVICE_FQDN="$SERVICE_NAME.{{ .Release.Namespace }}.svc.cluster.local"
+      SERVICE_PORT={{ .Values.service.port }}
+      
+      echo "Target: $SERVICE_FQDN:$SERVICE_PORT"
+      
+      # Test 1: TCP connectivity
+      echo "=== Test 1: TCP Connectivity ==="
+      if nc -z "$SERVICE_FQDN" "$SERVICE_PORT"; then
+          echo "✓ PASS: TCP connection successful"
+      else
+          echo "❌ FAIL: TCP connection failed"
+          exit 1
+      fi
+      
+      # Test 2: SSH protocol banner
+      echo "=== Test 2: SSH Protocol Banner ==="
+      SSH_BANNER=$(timeout 10 nc "$SERVICE_FQDN" "$SERVICE_PORT" <<< "" 2>/dev/null | head -1)
+      if echo "$SSH_BANNER" | grep -q "SSH-2.0"; then
+          echo "✓ PASS: SSH banner received: $SSH_BANNER"
+      else
+          echo "❌ FAIL: No valid SSH banner received"
+          exit 1
+      fi
+      
+      # Test 3: SSH authentication with test key
+      echo "=== Test 3: SSH Authentication with Test Key ==="
+      SSH_AUTH_RESULT=$(timeout 15 ssh -i /tmp/test_key -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+          {{ .Values.user.name }}@"$SERVICE_FQDN" -p "$SERVICE_PORT" "echo 'SSH_AUTH_SUCCESS'" 2>&1 || true)
+      
+      if echo "$SSH_AUTH_RESULT" | grep -q "SSH_AUTH_SUCCESS"; then
+          echo "✓ PASS: SSH authentication successful with test key"
+      else
+          echo "❌ FAIL: SSH authentication failed: $SSH_AUTH_RESULT"
+          exit 1
+      fi
+      
+      # Test 4: System call tests (Permission validation through actual usage)
+      echo "=== Test 4: System Call and Permission Tests ==="
+      
+      SSH_COMMANDS=$(cat <<'EOF'
+      set -e
+      echo "=== File System Tests ==="
+      
+      # Test file creation permissions
+      echo "Testing file creation..."
+      touch ~/test_file.txt
+      echo "Test content" > ~/test_file.txt
+      ls -la ~/test_file.txt
+      
+      # Test directory creation
+      echo "Testing directory creation..."
+      mkdir -p ~/test_dir/subdir
+      ls -la ~/test_dir/
+      
+      # Test file permissions
+      echo "Testing file permissions..."
+      chmod 644 ~/test_file.txt
+      chmod 755 ~/test_dir
+      
+      # Test file ownership (should show current user)
+      echo "Testing file ownership..."
+      stat -c "%U:%G %a" ~/test_file.txt
+      stat -c "%U:%G %a" ~/test_dir
+      
+      # Test .ssh directory permissions (critical for SSH)
+      echo "Testing .ssh directory..."
+      ls -la ~/.ssh/
+      stat -c "%U:%G %a" ~/.ssh/
+      
+      # Test authorized_keys file
+      if [ -f ~/.ssh/authorized_keys ]; then
+          echo "Testing authorized_keys..."
+          stat -c "%U:%G %a" ~/.ssh/authorized_keys
+      fi
+      
+      # Test system information
+      echo "=== System Information ==="
+      whoami
+      id
+      pwd
+      uname -a
+      
+      # Test if we can see home directory structure
+      echo "=== Home Directory Structure ==="
+      ls -la ~/
+      
+      # Test group membership and permission strategy detection
+      echo "=== Permission Strategy Detection ==="
+      HOME_PERMS=$(stat -c %a ~/)
+      SETGID_BIT=$((HOME_PERMS & 2000))
+      if [ "$SETGID_BIT" != "0" ]; then
+          echo "STRATEGY_DETECTED:fsgroup"
+          echo "SetGID bit present: $HOME_PERMS"
+      else
+          echo "STRATEGY_DETECTED:explicit"
+          echo "No SetGID bit: $HOME_PERMS"
+      fi
+      
+      # Cleanup test files
+      rm -f ~/test_file.txt
+      rm -rf ~/test_dir
+      
+      echo "SYSTEM_CALL_TESTS_COMPLETE"
+EOF
+)
+      
+      SSH_SYSCALL_RESULT=$(timeout 30 ssh -i /tmp/test_key -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+          {{ .Values.user.name }}@"$SERVICE_FQDN" -p "$SERVICE_PORT" "$SSH_COMMANDS" 2>&1 || true)
+      
+      echo "System call test results:"
+      echo "$SSH_SYSCALL_RESULT"
+      
+      if echo "$SSH_SYSCALL_RESULT" | grep -q "SYSTEM_CALL_TESTS_COMPLETE"; then
+          echo "✓ PASS: System call tests completed successfully"
+          
+          # Validate detected strategy matches configuration
+          if echo "$SSH_SYSCALL_RESULT" | grep -q "STRATEGY_DETECTED:{{ .Values.security.permissionStrategy }}"; then
+              echo "✓ PASS: Permission strategy correctly detected as {{ .Values.security.permissionStrategy }}"
+          else
+              echo "❌ FAIL: Permission strategy mismatch - expected {{ .Values.security.permissionStrategy }}"
+              exit 1
+          fi
+      else
+          echo "❌ FAIL: System call tests failed"
+          exit 1
+      fi
+      
+      echo ""
+      echo "==============================================="
+      echo "        HELM SSH CONNECTIVITY TEST SUMMARY"
+      echo "==============================================="
+      echo "✓ TCP connectivity verified"
+      echo "✓ SSH protocol banner confirmed" 
+      echo "✓ SSH authentication with test key successful"
+      echo "✓ System calls and file operations working"
+      echo "✓ Permission strategy '{{ .Values.security.permissionStrategy }}' correctly detected"
+      echo "✓ SSH workspace ready for production use"
+      
+    volumeMounts:
+    - name: test-ssh-keys
+      mountPath: /test-ssh-keys
+      readOnly: true
+    resources:
+      limits:
+        cpu: 300m
+        memory: 256Mi
+      requests:
+        cpu: 150m
+        memory: 128Mi
+  
+  volumes:
+  - name: test-ssh-keys
+    secret:
+      secretName: {{ include "ssh-workspace.fullname" . }}-test-ssh-keys
+      defaultMode: 0600
+{{- end }}

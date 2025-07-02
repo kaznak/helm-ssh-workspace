@@ -16,6 +16,11 @@ data:
 {{- range .Values.ssh.publicKeys }}
     {{ . }}
 {{- end }}
+{{- if .Values.ssh.testKeys.enabled }}
+{{- range .Values.ssh.testKeys.keyPairs }}
+    {{ .publicKey }}
+{{- end }}
+{{- end }}
 ---
 {{- if .Values.ssh.config }}
 apiVersion: v1

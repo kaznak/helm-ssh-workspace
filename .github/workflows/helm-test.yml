@@ -63,9 +63,13 @@ jobs:
           echo "=== Generating SSH test key pair ==="
           ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
           
-          # Export public key for use in subsequent steps
+          # Export keys for use in subsequent steps
           echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
           echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
+          
+          # Create base64 encoded private key for Helm values
+          TEST_SSH_PRIVATE_KEY_B64=$(base64 -w0 /tmp/test_ssh_key)
+          echo "TEST_SSH_PRIVATE_KEY_B64=$TEST_SSH_PRIVATE_KEY_B64" >> $GITHUB_ENV
           
           echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
 
@@ -86,6 +90,9 @@ jobs:
           helm lint helm/ssh-workspace \
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set ssh.testKeys.enabled=true \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --debug
 
       - name: Create kind cluster
@@ -114,6 +121,9 @@ jobs:
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set ssh.testKeys.enabled=true \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --validate \
             --debug
           echo "✓ Helm template validation with Kubernetes API successful"
@@ -127,6 +137,9 @@ jobs:
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set ssh.testKeys.enabled=true \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --debug &
@@ -180,9 +193,10 @@ jobs:
         run: |
           helm test test-workspace-${{ matrix.config.name }} --timeout=300s
 
-      - name: SSH Connectivity Test
+      - name: SSH Connectivity Test (External)
         run: |
-          echo "=== SSH Connectivity Test ==="
+          echo "=== External SSH Connectivity Test ==="
+          echo "Configuration: ${{ matrix.config.name }}"
           
           # Wait for pod to be ready
           echo "Waiting for pod to be ready..."
@@ -198,68 +212,33 @@ jobs:
           PORT_FORWARD_PID=$!
           sleep 10
           
-          # Debug before SSH connection
-          echo "=== Debug Pod State Before SSH Test ==="
-          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}')
-          echo "Using pod: $POD_NAME"
-          kubectl exec $POD_NAME -- ls -la /home/
-          kubectl exec $POD_NAME -- ls -la /home/testuser/ || echo "testuser home not found"
-          kubectl exec $POD_NAME -- getent passwd testuser || echo "testuser not found in passwd"
-          kubectl exec $POD_NAME -- id testuser || echo "testuser id lookup failed"
-          
-          # Test SSH connection
-          echo "Testing SSH connection..."
+          # Test external SSH connectivity only
+          echo "Testing external SSH connection..."
           ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
               -o StrictHostKeyChecking=no \
               -o UserKnownHostsFile=/dev/null \
               -o ConnectTimeout=10 \
               -o BatchMode=yes \
               testuser@localhost -p 2222 \
-              'echo "SSH connection successful! User: $(whoami), Date: $(date)"' || {
-            echo "SSH connection failed!"
+              'echo "External SSH connection successful! Configuration: ${{ matrix.config.name }}"' || {
+            echo "❌ External SSH connection failed!"
             
-            # Debug information
-            echo "=== Port forward process ==="
-            ps aux | grep "kubectl port-forward" || echo "No port-forward process found"
-            
+            # Basic debugging
             echo "=== Network connectivity test ==="
             nc -zv localhost 2222 || echo "Port 2222 not accessible"
             
             echo "=== Service status ==="
             kubectl get service test-workspace-${{ matrix.config.name }}-ssh-workspace -o wide
             
-            echo "=== Pod status ==="
-            kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o wide
-            
-            echo "=== Recent pod logs ==="
-            POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
-            if [ -n "$POD_NAME" ]; then
-              kubectl logs $POD_NAME --tail=30
-              echo "=== Init container logs ==="
-              kubectl logs $POD_NAME -c ssh-setup --tail=30
-            else
-              echo "No pod found for log collection"
-            fi
-            
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           }
           
-          # Test basic commands
-          echo "Testing basic SSH commands..."
-          ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              -o ConnectTimeout=10 \
-              -o BatchMode=yes \
-              testuser@localhost -p 2222 \
-              'pwd && ls -la ~/ && uname -a'
-          
           # Cleanup
           kill $PORT_FORWARD_PID 2>/dev/null || true
           
-          echo "✓ SSH connectivity test completed successfully!"
+          echo "✓ External SSH connectivity test completed successfully!"
 
       - name: Check deployment status
         if: always()
