@@ -30,8 +30,6 @@ useradd -u "$SSH_USER_UID" -g "$SSH_USER_GID" -s "$SSH_USER_SHELL" -M "$SSH_USER
 # Ensure home directory exists and has correct ownership
 # (This handles both empty and pre-existing volumes)
 mkdir -p "/home/$SSH_USER"
-chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
-chmod 755 "/home/$SSH_USER"
 echo "✓ Home directory prepared for $SSH_USER"
 
 # Handle additional groups
@@ -86,12 +84,14 @@ if [ -d "/etc/ssh-keys" ]; then
     cat /etc/ssh-keys/* > "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || true
 fi
 
-# Set correct permissions
+# Set correct permissions for home directory and SSH files
+chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
+chmod 755 "/home/$SSH_USER"
+chmod 700 "/home/$SSH_USER/.ssh"
 if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
     chmod 600 "/home/$SSH_USER/.ssh/authorized_keys"
-    chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh"
-    echo "✓ Set SSH permissions for $SSH_USER"
 fi
+echo "✓ Home directory and SSH permissions set for $SSH_USER"
 
 # Add user to sudo group if sudo is enabled
 if [ "$SSH_USER_SUDO" = "true" ]; then
