@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-permission-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  serviceAccountName: {{ include "ssh-workspace.fullname" . }}-test
+  containers:
+  - name: permission-validation
+    image: alpine:3.18
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      
+      # Install required tools
+      apk add --no-cache kubectl
+      
+      echo "=== Permission Strategy Validation ==="
+      echo "Testing deployed configuration:"
+      echo "  Strategy: {{ .Values.security.permissionStrategy }}"
+      echo "  Security Level: {{ .Values.security.level }}"
+      
+      # Get the workspace pod
+      POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} -o jsonpath='{.items[0].metadata.name}')
+      
+      if [ -z "$POD_NAME" ]; then
+          echo "❌ FAIL: Could not find SSH workspace pod"
+          exit 1
+      fi
+      
+      echo "✓ Found workspace pod: $POD_NAME"
+      
+      # Test permission strategy validation
+      echo "Checking permission implementation..."
+      
+      PERM_OUTPUT=$(kubectl exec "$POD_NAME" -- /bin/sh -c '
+          if [ -d "/home/{{ .Values.user.name }}" ]; then
+              PERMS=$(stat -c %a "/home/{{ .Values.user.name }}")
+              SETGID_CHECK=$((PERMS & 2000))
+              echo "home_permissions:$PERMS"
+              echo "setgid_bit:$SETGID_CHECK"
+              
+              if [ -d "/home/{{ .Values.user.name }}/.ssh" ]; then
+                  SSH_PERMS=$(stat -c %a "/home/{{ .Values.user.name }}/.ssh")
+                  echo "ssh_permissions:$SSH_PERMS"
+              fi
+              
+              if [ -f "/home/{{ .Values.user.name }}/.ssh/authorized_keys" ]; then
+                  AUTH_PERMS=$(stat -c %a "/home/{{ .Values.user.name }}/.ssh/authorized_keys")
+                  echo "authorized_keys_permissions:$AUTH_PERMS"
+              fi
+          fi
+      ')
+      
+      echo "Permission analysis:"
+      echo "$PERM_OUTPUT"
+      
+      # Parse results
+      HOME_PERMS=$(echo "$PERM_OUTPUT" | grep "home_permissions:" | cut -d: -f2)
+      SETGID_BIT=$(echo "$PERM_OUTPUT" | grep "setgid_bit:" | cut -d: -f2)
+      SSH_PERMS=$(echo "$PERM_OUTPUT" | grep "ssh_permissions:" | cut -d: -f2)
+      AUTH_PERMS=$(echo "$PERM_OUTPUT" | grep "authorized_keys_permissions:" | cut -d: -f2)
+      
+      # Validate strategy implementation
+      case "{{ .Values.security.permissionStrategy }}" in
+          "fsgroup")
+              if [ "$SETGID_BIT" != "0" ]; then
+                  echo "✓ PASS: SetGID bit correctly present for fsgroup strategy (permissions: $HOME_PERMS)"
+              else
+                  echo "❌ FAIL: SetGID bit missing for fsgroup strategy (permissions: $HOME_PERMS)"
+                  exit 1
+              fi
+              ;;
+          "explicit")
+              if [ "$SETGID_BIT" = "0" ]; then
+                  echo "✓ PASS: SetGID bit correctly absent for explicit strategy (permissions: $HOME_PERMS)"
+              else
+                  echo "❌ FAIL: SetGID bit unexpectedly present for explicit strategy (permissions: $HOME_PERMS)"
+                  exit 1
+              fi
+              ;;
+      esac
+      
+      # Validate SSH permissions
+      if [ -n "$SSH_PERMS" ]; then
+          if [ "$SSH_PERMS" = "700" ] || [ "$SSH_PERMS" = "2700" ]; then
+              echo "✓ PASS: SSH directory has secure permissions: $SSH_PERMS"
+          else
+              echo "❌ FAIL: SSH directory has insecure permissions: $SSH_PERMS"
+              exit 1
+          fi
+      fi
+      
+      if [ -n "$AUTH_PERMS" ]; then
+          if [ "$AUTH_PERMS" = "600" ]; then
+              echo "✓ PASS: authorized_keys has correct permissions: $AUTH_PERMS"
+          else
+              echo "❌ FAIL: authorized_keys has incorrect permissions: $AUTH_PERMS"
+              exit 1
+          fi
+      fi
+      
+      echo "✓ Permission strategy validation completed successfully"
+    
+    resources:
+      limits:
+        cpu: 200m
+        memory: 128Mi
+      requests:
+        cpu: 100m
+        memory: 64Mi

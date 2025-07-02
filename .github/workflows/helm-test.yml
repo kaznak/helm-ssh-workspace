@@ -29,8 +29,31 @@ env:
 
 jobs:
   test:
-    name: Lint, Validate and Test
+    name: Test (${{ matrix.config.name }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Test all combinations of permission strategies and security levels
+        config:
+          - name: "fsgroup-basic"
+            permission_strategy: "fsgroup"
+            security_level: "basic"
+          - name: "explicit-basic"
+            permission_strategy: "explicit"
+            security_level: "basic"
+          - name: "fsgroup-standard"
+            permission_strategy: "fsgroup"
+            security_level: "standard"
+          - name: "explicit-standard"
+            permission_strategy: "explicit"
+            security_level: "standard"
+          - name: "fsgroup-high"
+            permission_strategy: "fsgroup"
+            security_level: "high"
+          - name: "explicit-high"
+            permission_strategy: "explicit"
+            security_level: "high"
+      fail-fast: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -97,29 +120,31 @@ jobs:
 
       - name: Install Helm Chart
         run: |
-          echo "=== Installing Helm Chart with test image ==="
-          helm install test-workspace helm/ssh-workspace \
+          echo "=== Installing Helm Chart: ${{ matrix.config.name }} ==="
+          helm install test-workspace-${{ matrix.config.name }} helm/ssh-workspace \
             --set image.repository=${{ env.TEST_IMAGE_NAME }} \
             --set image.tag=${{ env.TEST_IMAGE_TAG }} \
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
+            --set security.level=${{ matrix.config.security_level }} \
             --debug &
           HELM_PID=$!
           
           # Monitor in background
           while kill -0 $HELM_PID 2>/dev/null; do
             echo "=== Checking cluster status ==="
-            kubectl get pods -A | grep -E "(test-workspace|pre-install)" || echo "No test-workspace pods found"
+            kubectl get pods -A | grep -E "(test-workspace-${{ matrix.config.name }}|pre-install)" || echo "No test-workspace-${{ matrix.config.name }} pods found"
             
             # Get detailed pod information if pods exist
-            if kubectl get pods -l app.kubernetes.io/instance=test-workspace >/dev/null 2>&1; then
+            if kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} >/dev/null 2>&1; then
               echo "=== Pod Details ==="
-              kubectl get pods -l app.kubernetes.io/instance=test-workspace -o wide
+              kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o wide
               echo "=== Pod Descriptions ==="
-              kubectl describe pods -l app.kubernetes.io/instance=test-workspace
+              kubectl describe pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }}
               echo "=== Pod Logs ==="
-              for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace -o name); do
+              for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o name); do
                 echo "[POD] $pod"
                 
                 echo "[INIT-CONTAINER:ssh-setup]"
@@ -143,17 +168,17 @@ jobs:
       - name: Debug Deployment Configuration
         run: |
           echo "=== Checking Deployment Readiness Probe Configuration ==="
-          kubectl get deployment test-workspace-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
+          kubectl get deployment test-workspace-${{ matrix.config.name }}-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
           
           echo "=== Checking Pod Status ==="
-          kubectl get pods -l app.kubernetes.io/instance=test-workspace
+          kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }}
           
           echo "=== Checking Pod Readiness Details ==="
-          kubectl describe pod -l app.kubernetes.io/instance=test-workspace | grep -A 10 -B 5 "Readiness\|Ready\|port"
+          kubectl describe pod -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
 
       - name: Run Helm Tests
         run: |
-          helm test test-workspace --timeout=300s
+          helm test test-workspace-${{ matrix.config.name }} --timeout=300s
 
       - name: SSH Connectivity Test
         run: |
@@ -164,12 +189,12 @@ jobs:
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
           
           # Get service information
-          SERVICE_PORT=$(kubectl get service test-workspace-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
+          SERVICE_PORT=$(kubectl get service test-workspace-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
           echo "Service port: $SERVICE_PORT"
           
           # Port forward for SSH access
           echo "Setting up port forward..."
-          kubectl port-forward service/test-workspace-ssh-workspace 2222:$SERVICE_PORT &
+          kubectl port-forward service/test-workspace-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
           PORT_FORWARD_PID=$!
           sleep 10
           
@@ -201,7 +226,7 @@ jobs:
             nc -zv localhost 2222 || echo "Port 2222 not accessible"
             
             echo "=== Service status ==="
-            kubectl get service test-workspace-ssh-workspace -o wide
+            kubectl get service test-workspace-${{ matrix.config.name }}-ssh-workspace -o wide
             
             echo "=== Pod status ==="
             kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o wide
@@ -240,16 +265,16 @@ jobs:
         if: always()
         run: |
           echo "=== Final Helm Status ==="
-          helm status test-workspace || echo "Helm release not found"
+          helm status test-workspace-${{ matrix.config.name }} || echo "Helm release not found"
           
           echo "=== Getting all resources ==="
-          kubectl get all -l app.kubernetes.io/instance=test-workspace -o wide
+          kubectl get all -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o wide
           
           echo "=== Describing pods ==="
-          kubectl describe pod -l app.kubernetes.io/instance=test-workspace
+          kubectl describe pod -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }}
           
           echo "=== Pod Logs ==="
-          for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace -o name 2>/dev/null); do
+          for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o name 2>/dev/null); do
             echo "[POD] $pod"
             
             echo "[INIT-CONTAINER:ssh-setup]"
@@ -262,21 +287,21 @@ jobs:
             kubectl logs $pod -c ssh-workspace --previous=true --tail=30 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
           done
           
-          if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-workspace -o name 2>/dev/null)" ]; then
+          if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
             echo "[NO-PODS-FOUND]"
           fi
           
           echo "=== All Events ==="
-          kubectl get events --sort-by='.lastTimestamp' | grep test-workspace || echo "No test-workspace events found"
+          kubectl get events --sort-by='.lastTimestamp' | grep test-workspace-${{ matrix.config.name }} || echo "No test-workspace-${{ matrix.config.name }} events found"
           
           echo "=== All Recent Events ==="
           kubectl get events --sort-by='.lastTimestamp' | tail -20
           
           echo "=== Deployment troubleshooting ==="
-          kubectl get deployment test-workspace-ssh-workspace -o yaml || echo "Deployment not found"
+          kubectl get deployment test-workspace-${{ matrix.config.name }}-ssh-workspace -o yaml || echo "Deployment not found"
           
           echo "=== ReplicaSet troubleshooting ==="
-          kubectl get rs -l app.kubernetes.io/instance=test-workspace -o yaml || echo "ReplicaSet not found"
+          kubectl get rs -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o yaml || echo "ReplicaSet not found"
 
       - name: Cleanup
         if: always()
@@ -285,7 +310,7 @@ jobs:
           # Clean up SSH test keys
           rm -f $TEST_SSH_PRIVATE_KEY_PATH $TEST_SSH_PRIVATE_KEY_PATH.pub 2>/dev/null || true
           
-          helm uninstall test-workspace --debug || true
+          helm uninstall test-workspace-${{ matrix.config.name }} --debug || true
           echo "=== Final cluster state ==="
-          kubectl get all -A | grep test-workspace || echo "No remaining test-workspace resources"
+          kubectl get all -A | grep test-workspace-${{ matrix.config.name }} || echo "No remaining test-workspace-${{ matrix.config.name }} resources"
 
