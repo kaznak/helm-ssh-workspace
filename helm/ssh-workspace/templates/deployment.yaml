@@ -86,7 +86,7 @@ spec:
               # Set correct permissions
               if [ -f "/home/{{ .Values.user.name }}/.ssh/authorized_keys" ]; then
                 chmod 600 /home/{{ .Values.user.name }}/.ssh/authorized_keys
-                chown -R {{ .Values.user.name }}:{{ .Values.user.name }} /home/{{ .Values.user.name }}/.ssh
+                chown -R {{ .Values.user.uid | default 1000 }}:{{ .Values.user.gid | default 1000 }} /home/{{ .Values.user.name }}/.ssh
               fi
               
               {{- if .Values.user.sudo }}
