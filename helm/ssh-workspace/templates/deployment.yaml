@@ -172,16 +172,8 @@ spec:
         - name: ssh-workspace
           image: {{ include "ssh-workspace.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              echo "=== SSH Workspace Service (Main Container) ==="
-              echo "Starting SSH daemon for user: {{ .Values.user.name }}"
-              
-              # Start SSH daemon
-              exec /usr/sbin/sshd -D -e
+          # Use Docker ENTRYPOINT/CMD (entrypoint.sh)
+          # command: not specified - use default from Dockerfile
           ports:
             - name: ssh
               containerPort: {{ .Values.ssh.port }}
@@ -189,6 +181,22 @@ spec:
           env:
             - name: TZ
               value: {{ .Values.timezone | quote }}
+            - name: SSH_USER
+              value: {{ .Values.user.name | quote }}
+            - name: SSH_USER_UID
+              value: {{ .Values.user.uid | default 1000 | quote }}
+            - name: SSH_USER_GID
+              value: {{ .Values.user.gid | default 1000 | quote }}
+            - name: SSH_USER_SHELL
+              value: {{ .Values.user.shell | default "/bin/bash" | quote }}
+            {{- if .Values.user.sudo }}
+            - name: SSH_USER_SUDO
+              value: "true"
+            {{- end }}
+            {{- if .Values.user.additionalGroups }}
+            - name: SSH_USER_ADDITIONAL_GROUPS
+              value: {{ .Values.user.additionalGroups | join "," | quote }}
+            {{- end }}
           livenessProbe:
             exec:
               command:
