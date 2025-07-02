@@ -49,7 +49,7 @@ RUN mkdir -p /var/empty && \
 ENV TZ=UTC
 
 # SSH ポート
-EXPOSE 22
+EXPOSE 2222
 
 # エントリーポイント
 ENTRYPOINT ["/opt/ssh-workspace/bin/entrypoint.sh"]

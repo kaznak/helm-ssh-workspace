@@ -20,7 +20,7 @@ ssh:
   publicKeys: []  # Required: SSH public keys (array)
   # Example:
   # - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h user@example.com"
-  port: 22  # SSH port
+  port: 2222  # SSH port
   config: {}  # Additional SSH configuration
 
 # Persistence configuration
@@ -40,7 +40,7 @@ security:
 # Service configuration
 service:
   type: ClusterIP  # Service type: ClusterIP, NodePort, LoadBalancer
-  port: 22  # Service port
+  port: 2222  # Service port
 
 # Resource limits and requests
 resources: {}
