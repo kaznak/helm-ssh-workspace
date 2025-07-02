@@ -64,6 +64,7 @@ else
 fi
 
 # Copy system files including SSH host keys to writable location (for readOnlyRootFilesystem)
+# This prepared configuration will be mounted as read-only in the Main Container
 echo "Preparing system configuration..."
 echo "Target directory: $ETC_TARGET_DIR"
 rsync -a \

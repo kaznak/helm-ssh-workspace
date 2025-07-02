@@ -50,6 +50,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
+        # Init Container: Prepares user accounts, SSH keys, and system configuration
+        # Uses writable filesystem to create users and prepare /etc configuration
         - name: ssh-setup
           image: {{ include "ssh-workspace.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -81,12 +83,14 @@ spec:
               mountPath: /etc/ssh-host-keys
               readOnly: true
             - name: etc
-              mountPath: /etc-new
+              mountPath: /etc-new  # Writable target for prepared configuration
             - name: home
               mountPath: /home/{{ .Values.user.name }}
             - name: var-run
               mountPath: /var/run
       containers:
+        # Main Container: Runs SSH daemon with read-only root filesystem
+        # Uses configuration prepared by Init Container for enhanced security
         - name: ssh-workspace
           image: {{ include "ssh-workspace.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
@@ -138,7 +142,7 @@ spec:
               mountPath: /etc/ssh-keys
               readOnly: true
             - name: etc
-              mountPath: /etc
+              mountPath: /etc  # Read-only mount of prepared configuration
             {{- if .Values.persistence.enabled }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}

@@ -66,43 +66,47 @@ Create the name of the service account to use
 
 {{/*
 Init Container Security Context - fixed settings for user/system setup
+Design: Init Container requires write access to prepare configurations and user setup.
+The prepared configuration will be mounted as read-only in the Main Container.
 */}}
 {{- define "ssh-workspace.initSecurityContext" -}}
 runAsNonRoot: false
-readOnlyRootFilesystem: false
-allowPrivilegeEscalation: true
+readOnlyRootFilesystem: false  # Required for user creation and config preparation
+allowPrivilegeEscalation: true  # Required for user/group management
 capabilities:
   drop:
     - ALL
   add:
-    - SETUID
-    - SETGID  
-    - CHOWN
-    - DAC_OVERRIDE
+    - SETUID   # Required for useradd
+    - SETGID   # Required for groupadd  
+    - CHOWN    # Required for file ownership setup
+    - DAC_OVERRIDE  # Required for file permission setup
     # SYS_CHROOT not needed for Init Container (user setup only)
 {{- end }}
 
 {{/*
-Security Context based on security level
+Main Container Security Context based on security level
+Design: Main Container uses read-only root filesystem for enhanced security.
+All required configurations are prepared by Init Container and mounted read-only.
 */}}
 {{- define "ssh-workspace.securityContext" -}}
 {{- if eq .Values.security.level "basic" }}
 runAsNonRoot: false
 {{- else }}
 runAsNonRoot: false
-readOnlyRootFilesystem: true
+readOnlyRootFilesystem: true  # Enhanced security: no write access to root filesystem
 {{- if not .Values.user.sudo }}
-allowPrivilegeEscalation: false
+allowPrivilegeEscalation: false  # Restricted when sudo not required
 {{- end }}
 capabilities:
   drop:
     - ALL
   add:
-    - SETUID
-    - SETGID
-    - CHOWN
-    - DAC_OVERRIDE
-    - SYS_CHROOT
+    - SETUID      # Required for SSH user switching
+    - SETGID      # Required for SSH group switching
+    - CHOWN       # Required for SSH file ownership verification
+    - DAC_OVERRIDE # Required for SSH configuration access
+    - SYS_CHROOT  # Required for SSH privilege separation
 {{- if .Values.user.sudo }}
     - SETPCAP
     - SYS_ADMIN
