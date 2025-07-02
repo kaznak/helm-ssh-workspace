@@ -23,7 +23,16 @@ echo "Creating user: $SSH_USER (uid=$SSH_USER_UID, gid=$SSH_USER_GID)"
 
 # Create group and user
 groupadd -g "$SSH_USER_GID" "$SSH_USER" 2>/dev/null || true
-useradd -m -u "$SSH_USER_UID" -g "$SSH_USER_GID" -s "$SSH_USER_SHELL" "$SSH_USER" 2>/dev/null || true
+
+# Create user without home directory first, then handle home directory separately
+useradd -u "$SSH_USER_UID" -g "$SSH_USER_GID" -s "$SSH_USER_SHELL" -M "$SSH_USER" 2>/dev/null || true
+
+# Ensure home directory exists and has correct ownership
+# (This handles both empty and pre-existing volumes)
+mkdir -p "/home/$SSH_USER"
+chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
+chmod 755 "/home/$SSH_USER"
+echo "✓ Home directory prepared for $SSH_USER"
 
 # Handle additional groups
 if [ -n "$SSH_USER_ADDITIONAL_GROUPS" ]; then
