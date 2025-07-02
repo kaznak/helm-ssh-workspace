@@ -73,31 +73,6 @@ monitoring:
     enabled: false  # Create ServiceMonitor for Prometheus
     interval: 30s
 
-# Test configuration
-tests:
-  # Enable comprehensive test matrix (increases test time significantly)
-  matrix:
-    enabled: false
-    # Test different permission strategies
-    permissionStrategies:
-      - fsgroup
-      - explicit
-    # Test different security levels
-    securityLevels:
-      - basic
-      - standard
-      - high
-  
-  # Individual test toggles
-  connectivity:
-    enabled: true    # Basic SSH connectivity test
-  permissions:
-    enabled: true    # File permission verification
-  security:
-    enabled: true    # Security context validation
-  integration:
-    enabled: false   # Full integration scenarios (slow)
-
 # Ingress configuration
 ingress:
   enabled: false  # Enable Ingress
