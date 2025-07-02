@@ -23,6 +23,11 @@ else
     exit 1
 fi
 
+# SSH権限分離ディレクトリの作成
+mkdir -p /run/sshd
+chmod 755 /run/sshd
+echo "✓ SSH privilege separation directory created"
+
 # SSH設定の検証（必須）
 echo "Validating SSH configuration..."
 if /usr/sbin/sshd -t; then
