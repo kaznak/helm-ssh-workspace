@@ -49,29 +49,98 @@ spec:
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      initContainers:
+        - name: ssh-setup
+          image: {{ include "ssh-workspace.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "=== SSH Workspace Setup (Init Container) ==="
+              echo "Configuring user: {{ .Values.user.name }} (UID: {{ .Values.user.uid | default 1000 }}, GID: {{ .Values.user.gid | default 1000 }})"
+              
+              # Copy essential files from host /etc to shared volume
+              cp -a /etc/passwd /etc/group /etc/shadow /etc/gshadow /shared-etc/ 2>/dev/null || true
+              cp -a /etc/ssh /shared-etc/ 2>/dev/null || true
+              
+              # Create group and user
+              if ! grep -q "^{{ .Values.user.name }}:" /shared-etc/group 2>/dev/null; then
+                echo "{{ .Values.user.name }}:x:{{ .Values.user.gid | default 1000 }}:" >> /shared-etc/group
+              fi
+              
+              if ! grep -q "^{{ .Values.user.name }}:" /shared-etc/passwd 2>/dev/null; then
+                echo "{{ .Values.user.name }}:x:{{ .Values.user.uid | default 1000 }}:{{ .Values.user.gid | default 1000 }}:SSH User:/home/{{ .Values.user.name }}:{{ .Values.user.shell }}" >> /shared-etc/passwd
+              fi
+              
+              # Setup SSH directory and keys
+              mkdir -p /home/{{ .Values.user.name }}/.ssh
+              chmod 700 /home/{{ .Values.user.name }}/.ssh
+              
+              # Copy SSH public keys
+              if [ -d "/etc/ssh-keys" ]; then
+                cat /etc/ssh-keys/* > /home/{{ .Values.user.name }}/.ssh/authorized_keys 2>/dev/null || true
+              fi
+              
+              # Set correct permissions
+              if [ -f "/home/{{ .Values.user.name }}/.ssh/authorized_keys" ]; then
+                chmod 600 /home/{{ .Values.user.name }}/.ssh/authorized_keys
+                chown -R {{ .Values.user.name }}:{{ .Values.user.name }} /home/{{ .Values.user.name }}/.ssh
+              fi
+              
+              {{- if .Values.user.sudo }}
+              # Add user to sudo group if sudo is enabled
+              usermod -aG sudo {{ .Values.user.name }}
+              {{- end }}
+              
+              {{- if .Values.user.additionalGroups }}
+              # Add user to additional groups
+              {{- range .Values.user.additionalGroups }}
+              usermod -aG {{ . }} {{ .Values.user.name }} || true
+              {{- end }}
+              {{- end }}
+              
+              echo "✓ SSH Workspace setup completed"
+          securityContext:
+            runAsNonRoot: false
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - CHOWN
+                - DAC_OVERRIDE
+                - SETUID
+                - SETGID
+          volumeMounts:
+            - name: ssh-keys
+              mountPath: /etc/ssh-keys
+              readOnly: true
+            - name: shared-etc
+              mountPath: /shared-etc
+            - name: home
+              mountPath: /home/{{ .Values.user.name }}
       containers:
         - name: ssh-workspace
           image: {{ include "ssh-workspace.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "=== SSH Workspace Service (Main Container) ==="
+              echo "Starting SSH daemon for user: {{ .Values.user.name }}"
+              
+              # Start SSH daemon
+              exec /usr/sbin/sshd -D -e
           ports:
             - name: ssh
               containerPort: {{ .Values.ssh.port }}
               protocol: TCP
           env:
-            - name: SSH_USER
-              value: {{ .Values.user.name | quote }}
-            - name: SSH_USER_UID
-              value: {{ .Values.user.uid | default 1000 | quote }}
-            - name: SSH_USER_GID
-              value: {{ .Values.user.gid | default 1000 | quote }}
-            - name: SSH_USER_SHELL
-              value: {{ .Values.user.shell | quote }}
-            - name: SSH_USER_SUDO
-              value: {{ .Values.user.sudo | quote }}
-            {{- if .Values.user.additionalGroups }}
-            - name: SSH_USER_ADDITIONAL_GROUPS
-              value: {{ join "," .Values.user.additionalGroups | quote }}
-            {{- end }}
             - name: TZ
               value: {{ .Values.timezone | quote }}
           livenessProbe:
@@ -96,12 +165,16 @@ spec:
             - name: ssh-keys
               mountPath: /etc/ssh-keys
               readOnly: true
+            - name: shared-etc
+              mountPath: /etc
+              readOnly: true
             {{- if .Values.persistence.enabled }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}
             {{- else }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}
+              readOnly: true
             {{- end }}
             {{- if ne .Values.security.level "basic" }}
             - name: tmp
@@ -148,6 +221,8 @@ spec:
           configMap:
             name: {{ include "ssh-workspace.fullname" . }}-ssh-keys
             defaultMode: 0600
+        - name: shared-etc
+          emptyDir: {}
         {{- if .Values.persistence.enabled }}
         - name: home
           persistentVolumeClaim:
