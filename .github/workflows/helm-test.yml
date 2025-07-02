@@ -1,4 +1,4 @@
-name: CI/CD Pipeline
+name: Helm Chart Test and Validation
 
 on:
   push:
