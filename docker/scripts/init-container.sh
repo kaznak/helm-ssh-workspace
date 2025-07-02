@@ -39,7 +39,24 @@ if [ -n "$SSH_USER_ADDITIONAL_GROUPS" ]; then
     done
 fi
 
-# Copy system files to writable location (for readOnlyRootFilesystem)
+# Generate or copy SSH host keys directly to /etc/ssh
+echo "Setting up SSH host keys..."
+
+if [ -f "/etc/ssh-host-keys/ssh_host_rsa_key" ]; then
+    # Copy SSH host keys from Secret
+    cp /etc/ssh-host-keys/ssh_host_* /etc/ssh/
+    chmod 600 /etc/ssh/ssh_host_*_key
+    chmod 644 /etc/ssh/ssh_host_*_key.pub
+    echo "✓ SSH host keys loaded from Secret"
+else
+    # Generate SSH host keys directly in /etc/ssh (always needed since image has them removed)
+    ssh-keygen -t rsa -b 2048 -f /etc/ssh/ssh_host_rsa_key -N ""
+    ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N ""
+    ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
+    echo "✓ Generated new SSH host keys"
+fi
+
+# Copy system files including SSH host keys to writable location (for readOnlyRootFilesystem)
 echo "Preparing system configuration..."
 echo "Target directory: $ETC_TARGET_DIR"
 rsync -a \
@@ -49,24 +66,7 @@ rsync -a \
     --exclude='/etc/mtab' \
     /etc/ "$ETC_TARGET_DIR/"
 
-# Ensure SSH directory exists
-mkdir -p "$ETC_TARGET_DIR/ssh"
-
-echo "✓ System configuration files copied with user data"
-
-# Copy SSH host keys from Secret (if they exist)
-if [ -f "/etc/ssh-host-keys/ssh_host_rsa_key" ]; then
-    cp /etc/ssh-host-keys/ssh_host_* "$ETC_TARGET_DIR/ssh/"
-    chmod 600 "$ETC_TARGET_DIR/ssh/ssh_host_"*"_key"
-    chmod 644 "$ETC_TARGET_DIR/ssh/ssh_host_"*"_key.pub"
-    echo "✓ SSH host keys loaded from Secret"
-else
-    # Generate SSH host keys on first deployment
-    ssh-keygen -t rsa -b 2048 -f "$ETC_TARGET_DIR/ssh/ssh_host_rsa_key" -N ""
-    ssh-keygen -t ecdsa -f "$ETC_TARGET_DIR/ssh/ssh_host_ecdsa_key" -N ""
-    ssh-keygen -t ed25519 -f "$ETC_TARGET_DIR/ssh/ssh_host_ed25519_key" -N ""
-    echo "✓ Generated new SSH host keys (first deployment)"
-fi
+echo "✓ System configuration copied with SSH host keys"
 
 # Setup SSH directory and keys
 mkdir -p "/home/$SSH_USER/.ssh"
