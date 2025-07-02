@@ -173,6 +173,13 @@ jobs:
           PORT_FORWARD_PID=$!
           sleep 10
           
+          # Debug before SSH connection
+          echo "=== Debug Pod State Before SSH Test ==="
+          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- ls -la /home/
+          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- ls -la /home/testuser/ || echo "testuser home not found"
+          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- getent passwd testuser || echo "testuser not found in passwd"
+          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- id testuser || echo "testuser id lookup failed"
+          
           # Test SSH connection
           echo "Testing SSH connection..."
           ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
@@ -198,7 +205,10 @@ jobs:
             kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o wide
             
             echo "=== Recent pod logs ==="
-            kubectl logs -l app.kubernetes.io/name=ssh-workspace --tail=20
+            kubectl logs -l app.kubernetes.io/name=ssh-workspace --tail=30
+            
+            echo "=== Init container logs ==="
+            kubectl logs -l app.kubernetes.io/name=ssh-workspace -c ssh-setup --tail=30
             
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
