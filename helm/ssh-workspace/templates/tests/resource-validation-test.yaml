@@ -8,13 +8,16 @@ metadata:
     app.kubernetes.io/component: test
   annotations:
     "helm.sh/hook": test
-    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-weight": "-1"
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
     {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   restartPolicy: Never
+  {{- if .Values.tests.rbac.create }}
+  serviceAccountName: {{ include "ssh-workspace.fullname" . }}-test
+  {{- end }}
   containers:
   - name: resource-validation-test
     image: alpine:3.18
@@ -74,6 +77,4 @@ spec:
       requests:
         cpu: 100m
         memory: 64Mi
-    env:
-    - name: KUBECONFIG
-      value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+    # kubectl will automatically use ServiceAccount token for authentication

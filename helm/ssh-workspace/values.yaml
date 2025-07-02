@@ -83,3 +83,8 @@ annotations: {}
 podDisruptionBudget:
   enabled: false
   minAvailable: 1
+
+# Test configuration
+tests:
+  rbac:
+    create: true  # Create ServiceAccount and RBAC for tests
