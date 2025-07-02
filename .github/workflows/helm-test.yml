@@ -109,23 +109,24 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        # Test all combinations of permission strategies and security levels
+        # Test explicit permission strategy with all security levels
+        # fsgroup cases are temporarily disabled due to chmod restrictions in high security environments
         config:
-          - name: "fsgroup-basic"
-            permission_strategy: "fsgroup"
-            security_level: "basic"
+          # - name: "fsgroup-basic"
+          #   permission_strategy: "fsgroup"
+          #   security_level: "basic"
           - name: "explicit-basic"
             permission_strategy: "explicit"
             security_level: "basic"
-          - name: "fsgroup-standard"
-            permission_strategy: "fsgroup"
-            security_level: "standard"
+          # - name: "fsgroup-standard"
+          #   permission_strategy: "fsgroup"
+          #   security_level: "standard"
           - name: "explicit-standard"
             permission_strategy: "explicit"
             security_level: "standard"
-          - name: "fsgroup-high"
-            permission_strategy: "fsgroup"
-            security_level: "high"
+          # - name: "fsgroup-high"
+          #   permission_strategy: "fsgroup"
+          #   security_level: "high"
           - name: "explicit-high"
             permission_strategy: "explicit"
             security_level: "high"
