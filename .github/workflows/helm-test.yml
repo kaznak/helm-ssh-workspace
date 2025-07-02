@@ -238,8 +238,23 @@ jobs:
           echo "Configuration: ${{ matrix.config.name }}"
           
           # Get pod name
-          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name | grep -v test | sed 's|pod/||')
+          echo "Finding pods with labels:"
+          kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }}
+          
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' | grep -v test || true)
+          
+          # Fallback: try without field selector
+          if [ -z "$POD_NAME" ]; then
+            POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o jsonpath='{.items[0].metadata.name}' | grep -v test || true)
+          fi
+          
           echo "Debugging pod: $POD_NAME"
+          
+          if [ -z "$POD_NAME" ]; then
+            echo "❌ ERROR: Could not find workspace pod"
+            kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
+            exit 0  # Continue with test, but skip this debugging step
+          fi
           
           # Check SSH file permissions and structure
           echo "=== SSH Files Analysis ==="
