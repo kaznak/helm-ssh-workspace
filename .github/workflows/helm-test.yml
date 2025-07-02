@@ -241,11 +241,24 @@ jobs:
           echo "Finding pods with labels:"
           kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }}
           
-          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' | grep -v test || true)
+          # Get deployment pod (not test pods) - test pods have helm.sh/hook annotation
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[?(@.metadata.annotations.helm\.sh/hook=="")].metadata.name}' || true)
           
-          # Fallback: try without field selector
+          # Fallback: try without field selector and filter test pods by annotation
           if [ -z "$POD_NAME" ]; then
-            POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o jsonpath='{.items[0].metadata.name}' | grep -v test || true)
+            POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o jsonpath='{.items[?(@.metadata.annotations.helm\.sh/hook=="")].metadata.name}' || true)
+          fi
+          
+          # Final fallback: get first pod and filter manually
+          if [ -z "$POD_NAME" ]; then
+            ALL_PODS=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o jsonpath='{.items[*].metadata.name}')
+            for pod in $ALL_PODS; do
+              HOOK_ANNOTATION=$(kubectl get pod "$pod" -o jsonpath='{.metadata.annotations.helm\.sh/hook}' 2>/dev/null || true)
+              if [ -z "$HOOK_ANNOTATION" ]; then
+                POD_NAME="$pod"
+                break
+              fi
+            done
           fi
           
           echo "Debugging pod: $POD_NAME"
