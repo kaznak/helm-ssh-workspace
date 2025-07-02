@@ -73,7 +73,7 @@ spec:
               mkdir -p /etc/ssh
               
               # Create SSH daemon configuration
-              cat > /etc/ssh/sshd_config <<'EOF'
+              cat > /etc/ssh/sshd_config <<EOF
 # SSH Workspace Configuration
 Port {{ .Values.ssh.port }}
 Protocol 2
