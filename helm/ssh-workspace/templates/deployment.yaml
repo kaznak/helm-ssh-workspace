@@ -72,6 +72,59 @@ spec:
               # Setup SSH daemon directories and configuration
               mkdir -p /etc/ssh
               
+              # Create SSH daemon configuration
+              cat > /etc/ssh/sshd_config <<'EOF'
+# SSH Workspace Configuration
+Port {{ .Values.ssh.port }}
+Protocol 2
+
+# Host key settings
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Authentication settings
+PasswordAuthentication no
+PubkeyAuthentication yes
+AuthorizedKeysFile .ssh/authorized_keys
+PermitRootLogin no
+MaxAuthTries 3
+LoginGraceTime 30
+
+# Session settings
+ClientAliveInterval 300
+ClientAliveCountMax 3
+TCPKeepAlive yes
+
+# X11 forwarding
+X11Forwarding yes
+X11DisplayOffset 10
+X11UseLocalhost yes
+
+# Port forwarding
+AllowTcpForwarding yes
+GatewayPorts no
+
+# Logging
+SyslogFacility AUTH
+LogLevel INFO
+
+# Security settings
+StrictModes yes
+IgnoreRhosts yes
+HostbasedAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+UsePAM yes
+PrintMotd no
+PrintLastLog yes
+UseDNS no
+
+# Privilege separation
+UsePrivilegeSeparation sandbox
+EOF
+              echo "✓ Created SSH daemon configuration"
+              
               # Generate SSH host keys if they don't exist
               if [ ! -f "/etc/ssh/ssh_host_rsa_key" ]; then
                 ssh-keygen -t rsa -b 2048 -f /etc/ssh/ssh_host_rsa_key -N ""
