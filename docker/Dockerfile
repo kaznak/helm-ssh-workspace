@@ -40,6 +40,9 @@ RUN mkdir -p /opt/ssh-workspace/bin
 COPY scripts/ /opt/ssh-workspace/bin/
 RUN chmod +x /opt/ssh-workspace/bin/*.sh
 
+# Init Container用スクリプトを標準的な場所にも配置
+RUN ln -s /opt/ssh-workspace/bin/init-container.sh /usr/local/bin/init-container.sh
+
 # 権限分離用ディレクトリ
 RUN mkdir -p /var/empty && \
     chown root:root /var/empty && \

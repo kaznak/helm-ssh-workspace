@@ -13,7 +13,8 @@ docker/
 ├── config/                # Configuration files
 │   └── sshd_config        # SSH configuration
 └── scripts/               # Executable scripts
-    └── entrypoint.sh      # Container initialization
+    ├── entrypoint.sh      # Main container initialization
+    └── init-container.sh  # Init container setup (Kubernetes)
 ```
 
 ## 🚀 Image Build

@@ -53,96 +53,22 @@ spec:
         - name: ssh-setup
           image: {{ include "ssh-workspace.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              set -e
-              echo "=== SSH Workspace Setup (Init Container) ==="
-              echo "Configuring user: {{ .Values.user.name }} (UID: {{ .Values.user.uid | default 1000 }}, GID: {{ .Values.user.gid | default 1000 }})"
-              
-              # Create /run symlink to /var/run if it doesn't exist
-              if [ ! -e /run ]; then
-                ln -s /var/run /run
-                echo "✓ Created /run symlink to /var/run"
-              fi
-              
-              # Create sshd runtime directory
-              mkdir -p /var/run/sshd
-              chmod 755 /var/run/sshd
-              
-              # Create group and user using proper system commands
-              if ! getent group {{ .Values.user.name }} >/dev/null 2>&1; then
-                groupadd -g {{ .Values.user.gid | default 1000 }} {{ .Values.user.name }}
-                echo "✓ Created group: {{ .Values.user.name }}"
-              fi
-              
-              if ! getent passwd {{ .Values.user.name }} >/dev/null 2>&1; then
-                useradd -u {{ .Values.user.uid | default 1000 }} -g {{ .Values.user.gid | default 1000 }} \
-                  -s {{ .Values.user.shell }} -m -d /home/{{ .Values.user.name }} {{ .Values.user.name }}
-                echo "✓ Created user: {{ .Values.user.name }}"
-              fi
-              
-              # Copy system configuration to /etc-new (after user creation)
-              echo "Copying system configuration files..."
-              rsync -av \
-                --exclude='mtab' \
-                --exclude='resolv.conf' \
-                --exclude='hostname' \
-                --exclude='hosts' \
-                --exclude='localtime' \
-                /etc/ /etc-new/
-              echo "✓ System configuration files copied with user data"
-              
-              # Copy SSH host keys from Secret (if they exist)
-              if [ -f "/etc/ssh-host-keys/ssh_host_rsa_key" ]; then
-                cp /etc/ssh-host-keys/ssh_host_* /etc-new/ssh/
-                chmod 600 /etc-new/ssh/ssh_host_*_key
-                chmod 644 /etc-new/ssh/ssh_host_*_key.pub
-                echo "✓ SSH host keys loaded from Secret"
-              else
-                # Generate SSH host keys on first deployment
-                ssh-keygen -t rsa -b 2048 -f /etc-new/ssh/ssh_host_rsa_key -N ""
-                ssh-keygen -t ecdsa -f /etc-new/ssh/ssh_host_ecdsa_key -N ""
-                ssh-keygen -t ed25519 -f /etc-new/ssh/ssh_host_ed25519_key -N ""
-                echo "✓ Generated new SSH host keys (first deployment)"
-              fi
-              
-              # Setup SSH directory and keys
-              mkdir -p /home/{{ .Values.user.name }}/.ssh
-              chmod 700 /home/{{ .Values.user.name }}/.ssh
-              
-              # Copy SSH public keys
-              if [ -d "/etc/ssh-keys" ]; then
-                cat /etc/ssh-keys/* > /home/{{ .Values.user.name }}/.ssh/authorized_keys 2>/dev/null || true
-              fi
-              
-              # Set correct permissions
-              if [ -f "/home/{{ .Values.user.name }}/.ssh/authorized_keys" ]; then
-                chmod 600 /home/{{ .Values.user.name }}/.ssh/authorized_keys
-                chown -R {{ .Values.user.name }}:{{ .Values.user.name }} /home/{{ .Values.user.name }}/.ssh
-                echo "✓ Set SSH permissions for {{ .Values.user.name }}"
-              fi
-              
-              {{- if .Values.user.sudo }}
-              # Add user to sudo group if sudo is enabled
-              if getent group sudo >/dev/null 2>&1; then
-                usermod -aG sudo {{ .Values.user.name }}
-                echo "✓ Added {{ .Values.user.name }} to sudo group"
-              fi
-              {{- end }}
-              
-              {{- if .Values.user.additionalGroups }}
-              # Add user to additional groups
-              {{- range .Values.user.additionalGroups }}
-              if getent group {{ . }} >/dev/null 2>&1; then
-                usermod -aG {{ . }} {{ .Values.user.name }}
-                echo "✓ Added {{ .Values.user.name }} to group {{ . }}"
-              fi
-              {{- end }}
-              {{- end }}
-              
-              echo "✓ SSH Workspace setup completed"
+          command: ["/usr/local/bin/init-container.sh"]
+          env:
+            - name: SSH_USER
+              value: {{ .Values.user.name | quote }}
+            - name: SSH_USER_UID
+              value: {{ .Values.user.uid | default 1000 | quote }}
+            - name: SSH_USER_GID
+              value: {{ .Values.user.gid | default 1000 | quote }}
+            - name: SSH_USER_SHELL
+              value: {{ .Values.user.shell | quote }}
+            - name: SSH_USER_SUDO
+              value: {{ .Values.user.sudo | quote }}
+            {{- if .Values.user.additionalGroups }}
+            - name: SSH_USER_ADDITIONAL_GROUPS
+              value: {{ .Values.user.additionalGroups | join "," | quote }}
+            {{- end }}
           securityContext:
             runAsNonRoot: false
             readOnlyRootFilesystem: false
