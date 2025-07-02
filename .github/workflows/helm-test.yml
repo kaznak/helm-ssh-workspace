@@ -305,6 +305,18 @@ jobs:
             kubectl logs $pod -c ssh-workspace --previous=true --tail=30 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
           done
           
+          echo "=== Test Pod Logs (Failed Tests) ==="
+          for test_pod in $(kubectl get pods -l "helm.sh/hook=test" --field-selector=status.phase=Failed -o name 2>/dev/null); do
+            echo "[TEST-POD] $test_pod"
+            
+            # Get all containers in the test pod
+            containers=$(kubectl get $test_pod -o jsonpath='{.spec.containers[*].name}')
+            for container in $containers; do
+              echo "[CONTAINER:$container]"
+              kubectl logs $test_pod -c $container --tail=50 2>/dev/null || echo "[NO-LOGS-FOR-$container]"
+            done
+          done
+          
           if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
             echo "[NO-PODS-FOUND]"
           fi
