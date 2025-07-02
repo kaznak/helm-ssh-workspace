@@ -69,6 +69,25 @@ spec:
                 echo "root:x:0:" > /etc/group
               fi
               
+              # Setup SSH daemon directories and configuration
+              mkdir -p /etc/ssh
+              
+              # Generate SSH host keys if they don't exist
+              if [ ! -f "/etc/ssh/ssh_host_rsa_key" ]; then
+                ssh-keygen -t rsa -b 2048 -f /etc/ssh/ssh_host_rsa_key -N ""
+                echo "✓ Generated SSH RSA host key"
+              fi
+              
+              if [ ! -f "/etc/ssh/ssh_host_ecdsa_key" ]; then
+                ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N ""
+                echo "✓ Generated SSH ECDSA host key"
+              fi
+              
+              if [ ! -f "/etc/ssh/ssh_host_ed25519_key" ]; then
+                ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
+                echo "✓ Generated SSH ED25519 host key"
+              fi
+              
               # Create group and user using proper system commands
               if ! getent group {{ .Values.user.name }} >/dev/null 2>&1; then
                 groupadd -g {{ .Values.user.gid | default 1000 }} {{ .Values.user.name }}
