@@ -86,7 +86,8 @@ if [ -d "/etc/ssh-keys" ]; then
 fi
 
 # Set correct permissions for home directory and SSH files
-# Note: fsGroup in podSecurityContext should handle volume ownership
+# Security Design: Init Container must establish secure permissions for SSH operation
+# Note: fsGroup in podSecurityContext should handle volume ownership, but explicit chmod may be needed
 echo "Setting up home directory permissions..."
 
 # Check if home directory has correct ownership (fsGroup should handle this)
@@ -96,7 +97,12 @@ echo "Home directory owner: $HOME_OWNER:$HOME_GROUP"
 
 # Ensure home directory has correct permissions (should be writable by group due to fsGroup)
 if [ "$(stat -c %a "/home/$SSH_USER" 2>/dev/null)" != "755" ]; then
-    chmod 755 "/home/$SSH_USER" 2>/dev/null && echo "✓ Set home directory permissions to 755" || echo "⚠ Could not set home directory permissions"
+    chmod 755 "/home/$SSH_USER" 2>/dev/null && echo "✓ Set home directory permissions to 755" || {
+        echo "⚠️ WARNING: Could not set home directory permissions to 755"
+        echo "Current permissions: $(stat -c %a "/home/$SSH_USER" 2>/dev/null || echo "unknown")"
+        echo "This may cause issues with SSH user sessions"
+        # Continue as fsGroup should provide necessary access
+    }
 fi
 
 # Set authorized_keys permissions if file exists

@@ -45,18 +45,30 @@ fi
 
 # ホームディレクトリ権限の確認・修正
 if [ -d "/home/$SSH_USER" ]; then
-    # Note: Init Container has already configured permissions with fsGroup
-    # Try to set ownership/permissions, but don't fail if fsGroup restrictions apply
+    # Design: Init Container has already configured permissions with fsGroup
+    # Main Container attempts verification but doesn't fail due to fsGroup restrictions
+    # Security rationale: fsGroup provides necessary access, manual chmod may fail due to volume ownership
     chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory ownership managed by fsGroup"
     chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory permissions managed by fsGroup"
     
     # .ssh ディレクトリの権限確認・修正
     if [ -d "/home/$SSH_USER/.ssh" ]; then
         chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh" 2>/dev/null || echo "Note: SSH directory ownership managed by fsGroup"
-        chmod 700 "/home/$SSH_USER/.ssh" 2>/dev/null || echo "Note: SSH directory permissions managed by fsGroup"
+        chmod 700 "/home/$SSH_USER/.ssh" 2>/dev/null || {
+            echo "⚠️ WARNING: Could not set .ssh directory permissions to 700"
+            echo "Current permissions: $(stat -c %a "/home/$SSH_USER/.ssh" 2>/dev/null || echo "unknown")"
+            echo "SSH may reject connections if .ssh directory is not properly secured"
+        }
         
         if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
-            chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "Note: SSH keys permissions managed by fsGroup"
+            # CRITICAL: authorized_keys must have 600 permissions for SSH security
+            chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || {
+                echo "❌ CRITICAL: Cannot set authorized_keys permissions in Main Container!"
+                echo "Current permissions: $(stat -c %a "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "unknown")"
+                echo "SSH authentication will fail with incorrect permissions."
+                # Don't exit here as Init Container should have handled this
+                echo "⚠️ WARNING: Continuing with potentially insecure SSH key permissions"
+            }
         fi
     fi
     
