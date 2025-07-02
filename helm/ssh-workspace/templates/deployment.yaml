@@ -145,14 +145,9 @@ spec:
               readOnly: true
             - name: etc
               mountPath: /etc  # Read-only mount of prepared configuration
-            {{- if .Values.persistence.enabled }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}
-            {{- else }}
-            - name: home
-              mountPath: /home/{{ .Values.user.name }}
-              readOnly: true
-            {{- end }}
+              # Home directory needs write access for user session activities
             {{- if ne .Values.security.level "basic" }}
             - name: tmp
               mountPath: /tmp
