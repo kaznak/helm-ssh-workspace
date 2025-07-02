@@ -27,7 +27,7 @@ metadata:
     "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 rules:
 - apiGroups: [""]
-  resources: ["configmaps", "secrets", "services", "persistentvolumeclaims"]
+  resources: ["configmaps", "secrets", "services", "persistentvolumeclaims", "pods"]
   verbs: ["get", "list"]
 - apiGroups: ["apps"]
   resources: ["deployments"]
