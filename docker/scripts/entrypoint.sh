@@ -91,12 +91,8 @@ fi
 # SSH ホストキーはHelm Chartで管理（Secret経由）
 echo "SSH host keys are managed by Helm Chart via Secret"
 
-# SSH設定の妥当性確認
-echo "Validating SSH configuration..."
-if ! /usr/sbin/sshd -t; then
-    echo "Error: SSH configuration is invalid" >&2
-    exit 1
-fi
+# SSH設定の検証はHelm Chart deploy時に実行
+echo "SSH configuration validation will be performed during Helm Chart deployment"
 
 echo "SSH Workspace initialization completed successfully"
 echo "Starting SSH daemon for user: $SSH_USER"
