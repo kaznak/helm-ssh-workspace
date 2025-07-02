@@ -77,8 +77,8 @@ rsync -a \
 echo "✓ System configuration copied with SSH host keys"
 
 # Setup SSH directory and keys
-mkdir -p "/home/$SSH_USER/.ssh"
-chmod 700 "/home/$SSH_USER/.ssh"
+# Create .ssh directory with correct permissions from the start
+install -d -m 700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
 
 # Copy SSH public keys
 if [ -d "/etc/ssh-keys" ]; then
@@ -86,10 +86,13 @@ if [ -d "/etc/ssh-keys" ]; then
 fi
 
 # Set correct permissions for home directory and SSH files
-chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
+# Ensure home directory has correct ownership and permissions
+chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
 chmod 755 "/home/$SSH_USER"
-chmod 700 "/home/$SSH_USER/.ssh"
+
+# Set authorized_keys permissions if file exists
 if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
+    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh/authorized_keys"
     chmod 600 "/home/$SSH_USER/.ssh/authorized_keys"
 fi
 echo "✓ Home directory and SSH permissions set for $SSH_USER"

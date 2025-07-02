@@ -86,6 +86,8 @@ spec:
               mountPath: /etc-new  # Writable target for prepared configuration
             - name: home
               mountPath: /home/{{ .Values.user.name }}
+              # Init Container always needs write access to prepare home directory
+              readOnly: false
             - name: var-run
               mountPath: /var/run
       containers:
