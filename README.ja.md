@@ -52,7 +52,7 @@ helm install workspace ./ssh-workspace \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
 
-kubectl port-forward svc/workspace-ssh-workspace 2222:22
+kubectl port-forward svc/workspace-ssh-workspace 2222:2222
 ssh developer@localhost -p 2222
 ```
 
@@ -61,6 +61,10 @@ ssh developer@localhost -p 2222
 ### GitHub Container Registry (GHCR)
 
 ビルド済みイメージがGitHub Container Registryで利用可能です：
+
+**プラットフォームサポート:**
+- ✅ **linux/amd64**: 完全にテスト済み・サポート対象
+- ⚠️ **linux/arm64**: ビルド済みだがCIでは未テスト（ARM64システムでは動作するはず）
 
 ```bash
 # 最新イメージをプル
@@ -87,7 +91,7 @@ helm install workspace ./helm/ssh-workspace \
 |-------------|----------|------|
 | **CI/CDパイプライン** | Push/PR | リント、テスト、ビルド、プッシュ |
 | **Dockerビルド&プッシュ** | Docker変更 | マルチアーキテクチャイメージのビルド |
-| **セキュリティスキャン** | 日次/Push | Trivyによる脆弱性スキャン |
+| **セキュリティスキャン** | 日次/Push | Trivyによる脆弱性スキャン + SARIFレポート |
 | **Helmリリース** | Chart変更 | Chartのパッケージと公開 |
 | **Pages Helmリポジトリ** | Chart変更 | GitHub Pages Helmリポジトリ |
 
@@ -349,7 +353,32 @@ ingress:
 - **必須パラメータ**: SSH公開鍵、ユーザ名
 - **Values設計**: デプロイ時決定事項以外は全てオプション（デフォルト値提供）
 
-## 7. 制限事項
+## 7. セキュリティ監視
+
+### 自動セキュリティスキャン
+
+このプロジェクトでは包括的なセキュリティ監視を実装：
+
+- **日次脆弱性スキャン**: コンテナセキュリティのためのTrivy自動スキャン
+- **SARIF統合**: SARIF（Static Analysis Results Interchange Format）形式でGitHub Security統合
+- **GitHub Securityタブ**: `/security/code-scanning`で詳細な脆弱性レポートを表示
+- **リアルタイムアラート**: 新しいセキュリティ問題の自動通知
+- **コンプライアンスレポート**: 監査・コンプライアンス用の標準化セキュリティレポート
+
+### SARIFセキュリティレポート
+
+自動セキュリティスキャン結果を表示:
+- **SARIFレポート**: [Code Scanning結果](https://github.com/kaznak/helm-ssh-workspace/security/code-scanning) - SARIF形式のTrivy脆弱性スキャン
+
+**ナビゲーション**: リポジトリ → Securityタブ → Code scanning
+
+### その他のセキュリティ機能
+
+- **Dependabot**: [依存関係アラート](https://github.com/kaznak/helm-ssh-workspace/security/dependabot) - 依存関係脆弱性管理（SARIFとは別機能）
+- **セキュリティ概要**: [セキュリティダッシュボード](https://github.com/kaznak/helm-ssh-workspace/security) - 完全なセキュリティ概要
+- **Security Policy**: `SECURITY.md` - 責任ある開示ガイドライン
+
+## 8. 制限事項
 
 - **単一ユーザー専用**: マルチユーザー非対応
 - **root実行必須**: セキュリティコンテキストで制限

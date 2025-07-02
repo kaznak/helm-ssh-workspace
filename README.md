@@ -52,7 +52,7 @@ helm install workspace ./ssh-workspace \
   --set user.name="developer" \
   --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com"
 
-kubectl port-forward svc/workspace-ssh-workspace 2222:22
+kubectl port-forward svc/workspace-ssh-workspace 2222:2222
 ssh developer@localhost -p 2222
 ```
 
@@ -61,6 +61,10 @@ ssh developer@localhost -p 2222
 ### GitHub Container Registry (GHCR)
 
 Pre-built images are available on GitHub Container Registry:
+
+**Platform Support:**
+- ✅ **linux/amd64**: Fully tested and supported
+- ⚠️ **linux/arm64**: Built but not tested in CI (should work on ARM64 systems)
 
 ```bash
 # Pull the latest image
@@ -87,7 +91,7 @@ helm install workspace ./helm/ssh-workspace \
 |----------|---------|---------|
 | **CI/CD Pipeline** | Push/PR | Lint, test, build, and push |
 | **Docker Build & Push** | Docker changes | Build multi-arch images |
-| **Security Scan** | Daily/Push | Vulnerability scanning with Trivy |
+| **Security Scan** | Daily/Push | Vulnerability scanning with Trivy + SARIF reports |
 | **Helm Release** | Chart changes | Package and publish charts |
 | **Pages Helm Repo** | Chart changes | GitHub Pages Helm repository |
 
@@ -216,7 +220,7 @@ SSH Workspace employs a **dual-container Init Container pattern** for enhanced s
   - Runs SSH daemon (`/usr/sbin/sshd -D -e`)
   - Uses pre-configured user and SSH settings from Init Container
   - No dynamic system modifications
-- **Network Exposure**: SSH port 22 only
+- **Network Exposure**: SSH port 2222 only
 
 #### Shared Resources
 - **EmptyDir Volume (`/etc`)**: User/group information and SSH configuration
@@ -241,7 +245,7 @@ SSH Workspace employs a **dual-container Init Container pattern** for enhanced s
 | Item | Default | Options |
 |------|---------|---------|
 | Service Type | ClusterIP | NodePort/LoadBalancer |
-| SSH Port | 22 | Customizable |
+| SSH Port | 2222 | Customizable |
 | External Access | SSH only | localhost access allowed |
 | Ingress | Disabled | TLS termination & tunneling support |
 
@@ -307,7 +311,7 @@ user:
 
 ssh:
   publicKeys: [] # SSH public keys (required, array format)
-  port: 22 # SSH port
+  port: 2222 # SSH port
   config: {} # Custom configuration
 
 persistence:
@@ -323,7 +327,7 @@ security:
 
 service:
   type: ClusterIP # Service type
-  port: 22 # Service port
+  port: 2222 # Service port
 
 resources: {} # CPU & memory limits
 timezone: UTC # Timezone (tzdata package)
@@ -349,7 +353,32 @@ ingress:
 - **Required Parameters**: SSH public key, username
 - **Values Design**: All optional except deployment-time decisions (default values provided)
 
-## 7. Limitations
+## 7. Security Monitoring
+
+### Automated Security Scanning
+
+This project implements comprehensive security monitoring:
+
+- **Daily Vulnerability Scans**: Automated Trivy scanning for container security
+- **SARIF Integration**: Security results are uploaded in SARIF (Static Analysis Results Interchange Format) for GitHub Security integration
+- **GitHub Security Tab**: View detailed vulnerability reports at `/security/code-scanning`
+- **Real-time Alerts**: Automatic notifications for new security issues
+- **Compliance Reporting**: Standardized security reports for audit and compliance
+
+### SARIF Security Reports
+
+View automated security scan results:
+- **SARIF Reports**: [Code Scanning Results](https://github.com/kaznak/helm-ssh-workspace/security/code-scanning) - Trivy vulnerability scans in SARIF format
+
+**Navigation**: Repository → Security tab → Code scanning
+
+### Additional Security Features
+
+- **Dependabot**: [Dependency Alerts](https://github.com/kaznak/helm-ssh-workspace/security/dependabot) - Dependency vulnerability management (separate from SARIF)
+- **Security Overview**: [Security Dashboard](https://github.com/kaznak/helm-ssh-workspace/security) - Complete security overview
+- **Security Policy**: `SECURITY.md` - Responsible disclosure guidelines
+
+## 8. Limitations
 
 - **Single user only**: Multi-user not supported
 - **Root execution required**: Restricted by security context
