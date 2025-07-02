@@ -34,6 +34,12 @@ persistence:
 # Security configuration
 security:
   level: standard  # Security level: basic, standard, high
+  
+  # Permission management strategy for volumes and file ownership
+  # fsgroup: Use Kubernetes fsGroup (default, enables SetGID bit)
+  # explicit: Explicit UID/GID management without fsGroup (no SetGID bit)
+  permissionStrategy: fsgroup
+  
   securityContext: {}  # Additional Container Security Context (overrides defaults)
   podSecurityContext: {}  # Additional Pod Security Context (added to defaults)
 

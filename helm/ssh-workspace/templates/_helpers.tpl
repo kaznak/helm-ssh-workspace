@@ -85,16 +85,17 @@ capabilities:
 {{- end }}
 
 {{/*
-Main Container Security Context based on security level
-Design: Main Container uses read-only root filesystem for enhanced security.
-All required configurations are prepared by Init Container and mounted read-only.
+Main Container Security Context based on security level and permission strategy
+Design: SSH daemon requires root privileges, but permission management varies by strategy.
 */}}
 {{- define "ssh-workspace.securityContext" -}}
 {{- if eq .Values.security.level "basic" }}
 runAsNonRoot: false
 {{- else }}
-runAsNonRoot: false
+runAsNonRoot: false  # SSH daemon must run as root
+{{- if ne .Values.security.level "basic" }}
 readOnlyRootFilesystem: true  # Enhanced security: no write access to root filesystem
+{{- end }}
 {{- if not .Values.user.sudo }}
 allowPrivilegeEscalation: false  # Restricted when sudo not required
 {{- end }}
@@ -104,9 +105,13 @@ capabilities:
   add:
     - SETUID      # Required for SSH user switching
     - SETGID      # Required for SSH group switching
-    - CHOWN       # Required for SSH file ownership verification
-    - DAC_OVERRIDE # Required for SSH configuration access
     - SYS_CHROOT  # Required for SSH privilege separation
+{{- if eq .Values.security.permissionStrategy "explicit" }}
+    - CHOWN       # Required for explicit permission management
+    - DAC_OVERRIDE # Required for file ownership changes
+{{- else }}
+    - DAC_OVERRIDE # Required for SSH configuration access with fsGroup
+{{- end }}
 {{- if .Values.user.sudo }}
     - SETPCAP
     - SYS_ADMIN
@@ -123,19 +128,21 @@ seccompProfile:
 
 {{/*
 Pod Security Context
-Design: fsGroup ensures EmptyDir volumes are owned by the user's group,
-allowing both Init and Main containers to access files properly.
-
-Security Note: fsGroup sets SetGID bit (2xxx) on directories, which means:
-- All new files/dirs inherit the fsGroup's group ownership
-- This is generally safe but has implications:
-  - Git repositories will have all files owned by fsGroup
-  - SSH strict mode is OK with 2755 but not 2775 (group-writable)
-  - Development tools work normally but files have consistent group
+Supports two permission management strategies:
+1. fsgroup: Uses Kubernetes fsGroup (SetGID bit behavior)
+2. explicit: Manual UID/GID management (traditional Unix permissions)
 */}}
 {{- define "ssh-workspace.podSecurityContext" -}}
+{{- if eq .Values.security.permissionStrategy "explicit" }}
+{{/* Explicit strategy: No fsGroup, rely on manual permission management */}}
+runAsUser: 0  # SSH daemon requires root privileges
+runAsGroup: 0
+runAsNonRoot: false
+{{- else }}
+{{/* fsGroup strategy: Use Kubernetes fsGroup (default) */}}
 fsGroup: {{ .Values.user.gid | default 1000 }}
 fsGroupChangePolicy: "OnRootMismatch"
+{{- end }}
 {{- with .Values.security.podSecurityContext }}
 {{ toYaml . }}
 {{- end }}

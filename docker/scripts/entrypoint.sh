@@ -58,24 +58,32 @@ if [ -d "/home/$SSH_USER" ]; then
     #   4. Volume type and mount options
     # - SetGID bit (2xxx) ensures new files inherit group ownership
     
-    # Check if fsGroup is active by examining file ownership and permissions
-    echo "=== Checking fsGroup configuration ==="
+    # Check permission management strategy and current state
+    echo "=== Checking permission management configuration ==="
     echo "Current process user: $(id -un) (uid=$(id -u))"
     echo "Current process groups: $(id -G)"
     echo "Home directory stats:"
     stat -c "  Owner: %U:%G (uid=%u, gid=%g)" "/home/$SSH_USER"
     stat -c "  Permissions: %a (ls format: %A)" "/home/$SSH_USER"
     
-    # Check for SetGID bit (indicates fsGroup is active)
+    # Detect permission management strategy based on SetGID bit
+    # SetGID bit = 2000 in octal (010000000000 in binary)
     if [ $(($(stat -c %a "/home/$SSH_USER") & 2000)) -ne 0 ]; then
-        echo "  ✓ SetGID bit detected - fsGroup is managing directory permissions"
+        echo "  Strategy: fsGroup detected (SetGID bit present)"
         echo "  Note: All new files will inherit group '$(stat -c %G "/home/$SSH_USER")'"
+        echo "  This ensures consistent group ownership for volume sharing between containers"
         
         # Check if this could cause SSH issues
         if [ $(($(stat -c %a "/home/$SSH_USER") & 020)) -ne 0 ]; then
             echo "  ⚠️ WARNING: Home directory has group write permission with SetGID!"
             echo "  This may cause SSH to reject connections with StrictModes enabled"
         fi
+        PERMISSION_STRATEGY="fsgroup"
+    else
+        echo "  Strategy: explicit detected (no SetGID bit)"
+        echo "  Note: Traditional Unix permissions, files keep creator's group"
+        echo "  SSH daemon running as root with full permission control"
+        PERMISSION_STRATEGY="explicit"
     fi
     
     # Test actual permission capabilities
@@ -88,27 +96,57 @@ if [ -d "/home/$SSH_USER" ]; then
         rm -f "$TEST_FILE"
     }
     
-    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory ownership managed by fsGroup"
-    chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory permissions managed by fsGroup"
+    # Apply permission management based on detected strategy
+    if [ "$PERMISSION_STRATEGY" = "explicit" ]; then
+        # Explicit strategy: SSH daemon has full control as root
+        echo "Applying explicit permission management..."
+        chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" || {
+            echo "⚠️ WARNING: Could not set home directory ownership"
+        }
+        chmod 755 "/home/$SSH_USER" || {
+            echo "⚠️ WARNING: Could not set home directory permissions"
+        }
+    else
+        # fsGroup strategy: Limited control due to fsGroup restrictions
+        chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory ownership managed by fsGroup"
+        chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory permissions managed by fsGroup"
+    fi
     
     # .ssh ディレクトリの権限確認・修正
     if [ -d "/home/$SSH_USER/.ssh" ]; then
-        chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh" 2>/dev/null || echo "Note: SSH directory ownership managed by fsGroup"
-        chmod 700 "/home/$SSH_USER/.ssh" 2>/dev/null || {
-            echo "⚠️ WARNING: Could not set .ssh directory permissions to 700"
-            echo "Current permissions: $(stat -c %a "/home/$SSH_USER/.ssh" 2>/dev/null || echo "unknown")"
-            echo "SSH may reject connections if .ssh directory is not properly secured"
-        }
-        
-        if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
-            # CRITICAL: authorized_keys must have 600 permissions for SSH security
-            chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || {
-                echo "❌ CRITICAL: Cannot set authorized_keys permissions in Main Container!"
-                echo "Current permissions: $(stat -c %a "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "unknown")"
-                echo "SSH authentication will fail with incorrect permissions."
-                # Don't exit here as Init Container should have handled this
-                echo "⚠️ WARNING: Continuing with potentially insecure SSH key permissions"
+        if [ "$PERMISSION_STRATEGY" = "explicit" ]; then
+            # Explicit strategy: Full control
+            echo "Setting .ssh directory permissions (explicit strategy)..."
+            chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh" || {
+                echo "⚠️ WARNING: Could not set .ssh directory ownership"
             }
+            chmod 700 "/home/$SSH_USER/.ssh" || {
+                echo "⚠️ WARNING: Could not set .ssh directory permissions to 700"
+            }
+            
+            if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
+                chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" || {
+                    echo "❌ CRITICAL: Cannot set authorized_keys permissions!"
+                    echo "SSH authentication will fail with incorrect permissions."
+                }
+            fi
+        else
+            # fsGroup strategy: Limited control with diagnostics
+            chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh" 2>/dev/null || echo "Note: SSH directory ownership managed by fsGroup"
+            chmod 700 "/home/$SSH_USER/.ssh" 2>/dev/null || {
+                echo "⚠️ WARNING: Could not set .ssh directory permissions to 700"
+                echo "Current permissions: $(stat -c %a "/home/$SSH_USER/.ssh" 2>/dev/null || echo "unknown")"
+                echo "SSH may reject connections if .ssh directory is not properly secured"
+            }
+            
+            if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
+                chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || {
+                    echo "❌ CRITICAL: Cannot set authorized_keys permissions in Main Container!"
+                    echo "Current permissions: $(stat -c %a "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "unknown")"
+                    echo "SSH authentication will fail with incorrect permissions."
+                    echo "⚠️ WARNING: Continuing with potentially insecure SSH key permissions"
+                }
+            fi
         fi
     fi
     
