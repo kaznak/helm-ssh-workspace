@@ -69,6 +69,8 @@ spec:
             - name: SSH_USER_ADDITIONAL_GROUPS
               value: {{ .Values.user.additionalGroups | join "," | quote }}
             {{- end }}
+            - name: ETC_TARGET_DIR
+              value: "/etc-new"
           securityContext:
             runAsNonRoot: false
             readOnlyRootFilesystem: false

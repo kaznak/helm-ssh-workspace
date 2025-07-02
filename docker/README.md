@@ -40,6 +40,8 @@ docker build -f docker/Dockerfile -t ssh-workspace:latest .
 | `SSH_USER_ADDITIONAL_GROUPS` | ❌ | - | Additional groups (comma-separated) |
 | `TZ` | ❌ | UTC | Timezone (e.g., Asia/Tokyo) |
 
+**Note**: `ETC_TARGET_DIR` is used internally by Kubernetes Init Container (fixed to `/etc-new`).
+
 ## 📂 Required Mounts
 
 | Path | Purpose | Required |

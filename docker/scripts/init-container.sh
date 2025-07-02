@@ -17,6 +17,7 @@ SSH_USER_UID="${SSH_USER_UID:-1000}"
 SSH_USER_GID="${SSH_USER_GID:-1000}"
 SSH_USER_SHELL="${SSH_USER_SHELL:-/bin/bash}"
 SSH_USER_SUDO="${SSH_USER_SUDO:-false}"
+ETC_TARGET_DIR="${ETC_TARGET_DIR:-/etc-new}"
 
 echo "Creating user: $SSH_USER (uid=$SSH_USER_UID, gid=$SSH_USER_GID)"
 
@@ -40,29 +41,30 @@ fi
 
 # Copy system files to writable location (for readOnlyRootFilesystem)
 echo "Preparing system configuration..."
+echo "Target directory: $ETC_TARGET_DIR"
 rsync -a \
     --exclude='/etc/hostname' \
     --exclude='/etc/hosts' \
     --exclude='/etc/resolv.conf' \
     --exclude='/etc/mtab' \
-    /etc/ /etc-new/
+    /etc/ "$ETC_TARGET_DIR/"
 
 # Ensure SSH directory exists
-mkdir -p /etc-new/ssh
+mkdir -p "$ETC_TARGET_DIR/ssh"
 
 echo "✓ System configuration files copied with user data"
 
 # Copy SSH host keys from Secret (if they exist)
 if [ -f "/etc/ssh-host-keys/ssh_host_rsa_key" ]; then
-    cp /etc/ssh-host-keys/ssh_host_* /etc-new/ssh/
-    chmod 600 /etc-new/ssh/ssh_host_*_key
-    chmod 644 /etc-new/ssh/ssh_host_*_key.pub
+    cp /etc/ssh-host-keys/ssh_host_* "$ETC_TARGET_DIR/ssh/"
+    chmod 600 "$ETC_TARGET_DIR/ssh/ssh_host_"*"_key"
+    chmod 644 "$ETC_TARGET_DIR/ssh/ssh_host_"*"_key.pub"
     echo "✓ SSH host keys loaded from Secret"
 else
     # Generate SSH host keys on first deployment
-    ssh-keygen -t rsa -b 2048 -f /etc-new/ssh/ssh_host_rsa_key -N ""
-    ssh-keygen -t ecdsa -f /etc-new/ssh/ssh_host_ecdsa_key -N ""
-    ssh-keygen -t ed25519 -f /etc-new/ssh/ssh_host_ed25519_key -N ""
+    ssh-keygen -t rsa -b 2048 -f "$ETC_TARGET_DIR/ssh/ssh_host_rsa_key" -N ""
+    ssh-keygen -t ecdsa -f "$ETC_TARGET_DIR/ssh/ssh_host_ecdsa_key" -N ""
+    ssh-keygen -t ed25519 -f "$ETC_TARGET_DIR/ssh/ssh_host_ed25519_key" -N ""
     echo "✓ Generated new SSH host keys (first deployment)"
 fi
 
