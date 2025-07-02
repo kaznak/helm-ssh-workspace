@@ -7,13 +7,13 @@ Docker image for SSH-accessible workspace environment.
 ```
 docker/
 ├── Dockerfile              # Main image definition
-├── .dockerignore           # Docker build exclusion settings
-├── config/                 # Configuration files
+├── .dockerignore          # Docker build exclusion settings
+├── README.md              # This file
+├── README.ja.md           # Japanese documentation
+├── config/                # Configuration files
 │   └── sshd_config        # SSH configuration
-├── scripts/                # Executable scripts
-│   ├── entrypoint.sh      # Container initialization
-│   └── generate-host-keys.sh  # SSH host key generation
-└── README.md              # This file
+└── scripts/               # Executable scripts
+    └── entrypoint.sh      # Container initialization
 ```
 
 ## 🚀 Image Build
@@ -57,7 +57,7 @@ echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
 # Run container
 docker run -d \
   --name ssh-workspace \
-  -p 2222:22 \
+  -p 2222:2222 \
   -e SSH_USER=developer \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
@@ -74,7 +74,7 @@ docker volume create ssh-workspace-home
 
 docker run -d \
   --name ssh-workspace \
-  -p 2222:22 \
+  -p 2222:2222 \
   -e SSH_USER=developer \
   -e SSH_USER_SUDO=true \
   -e TZ=Asia/Tokyo \
@@ -107,9 +107,10 @@ docker run -d \
 ## 🔒 Security Features
 
 - SSH public key authentication only (password authentication disabled)
+- SSH port 2222 (non-privileged port)
 - Privilege separation process usage
 - Runs with minimal privileges
-- Automatic host key generation
+- SSH host keys must be provided via Kubernetes Secret (not embedded in image)
 
 ## 🛠️ Developer Guide
 

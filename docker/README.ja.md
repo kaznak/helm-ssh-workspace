@@ -7,13 +7,13 @@ SSH経由でアクセス可能なワークスペース環境のDockerイメー�
 ```
 docker/
 ├── Dockerfile              # メインイメージ定義
-├── .dockerignore           # Docker build除外設定
-├── config/                 # 設定ファイル
+├── .dockerignore          # Docker build除外設定
+├── README.md              # 英語ドキュメント
+├── README.ja.md           # このファイル
+├── config/                # 設定ファイル
 │   └── sshd_config        # SSH設定
-├── scripts/                # 実行スクリプト
-│   ├── entrypoint.sh      # コンテナ初期化
-│   └── generate-host-keys.sh  # SSHホストキー生成
-└── README.md              # このファイル
+└── scripts/               # 実行スクリプト
+    └── entrypoint.sh      # コンテナ初期化
 ```
 
 ## 🚀 イメージのビルド
@@ -57,7 +57,7 @@ echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
 # コンテナ実行
 docker run -d \
   --name ssh-workspace \
-  -p 2222:22 \
+  -p 2222:2222 \
   -e SSH_USER=developer \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
@@ -74,7 +74,7 @@ docker volume create ssh-workspace-home
 
 docker run -d \
   --name ssh-workspace \
-  -p 2222:22 \
+  -p 2222:2222 \
   -e SSH_USER=developer \
   -e SSH_USER_SUDO=true \
   -e TZ=Asia/Tokyo \
@@ -107,9 +107,10 @@ docker run -d \
 ## 🔒 セキュリティ機能
 
 - SSH公開鍵認証のみ（パスワード認証無効）
+- SSHポート2222（非特権ポート）
 - 権限分離プロセス使用
 - 最小限の権限で実行
-- ホストキー自動生成
+- SSHホストキーはKubernetes Secret経由で提供（イメージに含まない）
 
 ## 🛠️ 開発者向け
 
