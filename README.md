@@ -156,13 +156,14 @@ helm install workspace ./helm/ssh-workspace \
 | Root Login | Disabled | PermitRootLogin no |
 
 ### User Configuration
-- **Creation**: Auto-created with specified UID/GID (if not exists)
-- **SSH Public Key**: **Required** - Provided via ConfigMap
-- **Username**: **Required** - Used for user creation
+- **Creation**: Auto-created by Init Container with specified UID/GID (if not exists)
+- **SSH Public Key**: **Required** - Provided via ConfigMap, validated and configured by Init Container
+- **Username**: **Required** - Used for system user creation (`useradd`)
 - **UID/GID**: Optional (auto-assigned if not specified)
 - **Home Directory**: Persistence option (10GiB), uses emptyDir when disabled
-- **sudo Privileges**: Optional (disabled by default)
+- **sudo Privileges**: Optional (disabled by default), configured during Init Container setup
 - **Configuration Files**: Uses distribution defaults
+- **Security**: User creation isolated to Init Container, main container runs with pre-configured user
 
 ### X11 Forwarding
 - Only allows connections from localhost
@@ -187,9 +188,49 @@ helm install workspace ./helm/ssh-workspace \
 - **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
 - **When sudo enabled**: ["SETPCAP", "SYS_ADMIN"] added
 
+### Init Container Architecture
+
+SSH Workspace employs a **dual-container Init Container pattern** for enhanced security:
+
+#### Init Container (ssh-setup)
+- **Purpose**: User creation and SSH configuration setup
+- **Security Context**: 
+  - `readOnlyRootFilesystem: false` (required for system modifications)
+  - `allowPrivilegeEscalation: true`
+  - Capabilities: `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`
+- **Operations**:
+  - Creates user and group using `groupadd`/`useradd`
+  - Sets up SSH directory structure (`/home/user/.ssh`)
+  - Configures SSH authorized_keys with proper permissions
+  - Validates group memberships and sudo configuration
+- **Execution Time**: Short-lived (completes setup and exits)
+- **Network Exposure**: None (no ports exposed)
+
+#### Main Container (ssh-workspace)
+- **Purpose**: SSH daemon service only
+- **Security Context**:
+  - `readOnlyRootFilesystem: true` (maximum security)
+  - `allowPrivilegeEscalation: false`
+  - Minimal capabilities for SSH operation
+- **Operations**: 
+  - Runs SSH daemon (`/usr/sbin/sshd -D -e`)
+  - Uses pre-configured user and SSH settings from Init Container
+  - No dynamic system modifications
+- **Network Exposure**: SSH port 22 only
+
+#### Shared Resources
+- **EmptyDir Volume (`/etc`)**: User/group information and SSH configuration
+- **EmptyDir/PVC Volume (`/home`)**: User home directory
+- **ConfigMap**: SSH public keys
+- **Security Benefits**:
+  - Separation of privileges: setup vs. runtime
+  - Reduced attack surface: main container cannot modify system files
+  - No network exposure during privileged operations
+
 ### File System
-- **Read-only root**: Security enhancement
+- **Read-only root**: Security enhancement (main container)
 - **emptyDir mounts**:
+  - /etc: Shared user configuration (from Init Container)
   - /var/run: PID files (10Mi)
   - /tmp: Temporary files & X11 sockets (100Mi)
   - /var/empty: For sshd privilege separation process
@@ -297,12 +338,13 @@ ingress:
 
 ### Helm Features
 - **Schema**: Type validation via values.schema.json
+- **Init Container Pattern**: Secure dual-container architecture for user setup and SSH service
 - **Hooks**: 
-  - pre-install: SSH public key validation (required)
-  - post-install: Initialization completion check
-  - pre-upgrade: Compatibility check
-  - test: SSH connection test
-- **NOTES.txt**: SSH connection procedures, persistence warnings, troubleshooting
+  - pre-install: SSH public key format validation (runs before Init Container)
+  - post-install: SSH connectivity verification
+  - pre-upgrade: Compatibility and data migration check
+  - test: End-to-end SSH connection test
+- **NOTES.txt**: SSH connection procedures, Init Container status, persistence warnings, troubleshooting
 - **Labels**: app.kubernetes.io/* standard labels
 - **Required Parameters**: SSH public key, username
 - **Values Design**: All optional except deployment-time decisions (default values provided)

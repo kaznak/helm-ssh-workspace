@@ -156,13 +156,14 @@ helm install workspace ./helm/ssh-workspace \
 | Root Login | 無効 | PermitRootLogin no |
 
 ### ユーザ設定
-- **作成**: 指定UID/GIDで自動作成（存在しない場合）
-- **SSH公開鍵**: **必須** - ConfigMap経由で提供
-- **ユーザ名**: **必須** - ユーザ作成に使用
+- **作成**: Init Containerにより指定UID/GIDで自動作成（存在しない場合）
+- **SSH公開鍵**: **必須** - ConfigMap経由で提供、Init Containerで検証・設定
+- **ユーザ名**: **必須** - システムユーザ作成（`useradd`）に使用
 - **UID/GID**: オプション（未指定時は自動割り当て）
 - **ホームディレクトリ**: 永続化オプション（10GiB）、無効時はemptyDir使用
-- **sudo権限**: オプション（無効）
+- **sudo権限**: オプション（無効）、Init Container設定時に構成
 - **設定ファイル**: ディストリビューションデフォルト使用
+- **セキュリティ**: ユーザ作成はInit Containerに分離、メインコンテナは事前設定済みユーザで実行
 
 ### X11転送
 - ローカルホストからの接続のみ許可
@@ -187,9 +188,49 @@ helm install workspace ./helm/ssh-workspace \
 - **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
 - **sudo有効時**: ["SETPCAP", "SYS_ADMIN"]を追加
 
+### Init Containerアーキテクチャ
+
+SSH Workspaceは、セキュリティ強化のため**デュアルコンテナInit Containerパターン**を採用しています：
+
+#### Init Container (ssh-setup)
+- **目的**: ユーザ作成とSSH設定のセットアップ
+- **セキュリティコンテキスト**: 
+  - `readOnlyRootFilesystem: false`（システム変更に必要）
+  - `allowPrivilegeEscalation: true`
+  - Capabilities: `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`
+- **操作内容**:
+  - `groupadd`/`useradd`を使用したユーザ・グループ作成
+  - SSH ディレクトリ構造の設定（`/home/user/.ssh`）
+  - 適切な権限でのSSH authorized_keys設定
+  - グループメンバーシップとsudo設定の検証
+- **実行時間**: 短時間（設定完了後に終了）
+- **ネットワーク公開**: なし（ポート公開なし）
+
+#### メインコンテナ (ssh-workspace)
+- **目的**: SSHデーモンサービスのみ
+- **セキュリティコンテキスト**:
+  - `readOnlyRootFilesystem: true`（最大セキュリティ）
+  - `allowPrivilegeEscalation: false`
+  - SSH動作に必要な最小限capabilities
+- **操作内容**: 
+  - SSHデーモンの実行（`/usr/sbin/sshd -D -e`）
+  - Init Containerで事前設定されたユーザ・SSH設定を使用
+  - 動的なシステム変更は行わない
+- **ネットワーク公開**: SSH ポート22のみ
+
+#### 共有リソース
+- **EmptyDir Volume (`/etc`)**: ユーザ・グループ情報とSSH設定
+- **EmptyDir/PVC Volume (`/home`)**: ユーザホームディレクトリ
+- **ConfigMap**: SSH公開鍵
+- **セキュリティ上の利点**:
+  - 権限の分離: セットアップ vs ランタイム
+  - 攻撃面の削減: メインコンテナはシステムファイルを変更不可
+  - 特権操作中のネットワーク公開なし
+
 ### ファイルシステム
-- **読み取り専用ルート**: セキュリティ強化
+- **読み取り専用ルート**: セキュリティ強化（メインコンテナ）
 - **emptyDir マウント**:
+  - /etc: 共有ユーザ設定（Init Containerから）
   - /var/run: PIDファイル（10Mi）
   - /tmp: 一時ファイル・X11ソケット（100Mi）
   - /var/empty: sshd特権分離プロセス用
@@ -297,12 +338,13 @@ ingress:
 
 ### Helm機能
 - **Schema**: values.schema.jsonによる型検証
+- **Init Containerパターン**: ユーザセットアップとSSHサービスの安全なデュアルコンテナアーキテクチャ
 - **Hooks**: 
-  - pre-install: SSH公開鍵検証（必須）
-  - post-install: 初期化完了確認
-  - pre-upgrade: 互換性確認
-  - test: SSH接続テスト
-- **NOTES.txt**: SSH接続手順、永続化警告、トラブルシューティング
+  - pre-install: SSH公開鍵形式検証（Init Container実行前）
+  - post-install: SSH接続確認
+  - pre-upgrade: 互換性とデータ移行チェック
+  - test: エンドツーエンドSSH接続テスト
+- **NOTES.txt**: SSH接続手順、Init Containerステータス、永続化警告、トラブルシューティング
 - **Labels**: app.kubernetes.io/* 標準ラベル
 - **必須パラメータ**: SSH公開鍵、ユーザ名
 - **Values設計**: デプロイ時決定事項以外は全てオプション（デフォルト値提供）
