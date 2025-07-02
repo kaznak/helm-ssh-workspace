@@ -34,8 +34,8 @@ persistence:
 # Security configuration
 security:
   level: standard  # Security level: basic, standard, high
-  securityContext: {}  # Additional Pod Security Context
-  podSecurityContext: {}  # Additional Container Security Context
+  securityContext: {}  # Additional Container Security Context (overrides defaults)
+  podSecurityContext: {}  # Additional Pod Security Context (added to defaults)
 
 # Service configuration
 service:
