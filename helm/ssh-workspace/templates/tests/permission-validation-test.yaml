@@ -29,17 +29,34 @@ spec:
       echo "  Strategy: {{ .Values.security.permissionStrategy }}"
       echo "  Security Level: {{ .Values.security.level }}"
       
-      # Wait for workspace pod to be ready
+      # Wait for workspace pod to be ready (exclude test pods)
       echo "Waiting for workspace pod to be ready..."
-      kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} --timeout=120s
+      # Find the deployment pod (excluding test pods)
+      for i in {1..120}; do
+        # Get all pods and filter for non-test pods
+        ALL_PODS=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} -o name 2>/dev/null || true)
+        for pod in $ALL_PODS; do
+          # Check if this is a test pod by looking for helm hook annotation
+          IS_TEST_POD=$(kubectl get $pod -o jsonpath='{.metadata.annotations.helm\.sh/hook}' 2>/dev/null || true)
+          if [ -z "$IS_TEST_POD" ]; then
+            # This is not a test pod, check if it's ready
+            POD_NAME=$(echo $pod | sed 's|pod/||')
+            POD_READY=$(kubectl get pod "$POD_NAME" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+            if [ "$POD_READY" = "True" ]; then
+              echo "✓ Workspace pod $POD_NAME is ready"
+              break 2
+            fi
+          fi
+        done
+        echo "Waiting for workspace pod... ($i/120)"
+        sleep 1
+      done
       
-      # Get the workspace pod
-      POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} -o jsonpath='{.items[0].metadata.name}')
-      
-      if [ -z "$POD_NAME" ]; then
-          echo "❌ FAIL: Could not find SSH workspace pod"
-          kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }}
-          exit 1
+      # Verify we found the pod
+      if [ -z "$POD_NAME" ] || [ "$POD_READY" != "True" ]; then
+        echo "❌ FAIL: Workspace pod not ready after 120 seconds"
+        kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }}
+        exit 1
       fi
       
       echo "✓ Found workspace pod: $POD_NAME"
