@@ -101,11 +101,18 @@ jobs:
           cluster_name: test-cluster
           kubectl_version: v1.27.3
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Build Docker image for testing
-        run: |
-          # Build test image that will be used throughout this workflow
-          echo "Building test image: ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}"
-          docker build -t ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} docker/ --progress=plain
+        uses: docker/build-push-action@v6
+        with:
+          context: docker/
+          push: false
+          tags: ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }}
+          cache-from: type=gha,scope=ssh-workspace-test
+          cache-to: ${{ matrix.config.name == 'fsgroup-basic' && 'type=gha,mode=max,scope=ssh-workspace-test' || '' }}
+          load: true
 
       - name: Load test image into kind cluster
         run: |
