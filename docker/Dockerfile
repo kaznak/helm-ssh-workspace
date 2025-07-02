@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y \
     tree \
     unzip \
     ca-certificates \
+    rsync \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /var/run/sshd
 

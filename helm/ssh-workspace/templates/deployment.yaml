@@ -61,26 +61,6 @@ spec:
               echo "=== SSH Workspace Setup (Init Container) ==="
               echo "Configuring user: {{ .Values.user.name }} (UID: {{ .Values.user.uid | default 1000 }}, GID: {{ .Values.user.gid | default 1000 }})"
               
-              # Ensure basic system files exist in shared /etc
-              if [ ! -f "/etc/passwd" ]; then
-                echo "root:x:0:0:root:/root:/bin/sh" > /etc/passwd
-              fi
-              if [ ! -f "/etc/group" ]; then
-                echo "root:x:0:" > /etc/group
-              fi
-              
-              # Create sshd user for privilege separation
-              if ! getent passwd sshd >/dev/null 2>&1; then
-                groupadd -r -g 74 sshd
-                useradd -r -u 74 -g sshd -s /sbin/nologin -d /var/empty/sshd -c "Privilege-separated SSH" sshd
-                echo "✓ Created sshd user for privilege separation"
-              fi
-              
-              # Setup SSH daemon directories and configuration
-              mkdir -p /etc/ssh
-              mkdir -p /var/empty/sshd
-              chmod 755 /var/empty/sshd
-              
               # Create /run symlink to /var/run if it doesn't exist
               if [ ! -e /run ]; then
                 ln -s /var/run /run
@@ -90,75 +70,6 @@ spec:
               # Create sshd runtime directory
               mkdir -p /var/run/sshd
               chmod 755 /var/run/sshd
-              
-              # Create SSH daemon configuration
-              {
-                echo "# SSH Workspace Configuration"
-                echo "Port {{ .Values.ssh.port }}"
-                echo "Protocol 2"
-                echo ""
-                echo "# Host key settings"
-                echo "HostKey /etc/ssh/ssh_host_rsa_key"
-                echo "HostKey /etc/ssh/ssh_host_ecdsa_key"
-                echo "HostKey /etc/ssh/ssh_host_ed25519_key"
-                echo ""
-                echo "# Authentication settings"
-                echo "PasswordAuthentication no"
-                echo "PubkeyAuthentication yes"
-                echo "AuthorizedKeysFile .ssh/authorized_keys"
-                echo "PermitRootLogin no"
-                echo "MaxAuthTries 3"
-                echo "LoginGraceTime 30"
-                echo ""
-                echo "# Session settings"
-                echo "ClientAliveInterval 300"
-                echo "ClientAliveCountMax 3"
-                echo "TCPKeepAlive yes"
-                echo ""
-                echo "# X11 forwarding"
-                echo "X11Forwarding yes"
-                echo "X11DisplayOffset 10"
-                echo "X11UseLocalhost yes"
-                echo ""
-                echo "# Port forwarding"
-                echo "AllowTcpForwarding yes"
-                echo "GatewayPorts no"
-                echo ""
-                echo "# Logging"
-                echo "SyslogFacility AUTH"
-                echo "LogLevel INFO"
-                echo ""
-                echo "# Security settings"
-                echo "StrictModes yes"
-                echo "IgnoreRhosts yes"
-                echo "HostbasedAuthentication no"
-                echo "PermitEmptyPasswords no"
-                echo "ChallengeResponseAuthentication no"
-                echo "UsePAM yes"
-                echo "PrintMotd no"
-                echo "PrintLastLog yes"
-                echo "UseDNS no"
-                echo ""
-                echo "# Privilege separation (deprecated option removed)"
-                echo "# Modern OpenSSH always uses privilege separation"
-              } > /etc/ssh/sshd_config
-              echo "✓ Created SSH daemon configuration"
-              
-              # Generate SSH host keys if they don't exist
-              if [ ! -f "/etc/ssh/ssh_host_rsa_key" ]; then
-                ssh-keygen -t rsa -b 2048 -f /etc/ssh/ssh_host_rsa_key -N ""
-                echo "✓ Generated SSH RSA host key"
-              fi
-              
-              if [ ! -f "/etc/ssh/ssh_host_ecdsa_key" ]; then
-                ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N ""
-                echo "✓ Generated SSH ECDSA host key"
-              fi
-              
-              if [ ! -f "/etc/ssh/ssh_host_ed25519_key" ]; then
-                ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
-                echo "✓ Generated SSH ED25519 host key"
-              fi
               
               # Create group and user using proper system commands
               if ! getent group {{ .Values.user.name }} >/dev/null 2>&1; then
@@ -170,6 +81,33 @@ spec:
                 useradd -u {{ .Values.user.uid | default 1000 }} -g {{ .Values.user.gid | default 1000 }} \
                   -s {{ .Values.user.shell }} -m -d /home/{{ .Values.user.name }} {{ .Values.user.name }}
                 echo "✓ Created user: {{ .Values.user.name }}"
+              fi
+              
+              # Copy system configuration to /etc-new (after user creation)
+              echo "Copying system configuration files..."
+              rsync -av \
+                --exclude='mtab' \
+                --exclude='resolv.conf' \
+                --exclude='hostname' \
+                --exclude='hosts' \
+                --exclude='localtime' \
+                /etc/ /etc-new/
+              echo "✓ System configuration files copied with user data"
+              
+              # Generate SSH host keys if they don't exist
+              if [ ! -f "/etc-new/ssh/ssh_host_rsa_key" ]; then
+                ssh-keygen -t rsa -b 2048 -f /etc-new/ssh/ssh_host_rsa_key -N ""
+                echo "✓ Generated SSH RSA host key"
+              fi
+              
+              if [ ! -f "/etc-new/ssh/ssh_host_ecdsa_key" ]; then
+                ssh-keygen -t ecdsa -f /etc-new/ssh/ssh_host_ecdsa_key -N ""
+                echo "✓ Generated SSH ECDSA host key"
+              fi
+              
+              if [ ! -f "/etc-new/ssh/ssh_host_ed25519_key" ]; then
+                ssh-keygen -t ed25519 -f /etc-new/ssh/ssh_host_ed25519_key -N ""
+                echo "✓ Generated SSH ED25519 host key"
               fi
               
               # Setup SSH directory and keys
@@ -224,7 +162,7 @@ spec:
               mountPath: /etc/ssh-keys
               readOnly: true
             - name: etc
-              mountPath: /etc
+              mountPath: /etc-new
             - name: home
               mountPath: /home/{{ .Values.user.name }}
             - name: var-run
