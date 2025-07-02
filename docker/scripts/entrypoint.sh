@@ -88,8 +88,8 @@ if [ -n "$TZ" ]; then
     echo "Timezone set to: $TZ"
 fi
 
-# SSH ホストキー生成
-/opt/ssh-workspace/bin/generate-host-keys.sh
+# SSH ホストキーはHelm Chartで管理（Secret経由）
+echo "SSH host keys are managed by Helm Chart via Secret"
 
 # SSH設定の妥当性確認
 echo "Validating SSH configuration..."

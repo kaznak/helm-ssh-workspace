@@ -94,20 +94,18 @@ spec:
                 /etc/ /etc-new/
               echo "✓ System configuration files copied with user data"
               
-              # Generate SSH host keys if they don't exist
-              if [ ! -f "/etc-new/ssh/ssh_host_rsa_key" ]; then
+              # Copy SSH host keys from Secret (if they exist)
+              if [ -f "/etc/ssh-host-keys/ssh_host_rsa_key" ]; then
+                cp /etc/ssh-host-keys/ssh_host_* /etc-new/ssh/
+                chmod 600 /etc-new/ssh/ssh_host_*_key
+                chmod 644 /etc-new/ssh/ssh_host_*_key.pub
+                echo "✓ SSH host keys loaded from Secret"
+              else
+                # Generate SSH host keys on first deployment
                 ssh-keygen -t rsa -b 2048 -f /etc-new/ssh/ssh_host_rsa_key -N ""
-                echo "✓ Generated SSH RSA host key"
-              fi
-              
-              if [ ! -f "/etc-new/ssh/ssh_host_ecdsa_key" ]; then
                 ssh-keygen -t ecdsa -f /etc-new/ssh/ssh_host_ecdsa_key -N ""
-                echo "✓ Generated SSH ECDSA host key"
-              fi
-              
-              if [ ! -f "/etc-new/ssh/ssh_host_ed25519_key" ]; then
                 ssh-keygen -t ed25519 -f /etc-new/ssh/ssh_host_ed25519_key -N ""
-                echo "✓ Generated SSH ED25519 host key"
+                echo "✓ Generated new SSH host keys (first deployment)"
               fi
               
               # Setup SSH directory and keys
@@ -160,6 +158,9 @@ spec:
           volumeMounts:
             - name: ssh-keys
               mountPath: /etc/ssh-keys
+              readOnly: true
+            - name: ssh-host-keys
+              mountPath: /etc/ssh-host-keys
               readOnly: true
             - name: etc
               mountPath: /etc-new
@@ -266,6 +267,11 @@ spec:
           configMap:
             name: {{ include "ssh-workspace.fullname" . }}-ssh-keys
             defaultMode: 0600
+        - name: ssh-host-keys
+          secret:
+            secretName: {{ include "ssh-workspace.fullname" . }}-host-keys
+            defaultMode: 0600
+            optional: true
         - name: etc
           emptyDir: {}
         {{- if .Values.persistence.enabled }}

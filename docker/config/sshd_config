@@ -44,5 +44,4 @@ PrintMotd no
 PrintLastLog yes
 UseDNS no
 
-# 権限分離
-UsePrivilegeSeparation sandbox
+# 権限分離は自動的に有効（現代のOpenSSH）
