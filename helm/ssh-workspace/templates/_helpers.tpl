@@ -123,11 +123,12 @@ seccompProfile:
 
 {{/*
 Pod Security Context
+Design: fsGroup ensures EmptyDir volumes are owned by the user's group,
+allowing both Init and Main containers to access files properly.
 */}}
 {{- define "ssh-workspace.podSecurityContext" -}}
-{{- if ne .Values.security.level "basic" }}
 fsGroup: {{ .Values.user.gid | default 1000 }}
-{{- end }}
+fsGroupChangePolicy: "OnRootMismatch"
 {{- with .Values.security.podSecurityContext }}
 {{ toYaml . }}
 {{- end }}

@@ -86,15 +86,28 @@ if [ -d "/etc/ssh-keys" ]; then
 fi
 
 # Set correct permissions for home directory and SSH files
-# For EmptyDir volumes, try to set ownership and permissions, ignore failures
-chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Could not change ownership of /home/$SSH_USER (may be root-owned volume)"
-chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Could not change permissions of /home/$SSH_USER (may be root-owned volume)"
-echo "✓ Home directory ownership and permissions configured for $SSH_USER"
+# Note: fsGroup in podSecurityContext should handle volume ownership
+echo "Setting up home directory permissions..."
+
+# Check if home directory has correct ownership (fsGroup should handle this)
+HOME_OWNER=$(stat -c %U "/home/$SSH_USER" 2>/dev/null || echo "unknown")
+HOME_GROUP=$(stat -c %G "/home/$SSH_USER" 2>/dev/null || echo "unknown") 
+echo "Home directory owner: $HOME_OWNER:$HOME_GROUP"
+
+# Ensure home directory has correct permissions (should be writable by group due to fsGroup)
+if [ "$(stat -c %a "/home/$SSH_USER" 2>/dev/null)" != "755" ]; then
+    chmod 755 "/home/$SSH_USER" 2>/dev/null && echo "✓ Set home directory permissions to 755" || echo "⚠ Could not set home directory permissions"
+fi
 
 # Set authorized_keys permissions if file exists
 if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
-    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh/authorized_keys"
-    chmod 600 "/home/$SSH_USER/.ssh/authorized_keys"
+    # authorized_keys must be readable only by owner (critical for SSH security)
+    chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null && echo "✓ Set authorized_keys permissions to 600" || {
+        echo "❌ CRITICAL: Cannot set authorized_keys permissions - SSH authentication will fail!"
+        echo "Current authorized_keys permissions: $(stat -c %a "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "unknown")"
+        echo "This is a security risk and SSH will reject the key file."
+        exit 1
+    }
 fi
 echo "✓ Home directory and SSH permissions set for $SSH_USER"
 
