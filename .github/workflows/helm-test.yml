@@ -192,6 +192,8 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set security.permissionStrategy=fsgroup \
+            --set security.level=standard \
             --validate \
             --debug
           echo "✓ Helm template validation with Kubernetes API successful"
@@ -210,41 +212,10 @@ jobs:
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
-            --debug &
-          HELM_PID=$!
-          
-          # Monitor in background
-          while kill -0 $HELM_PID 2>/dev/null; do
-            echo "=== Checking cluster status ==="
-            kubectl get pods -A | grep -E "(test-${{ matrix.config.name }}|pre-install)" || echo "No test-${{ matrix.config.name }} pods found"
-            
-            # Get detailed pod information if pods exist
-            if kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} >/dev/null 2>&1; then
-              echo "=== Pod Details ==="
-              kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o wide
-              echo "=== Pod Descriptions ==="
-              kubectl describe pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
-              echo "=== Pod Logs ==="
-              for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name); do
-                echo "[POD] $pod"
-                
-                echo "[INIT-CONTAINER:ssh-setup]"
-                kubectl logs $pod -c ssh-setup --tail=20 2>/dev/null || echo "[NO-LOGS]"
-                
-                echo "[MAIN-CONTAINER:ssh-workspace]"
-                kubectl logs $pod -c ssh-workspace --tail=20 2>/dev/null || echo "[NO-LOGS]"
-                
-                echo "[PREVIOUS:ssh-workspace]"
-                kubectl logs $pod -c ssh-workspace --previous=true --tail=20 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
-              done
-            fi
-            
-            echo "=== Recent Events ==="
-            kubectl get events --sort-by='.lastTimestamp' | tail -15 || echo "No events found"
-            sleep 30
-          done
-          
-          wait $HELM_PID
+            --timeout=300s \
+            --wait \
+            --debug
+          echo "✓ Helm chart installation completed"
 
       - name: Debug Deployment Configuration
         run: |
