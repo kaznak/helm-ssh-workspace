@@ -91,9 +91,24 @@ fi
 echo "Setting up home directory permissions..."
 
 # Check if home directory has correct ownership (fsGroup should handle this)
+echo "=== Checking fsGroup configuration in Init Container ==="
+echo "Current process info:"
+echo "  Running as: $(id)"
+echo "  Process groups: $(id -G)"
+
 HOME_OWNER=$(stat -c %U "/home/$SSH_USER" 2>/dev/null || echo "unknown")
-HOME_GROUP=$(stat -c %G "/home/$SSH_USER" 2>/dev/null || echo "unknown") 
-echo "Home directory owner: $HOME_OWNER:$HOME_GROUP"
+HOME_GROUP=$(stat -c %G "/home/$SSH_USER" 2>/dev/null || echo "unknown")
+HOME_PERMS=$(stat -c %a "/home/$SSH_USER" 2>/dev/null || echo "unknown")
+echo "Home directory stats:"
+echo "  Owner: $HOME_OWNER:$HOME_GROUP"
+echo "  Permissions: $HOME_PERMS"
+
+# Check if any volume mounts have SetGID bit
+echo "Volume mount permissions:"
+mount | grep "/home/$SSH_USER" && {
+    echo "  Mount detected for home directory"
+}
+df -h "/home/$SSH_USER" | tail -1
 
 # Ensure home directory has correct permissions (should be writable by group due to fsGroup)
 if [ "$(stat -c %a "/home/$SSH_USER" 2>/dev/null)" != "755" ]; then

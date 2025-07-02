@@ -48,6 +48,19 @@ if [ -d "/home/$SSH_USER" ]; then
     # Design: Init Container has already configured permissions with fsGroup
     # Main Container attempts verification but doesn't fail due to fsGroup restrictions
     # Security rationale: fsGroup provides necessary access, manual chmod may fail due to volume ownership
+    
+    # Check if fsGroup is active by examining file ownership and permissions
+    echo "=== Checking fsGroup configuration ==="
+    echo "Current process groups: $(id -G)"
+    echo "Home directory stats:"
+    stat -c "  Owner: %U:%G (uid=%u, gid=%g)" "/home/$SSH_USER"
+    stat -c "  Permissions: %a (ls format: %A)" "/home/$SSH_USER"
+    
+    # Check for SetGID bit (indicates fsGroup is active)
+    if [ $(($(stat -c %a "/home/$SSH_USER") & 2000)) -ne 0 ]; then
+        echo "  ✓ SetGID bit detected - fsGroup is managing directory permissions"
+    fi
+    
     chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory ownership managed by fsGroup"
     chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory permissions managed by fsGroup"
     
