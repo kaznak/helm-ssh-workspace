@@ -75,10 +75,11 @@ capabilities:
   drop:
     - ALL
   add:
+    - SETUID
+    - SETGID  
     - CHOWN
     - DAC_OVERRIDE
-    - SETUID
-    - SETGID
+    # SYS_CHROOT not needed for Init Container (user setup only)
 {{- end }}
 
 {{/*
