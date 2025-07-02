@@ -117,9 +117,20 @@ jobs:
           
           wait $HELM_PID
 
+      - name: Debug Deployment Configuration
+        run: |
+          echo "=== Checking Deployment Readiness Probe Configuration ==="
+          kubectl get deployment test-workspace-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
+          
+          echo "=== Checking Pod Status ==="
+          kubectl get pods -l app.kubernetes.io/instance=test-workspace
+          
+          echo "=== Checking Pod Readiness Details ==="
+          kubectl describe pod -l app.kubernetes.io/instance=test-workspace | grep -A 10 -B 5 "Readiness\|Ready\|port"
+
       - name: Run Helm Tests
         run: |
-          helm test test-workspace --timeout=300s --debug
+          helm test test-workspace --timeout=300s
 
       - name: Check deployment status
         if: always()
