@@ -199,7 +199,7 @@ jobs:
       - name: Install Helm Chart
         run: |
           echo "=== Installing Helm Chart: ${{ matrix.config.name }} ==="
-          helm install test-workspace-${{ matrix.config.name }} helm/ssh-workspace \
+          helm install test-${{ matrix.config.name }} helm/ssh-workspace \
             --set image.repository=${{ env.TEST_IMAGE_NAME }} \
             --set image.tag=${{ env.TEST_IMAGE_TAG }} \
             --set image.pullPolicy=Never \
@@ -216,16 +216,16 @@ jobs:
           # Monitor in background
           while kill -0 $HELM_PID 2>/dev/null; do
             echo "=== Checking cluster status ==="
-            kubectl get pods -A | grep -E "(test-workspace-${{ matrix.config.name }}|pre-install)" || echo "No test-workspace-${{ matrix.config.name }} pods found"
+            kubectl get pods -A | grep -E "(test-${{ matrix.config.name }}|pre-install)" || echo "No test-${{ matrix.config.name }} pods found"
             
             # Get detailed pod information if pods exist
-            if kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} >/dev/null 2>&1; then
+            if kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} >/dev/null 2>&1; then
               echo "=== Pod Details ==="
-              kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o wide
+              kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o wide
               echo "=== Pod Descriptions ==="
-              kubectl describe pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }}
+              kubectl describe pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
               echo "=== Pod Logs ==="
-              for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o name); do
+              for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name); do
                 echo "[POD] $pod"
                 
                 echo "[INIT-CONTAINER:ssh-setup]"
@@ -249,17 +249,17 @@ jobs:
       - name: Debug Deployment Configuration
         run: |
           echo "=== Checking Deployment Readiness Probe Configuration ==="
-          kubectl get deployment test-workspace-${{ matrix.config.name }}-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
+          kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
           
           echo "=== Checking Pod Status ==="
-          kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }}
+          kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
           
           echo "=== Checking Pod Readiness Details ==="
-          kubectl describe pod -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
+          kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
 
       - name: Run Helm Tests
         run: |
-          helm test test-workspace-${{ matrix.config.name }} --timeout=300s
+          helm test test-${{ matrix.config.name }} --timeout=300s
 
       - name: SSH Connectivity Test (External)
         run: |
@@ -271,12 +271,12 @@ jobs:
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
           
           # Get service information
-          SERVICE_PORT=$(kubectl get service test-workspace-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
+          SERVICE_PORT=$(kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
           echo "Service port: $SERVICE_PORT"
           
           # Port forward for SSH access
           echo "Setting up port forward..."
-          kubectl port-forward service/test-workspace-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
+          kubectl port-forward service/test-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
           PORT_FORWARD_PID=$!
           sleep 10
           
@@ -296,7 +296,7 @@ jobs:
             nc -zv localhost 2222 || echo "Port 2222 not accessible"
             
             echo "=== Service status ==="
-            kubectl get service test-workspace-${{ matrix.config.name }}-ssh-workspace -o wide
+            kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o wide
             
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
@@ -312,16 +312,16 @@ jobs:
         if: always()
         run: |
           echo "=== Final Helm Status ==="
-          helm status test-workspace-${{ matrix.config.name }} || echo "Helm release not found"
+          helm status test-${{ matrix.config.name }} || echo "Helm release not found"
           
           echo "=== Getting all resources ==="
-          kubectl get all -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o wide
+          kubectl get all -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o wide
           
           echo "=== Describing pods ==="
-          kubectl describe pod -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }}
+          kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
           
           echo "=== Pod Logs ==="
-          for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o name 2>/dev/null); do
+          for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null); do
             echo "[POD] $pod"
             
             echo "[INIT-CONTAINER:ssh-setup]"
@@ -334,21 +334,21 @@ jobs:
             kubectl logs $pod -c ssh-workspace --previous=true --tail=30 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
           done
           
-          if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
+          if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
             echo "[NO-PODS-FOUND]"
           fi
           
           echo "=== All Events ==="
-          kubectl get events --sort-by='.lastTimestamp' | grep test-workspace-${{ matrix.config.name }} || echo "No test-workspace-${{ matrix.config.name }} events found"
+          kubectl get events --sort-by='.lastTimestamp' | grep test-${{ matrix.config.name }} || echo "No test-${{ matrix.config.name }} events found"
           
           echo "=== All Recent Events ==="
           kubectl get events --sort-by='.lastTimestamp' | tail -20
           
           echo "=== Deployment troubleshooting ==="
-          kubectl get deployment test-workspace-${{ matrix.config.name }}-ssh-workspace -o yaml || echo "Deployment not found"
+          kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml || echo "Deployment not found"
           
           echo "=== ReplicaSet troubleshooting ==="
-          kubectl get rs -l app.kubernetes.io/instance=test-workspace-${{ matrix.config.name }} -o yaml || echo "ReplicaSet not found"
+          kubectl get rs -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o yaml || echo "ReplicaSet not found"
 
       - name: Cleanup
         if: always()
@@ -357,7 +357,7 @@ jobs:
           # Clean up SSH test keys
           rm -f $TEST_SSH_PRIVATE_KEY_PATH $TEST_SSH_PRIVATE_KEY_PATH.pub 2>/dev/null || true
           
-          helm uninstall test-workspace-${{ matrix.config.name }} --debug || true
+          helm uninstall test-${{ matrix.config.name }} --debug || true
           echo "=== Final cluster state ==="
-          kubectl get all -A | grep test-workspace-${{ matrix.config.name }} || echo "No remaining test-workspace-${{ matrix.config.name }} resources"
+          kubectl get all -A | grep test-${{ matrix.config.name }} || echo "No remaining test-${{ matrix.config.name }} resources"
 
