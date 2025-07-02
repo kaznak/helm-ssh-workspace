@@ -69,6 +69,13 @@ if [ -d "/home/$SSH_USER" ]; then
     # Check for SetGID bit (indicates fsGroup is active)
     if [ $(($(stat -c %a "/home/$SSH_USER") & 2000)) -ne 0 ]; then
         echo "  ✓ SetGID bit detected - fsGroup is managing directory permissions"
+        echo "  Note: All new files will inherit group '$(stat -c %G "/home/$SSH_USER")'"
+        
+        # Check if this could cause SSH issues
+        if [ $(($(stat -c %a "/home/$SSH_USER") & 020)) -ne 0 ]; then
+            echo "  ⚠️ WARNING: Home directory has group write permission with SetGID!"
+            echo "  This may cause SSH to reject connections with StrictModes enabled"
+        fi
     fi
     
     # Test actual permission capabilities

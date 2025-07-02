@@ -125,6 +125,13 @@ seccompProfile:
 Pod Security Context
 Design: fsGroup ensures EmptyDir volumes are owned by the user's group,
 allowing both Init and Main containers to access files properly.
+
+Security Note: fsGroup sets SetGID bit (2xxx) on directories, which means:
+- All new files/dirs inherit the fsGroup's group ownership
+- This is generally safe but has implications:
+  - Git repositories will have all files owned by fsGroup
+  - SSH strict mode is OK with 2755 but not 2775 (group-writable)
+  - Development tools work normally but files have consistent group
 */}}
 {{- define "ssh-workspace.podSecurityContext" -}}
 fsGroup: {{ .Values.user.gid | default 1000 }}
