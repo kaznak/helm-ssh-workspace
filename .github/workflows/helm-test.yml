@@ -361,3 +361,33 @@ jobs:
           echo "=== Final cluster state ==="
           kubectl get all -A | grep test-${{ matrix.config.name }} || echo "No remaining test-${{ matrix.config.name }} resources"
 
+  cleanup:
+    name: Cleanup Artifacts
+    runs-on: ubuntu-latest
+    needs: [prepare, test]
+    if: always()
+    steps:
+      - name: List artifacts before cleanup
+        run: |
+          echo "=== Cleaning up workflow artifacts ==="
+          echo "The following artifacts will be deleted to save storage:"
+          echo "  - ssh-workspace-image (Docker image)"
+          echo "  - ssh-test-keys (SSH key pair)"
+
+      - name: Delete Docker image artifact
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: ssh-workspace-image
+          failOnError: false
+
+      - name: Delete SSH test keys artifact
+        uses: geekyeggo/delete-artifact@v5
+        with:
+          name: ssh-test-keys
+          failOnError: false
+
+      - name: Cleanup completion
+        run: |
+          echo "✅ Artifact cleanup completed successfully"
+          echo "Storage space has been freed for future workflow runs"
+
