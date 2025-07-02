@@ -45,4 +45,7 @@ PrintMotd no
 PrintLastLog yes
 UseDNS no
 
-# 権限分離は自動的に有効（現代のOpenSSH）
+# UsePrivilegeSeparation は OpenSSH 7.5 (2017年) で廃止予定となり、
+# OpenSSH 8.0+ では完全に削除されました。現在は権限分離が常に有効で、
+# サンドボックスモードが強制的に使用されます。
+# このため、UsePrivilegeSeparation オプションは設定から削除されています。
