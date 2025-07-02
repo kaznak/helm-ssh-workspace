@@ -192,8 +192,8 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
-            --set security.permissionStrategy=fsgroup \
-            --set security.level=standard \
+            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
+            --set security.level=${{ matrix.config.security_level }} \
             --validate \
             --debug
           echo "✓ Helm template validation with Kubernetes API successful"
