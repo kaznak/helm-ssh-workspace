@@ -1,4 +1,4 @@
-{{- if .Values.ssh.testKeys.enabled }}
+{{- if false }}
 apiVersion: v1
 kind: Pod
 metadata:

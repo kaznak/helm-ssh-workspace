@@ -30,11 +30,16 @@ spec:
       echo "  Strategy: {{ .Values.security.permissionStrategy }}"
       echo "  Security Level: {{ .Values.security.level }}"
       
+      # Wait for workspace pod to be ready
+      echo "Waiting for workspace pod to be ready..."
+      kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} --timeout=120s
+      
       # Get the workspace pod
       POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} -o jsonpath='{.items[0].metadata.name}')
       
       if [ -z "$POD_NAME" ]; then
           echo "❌ FAIL: Could not find SSH workspace pod"
+          kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }}
           exit 1
       fi
       
