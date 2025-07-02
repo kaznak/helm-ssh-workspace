@@ -28,21 +28,45 @@ spec:
       echo "Testing deployed configuration:"
       echo "  Strategy: {{ .Values.security.permissionStrategy }}"
       echo "  Security Level: {{ .Values.security.level }}"
+      echo "  Release Name: {{ .Release.Name }}"
+      echo "  Test Pod: $(hostname)"
+      echo "  Timestamp: $(date)"
+      
+      # Show debugging info
+      echo "=== Environment Info ==="
+      echo "Current user: $(id)"
+      echo "Available tools: kubectl=$(which kubectl)"
       
       # Wait for workspace pod to be ready (exclude test pods)
+      echo "=== Pod Discovery Phase ==="
+      echo "Searching for workspace pods with labels:"
+      echo "  app.kubernetes.io/name=ssh-workspace"
+      echo "  app.kubernetes.io/instance={{ .Release.Name }}"
+      
+      # Show all pods initially for debugging
+      echo "All pods in namespace:"
+      kubectl get pods -o wide 2>/dev/null || echo "Cannot list pods"
+      
       echo "Waiting for workspace pod to be ready..."
       # Find the deployment pod (excluding test pods)
       i=1
       while [ $i -le 120 ]; do
         # Get all pods and filter for non-test pods
         ALL_PODS=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance={{ .Release.Name }} -o name 2>/dev/null || true)
+        echo "Found pods with labels: $ALL_PODS"
+        
         for pod in $ALL_PODS; do
           # Check if this is a test pod by looking for helm hook annotation
+          echo "Checking pod: $pod"
           IS_TEST_POD=$(kubectl get $pod -o jsonpath='{.metadata.annotations.helm\.sh/hook}' 2>/dev/null || true)
+          echo "  Test pod annotation: '$IS_TEST_POD'"
+          
           if [ -z "$IS_TEST_POD" ]; then
             # This is not a test pod, check if it's ready
             POD_NAME=$(echo $pod | sed 's|pod/||')
             POD_READY=$(kubectl get pod "$POD_NAME" -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}' 2>/dev/null || true)
+            echo "  Pod readiness: '$POD_READY'"
+            
             if [ "$POD_READY" = "True" ]; then
               echo "✓ Workspace pod $POD_NAME is ready"
               break 2
@@ -64,76 +88,159 @@ spec:
       echo "✓ Found workspace pod: $POD_NAME"
       
       # Test permission strategy validation
-      echo "Checking permission implementation..."
+      echo "=== Permission Analysis Phase ==="
+      echo "Checking permission implementation for user: {{ .Values.user.name }}"
+      echo "Executing permission check on pod: $POD_NAME"
       
+      # First, show pod security context for debugging
+      echo "Pod security context:"
+      kubectl get pod "$POD_NAME" -o jsonpath='{.spec.securityContext}' 2>/dev/null || echo "Cannot get security context"
+      
+      echo "Running permission analysis..."
       PERM_OUTPUT=$(kubectl exec "$POD_NAME" -- /bin/sh -c '
+          echo "=== Inside Pod Permission Check ==="
+          echo "Current process info:"
+          id
+          echo "Available filesystem:"
+          df -h
+          echo "Mount information:"
+          mount | grep "/home" || echo "No /home mounts found"
+          
           if [ -d "/home/{{ .Values.user.name }}" ]; then
+              echo "Home directory exists: /home/{{ .Values.user.name }}"
               PERMS=$(stat -c %a "/home/{{ .Values.user.name }}")
               SETGID_CHECK=$((PERMS & 2000))
               echo "home_permissions:$PERMS"
               echo "setgid_bit:$SETGID_CHECK"
               
+              # Show detailed stat output
+              echo "Detailed home directory info:"
+              stat -c "  Permissions: %a (%A)" "/home/{{ .Values.user.name }}"
+              stat -c "  Owner: %U:%G (%u:%g)" "/home/{{ .Values.user.name }}"
+              
               if [ -d "/home/{{ .Values.user.name }}/.ssh" ]; then
                   SSH_PERMS=$(stat -c %a "/home/{{ .Values.user.name }}/.ssh")
                   echo "ssh_permissions:$SSH_PERMS"
+                  echo ".ssh directory info:"
+                  stat -c "  Permissions: %a (%A)" "/home/{{ .Values.user.name }}/.ssh"
+              else
+                  echo ".ssh directory does not exist"
               fi
               
               if [ -f "/home/{{ .Values.user.name }}/.ssh/authorized_keys" ]; then
                   AUTH_PERMS=$(stat -c %a "/home/{{ .Values.user.name }}/.ssh/authorized_keys")
                   echo "authorized_keys_permissions:$AUTH_PERMS"
+                  echo "authorized_keys file info:"
+                  stat -c "  Permissions: %a (%A)" "/home/{{ .Values.user.name }}/.ssh/authorized_keys"
+              else
+                  echo "authorized_keys file does not exist"
               fi
+          else
+              echo "❌ ERROR: Home directory /home/{{ .Values.user.name }} does not exist"
+              echo "Available directories in /home:"
+              ls -la /home/ 2>/dev/null || echo "Cannot list /home"
           fi
-      ')
+      ') 2>&1
       
-      echo "Permission analysis:"
+      echo "=== Raw Permission Analysis Output ==="
       echo "$PERM_OUTPUT"
+      echo "=== End Raw Output ==="
       
-      # Parse results
+      # Parse results with error checking
       HOME_PERMS=$(echo "$PERM_OUTPUT" | grep "home_permissions:" | cut -d: -f2)
       SETGID_BIT=$(echo "$PERM_OUTPUT" | grep "setgid_bit:" | cut -d: -f2)
       SSH_PERMS=$(echo "$PERM_OUTPUT" | grep "ssh_permissions:" | cut -d: -f2)
       AUTH_PERMS=$(echo "$PERM_OUTPUT" | grep "authorized_keys_permissions:" | cut -d: -f2)
       
+      echo "=== Parsed Values ==="
+      echo "HOME_PERMS: '$HOME_PERMS'"
+      echo "SETGID_BIT: '$SETGID_BIT'"
+      echo "SSH_PERMS: '$SSH_PERMS'"
+      echo "AUTH_PERMS: '$AUTH_PERMS'"
+      
       # Validate strategy implementation
+      echo "=== Strategy Validation ==="
+      echo "Testing strategy: {{ .Values.security.permissionStrategy }}"
+      
+      # Check if required values were parsed correctly
+      if [ -z "$HOME_PERMS" ]; then
+          echo "❌ CRITICAL: Could not determine home directory permissions"
+          echo "This indicates the permission analysis failed completely"
+          exit 1
+      fi
+      
+      if [ -z "$SETGID_BIT" ]; then
+          echo "❌ CRITICAL: Could not determine SetGID bit status"
+          echo "This indicates the permission parsing failed"
+          exit 1
+      fi
+      
       case "{{ .Values.security.permissionStrategy }}" in
           "fsgroup")
+              echo "Validating fsgroup strategy..."
+              echo "Expected: SetGID bit should be present (non-zero)"
+              echo "Actual: SetGID bit = $SETGID_BIT"
               if [ "$SETGID_BIT" != "0" ]; then
                   echo "✓ PASS: SetGID bit correctly present for fsgroup strategy (permissions: $HOME_PERMS)"
               else
                   echo "❌ FAIL: SetGID bit missing for fsgroup strategy (permissions: $HOME_PERMS)"
+                  echo "Analysis: fsGroup should set SetGID bit on volumes, but it's missing"
                   exit 1
               fi
               ;;
           "explicit")
+              echo "Validating explicit strategy..."
+              echo "Expected: SetGID bit should be absent (zero)"
+              echo "Actual: SetGID bit = $SETGID_BIT"
               if [ "$SETGID_BIT" = "0" ]; then
                   echo "✓ PASS: SetGID bit correctly absent for explicit strategy (permissions: $HOME_PERMS)"
               else
                   echo "❌ FAIL: SetGID bit unexpectedly present for explicit strategy (permissions: $HOME_PERMS)"
+                  echo "Analysis: explicit strategy should not use fsGroup, but SetGID bit is present"
                   exit 1
               fi
+              ;;
+          *)
+              echo "❌ UNKNOWN STRATEGY: {{ .Values.security.permissionStrategy }}"
+              echo "Only 'fsgroup' and 'explicit' strategies are supported"
+              exit 1
               ;;
       esac
       
       # Validate SSH permissions
+      echo "=== SSH Permission Validation ==="
       if [ -n "$SSH_PERMS" ]; then
+          echo "SSH directory permissions: $SSH_PERMS"
           if [ "$SSH_PERMS" = "700" ] || [ "$SSH_PERMS" = "2700" ]; then
               echo "✓ PASS: SSH directory has secure permissions: $SSH_PERMS"
           else
               echo "❌ FAIL: SSH directory has insecure permissions: $SSH_PERMS"
+              echo "Expected: 700 or 2700, Got: $SSH_PERMS"
               exit 1
           fi
+      else
+          echo "⚠️ WARNING: SSH directory not found or permissions not readable"
       fi
       
       if [ -n "$AUTH_PERMS" ]; then
+          echo "authorized_keys permissions: $AUTH_PERMS"
           if [ "$AUTH_PERMS" = "600" ]; then
               echo "✓ PASS: authorized_keys has correct permissions: $AUTH_PERMS"
           else
               echo "❌ FAIL: authorized_keys has incorrect permissions: $AUTH_PERMS"
+              echo "Expected: 600, Got: $AUTH_PERMS"
               exit 1
           fi
+      else
+          echo "⚠️ WARNING: authorized_keys file not found or permissions not readable"
       fi
       
+      echo "=== Test Summary ==="
       echo "✓ Permission strategy validation completed successfully"
+      echo "Strategy: {{ .Values.security.permissionStrategy }}"
+      echo "Home permissions: $HOME_PERMS"
+      echo "SetGID bit: $SETGID_BIT"
+      echo "All validation checks passed!"
     
     resources:
       limits:

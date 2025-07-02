@@ -321,8 +321,21 @@ jobs:
           done
           
           echo "=== Failed Test Pod Specific Logs ==="
-          # Try to get logs for the specific permission test pod
-          kubectl logs test-${{ matrix.config.name }}-ssh-workspace-permission-test -c permission-validation --tail=100 2>/dev/null || echo "[NO-PERMISSION-TEST-LOGS]"
+          # Try to get logs for the specific permission test pod with more details
+          PERMISSION_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-permission-test"
+          echo "Attempting to get logs from: $PERMISSION_TEST_POD"
+          
+          # Check if the pod exists
+          if kubectl get pod "$PERMISSION_TEST_POD" >/dev/null 2>&1; then
+            echo "Permission test pod exists, getting logs..."
+            kubectl logs "$PERMISSION_TEST_POD" -c permission-validation --tail=200 2>/dev/null || {
+              echo "Cannot get container logs, checking pod status..."
+              kubectl describe pod "$PERMISSION_TEST_POD" | tail -20
+            }
+          else
+            echo "Permission test pod does not exist, checking all test pods..."
+            kubectl get pods | grep test || echo "No test pods found"
+          fi
           
           if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
             echo "[NO-PODS-FOUND]"
