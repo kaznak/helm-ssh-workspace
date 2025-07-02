@@ -86,17 +86,10 @@ if [ -d "/etc/ssh-keys" ]; then
 fi
 
 # Set correct permissions for home directory and SSH files
-# For EmptyDir volumes, change ownership first, then permissions
-if [ "$(stat -c %U "/home/$SSH_USER")" != "$SSH_USER" ]; then
-    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
-    echo "✓ Changed ownership of /home/$SSH_USER to $SSH_USER"
-fi
-
-# Set permissions if different from expected
-if [ "$(stat -c %a "/home/$SSH_USER")" != "755" ]; then
-    chmod 755 "/home/$SSH_USER"
-    echo "✓ Set permissions of /home/$SSH_USER to 755"
-fi
+# For EmptyDir volumes, try to set ownership and permissions, ignore failures
+chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Could not change ownership of /home/$SSH_USER (may be root-owned volume)"
+chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Could not change permissions of /home/$SSH_USER (may be root-owned volume)"
+echo "✓ Home directory ownership and permissions configured for $SSH_USER"
 
 # Set authorized_keys permissions if file exists
 if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
