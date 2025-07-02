@@ -109,9 +109,16 @@ spec:
           if [ -d "/home/{{ .Values.user.name }}" ]; then
               echo "Home directory exists: /home/{{ .Values.user.name }}"
               PERMS=$(stat -c %a "/home/{{ .Values.user.name }}")
-              SETGID_CHECK=$((PERMS & 2000))
+              SETGID_CHECK=$((0$PERMS & 02000))
               echo "home_permissions:$PERMS"
               echo "setgid_bit:$SETGID_CHECK"
+              
+              # Debug: Show calculation details
+              echo "Permission calculation debug:"
+              echo "  Raw permissions: $PERMS (octal)"
+              echo "  Octal conversion: 0$PERMS"
+              echo "  SetGID mask: 02000"
+              echo "  Bitwise AND result: $SETGID_CHECK"
               
               # Show detailed stat output
               echo "Detailed home directory info:"
