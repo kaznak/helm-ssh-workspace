@@ -221,7 +221,6 @@ spec:
               readOnly: true
             - name: etc
               mountPath: /etc
-              readOnly: true
             {{- if .Values.persistence.enabled }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}
