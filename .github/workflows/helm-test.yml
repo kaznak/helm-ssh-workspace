@@ -175,10 +175,12 @@ jobs:
           
           # Debug before SSH connection
           echo "=== Debug Pod State Before SSH Test ==="
-          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- ls -la /home/
-          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- ls -la /home/testuser/ || echo "testuser home not found"
-          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- getent passwd testuser || echo "testuser not found in passwd"
-          kubectl exec -l app.kubernetes.io/name=ssh-workspace -- id testuser || echo "testuser id lookup failed"
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}')
+          echo "Using pod: $POD_NAME"
+          kubectl exec $POD_NAME -- ls -la /home/
+          kubectl exec $POD_NAME -- ls -la /home/testuser/ || echo "testuser home not found"
+          kubectl exec $POD_NAME -- getent passwd testuser || echo "testuser not found in passwd"
+          kubectl exec $POD_NAME -- id testuser || echo "testuser id lookup failed"
           
           # Test SSH connection
           echo "Testing SSH connection..."
@@ -205,10 +207,14 @@ jobs:
             kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o wide
             
             echo "=== Recent pod logs ==="
-            kubectl logs -l app.kubernetes.io/name=ssh-workspace --tail=30
-            
-            echo "=== Init container logs ==="
-            kubectl logs -l app.kubernetes.io/name=ssh-workspace -c ssh-setup --tail=30
+            POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null)
+            if [ -n "$POD_NAME" ]; then
+              kubectl logs $POD_NAME --tail=30
+              echo "=== Init container logs ==="
+              kubectl logs $POD_NAME -c ssh-setup --tail=30
+            else
+              echo "No pod found for log collection"
+            fi
             
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
