@@ -84,6 +84,7 @@ capabilities:
     - SETGID
     - CHOWN
     - DAC_OVERRIDE
+    - SYS_CHROOT
 {{- if .Values.user.sudo }}
     - SETPCAP
     - SYS_ADMIN
