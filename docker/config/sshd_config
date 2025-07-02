@@ -1,5 +1,6 @@
 # SSH Workspace Configuration
 Port 22
+ListenAddress 0.0.0.0
 Protocol 2
 
 # ホストキー設定
