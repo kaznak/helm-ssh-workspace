@@ -88,8 +88,10 @@ spec:
               mountPath: /home/{{ .Values.user.name }}
               # Init Container always needs write access to prepare home directory
               readOnly: false
+            {{- if ne .Values.security.level "basic" }}
             - name: var-run
               mountPath: /var/run
+            {{- end }}
       containers:
         # Main Container: Runs SSH daemon with read-only root filesystem
         # Uses configuration prepared by Init Container for enhanced security
