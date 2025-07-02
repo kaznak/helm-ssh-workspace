@@ -45,17 +45,18 @@ fi
 
 # ホームディレクトリ権限の確認・修正
 if [ -d "/home/$SSH_USER" ]; then
-    # ホームディレクトリの所有者を確認・修正
-    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
-    chmod 755 "/home/$SSH_USER"
+    # Note: Init Container has already configured permissions with fsGroup
+    # Try to set ownership/permissions, but don't fail if fsGroup restrictions apply
+    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory ownership managed by fsGroup"
+    chmod 755 "/home/$SSH_USER" 2>/dev/null || echo "Note: Home directory permissions managed by fsGroup"
     
     # .ssh ディレクトリの権限確認・修正
     if [ -d "/home/$SSH_USER/.ssh" ]; then
-        chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh"
-        chmod 700 "/home/$SSH_USER/.ssh"
+        chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh" 2>/dev/null || echo "Note: SSH directory ownership managed by fsGroup"
+        chmod 700 "/home/$SSH_USER/.ssh" 2>/dev/null || echo "Note: SSH directory permissions managed by fsGroup"
         
         if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
-            chmod 600 "/home/$SSH_USER/.ssh/authorized_keys"
+            chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "Note: SSH keys permissions managed by fsGroup"
         fi
     fi
     
