@@ -43,6 +43,25 @@ if [ -z "$SSH_USER" ]; then
     exit 1
 fi
 
+# ホームディレクトリ権限の確認・修正
+if [ -d "/home/$SSH_USER" ]; then
+    # ホームディレクトリの所有者を確認・修正
+    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
+    chmod 755 "/home/$SSH_USER"
+    
+    # .ssh ディレクトリの権限確認・修正
+    if [ -d "/home/$SSH_USER/.ssh" ]; then
+        chown -R "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh"
+        chmod 700 "/home/$SSH_USER/.ssh"
+        
+        if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
+            chmod 600 "/home/$SSH_USER/.ssh/authorized_keys"
+        fi
+    fi
+    
+    echo "✓ Home directory permissions verified for $SSH_USER"
+fi
+
 echo "SSH Workspace initialization completed successfully"
 echo "Starting SSH daemon for user: $SSH_USER"
 
