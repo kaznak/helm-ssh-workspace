@@ -65,6 +65,23 @@ Create the name of the service account to use
 {{- end }}
 
 {{/*
+Init Container Security Context - fixed settings for user/system setup
+*/}}
+{{- define "ssh-workspace.initSecurityContext" -}}
+runAsNonRoot: false
+readOnlyRootFilesystem: false
+allowPrivilegeEscalation: true
+capabilities:
+  drop:
+    - ALL
+  add:
+    - CHOWN
+    - DAC_OVERRIDE
+    - SETUID
+    - SETGID
+{{- end }}
+
+{{/*
 Security Context based on security level
 */}}
 {{- define "ssh-workspace.securityContext" -}}
