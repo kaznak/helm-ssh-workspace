@@ -15,15 +15,14 @@ spec:
   serviceAccountName: {{ include "ssh-workspace.fullname" . }}-test
   containers:
   - name: permission-validation
-    image: alpine:3.18
+    image: bitnami/kubectl:1.27
     command:
     - /bin/sh
     - -c
     - |
       set -e
       
-      # Install required tools
-      apk add --no-cache kubectl
+      # kubectl is already available in this image
       
       echo "=== Permission Strategy Validation ==="
       echo "Testing deployed configuration:"
