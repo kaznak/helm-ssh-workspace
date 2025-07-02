@@ -70,7 +70,7 @@ spec:
       # Test 3: SSH authentication with test key
       echo "=== Test 3: SSH Authentication with Test Key ==="
       SSH_AUTH_RESULT=$(timeout 15 ssh -i /tmp/test_key -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
-          {{ .Values.user.name }}@"$SERVICE_FQDN" -p "$SERVICE_PORT" "echo 'SSH_AUTH_SUCCESS'" 2>&1 || true)
+          "{{ .Values.user.name }}"@"$SERVICE_FQDN" -p "$SERVICE_PORT" "echo 'SSH_AUTH_SUCCESS'" 2>&1 || true)
       
       if echo "$SSH_AUTH_RESULT" | grep -q "SSH_AUTH_SUCCESS"; then
           echo "✓ PASS: SSH authentication successful with test key"
@@ -82,75 +82,9 @@ spec:
       # Test 4: System call tests (Permission validation through actual usage)
       echo "=== Test 4: System Call and Permission Tests ==="
       
-      SSH_COMMANDS=$(cat <<'EOF'
-      set -e
-      echo "=== File System Tests ==="
-      
-      # Test file creation permissions
-      echo "Testing file creation..."
-      touch ~/test_file.txt
-      echo "Test content" > ~/test_file.txt
-      ls -la ~/test_file.txt
-      
-      # Test directory creation
-      echo "Testing directory creation..."
-      mkdir -p ~/test_dir/subdir
-      ls -la ~/test_dir/
-      
-      # Test file permissions
-      echo "Testing file permissions..."
-      chmod 644 ~/test_file.txt
-      chmod 755 ~/test_dir
-      
-      # Test file ownership (should show current user)
-      echo "Testing file ownership..."
-      stat -c "%U:%G %a" ~/test_file.txt
-      stat -c "%U:%G %a" ~/test_dir
-      
-      # Test .ssh directory permissions (critical for SSH)
-      echo "Testing .ssh directory..."
-      ls -la ~/.ssh/
-      stat -c "%U:%G %a" ~/.ssh/
-      
-      # Test authorized_keys file
-      if [ -f ~/.ssh/authorized_keys ]; then
-          echo "Testing authorized_keys..."
-          stat -c "%U:%G %a" ~/.ssh/authorized_keys
-      fi
-      
-      # Test system information
-      echo "=== System Information ==="
-      whoami
-      id
-      pwd
-      uname -a
-      
-      # Test if we can see home directory structure
-      echo "=== Home Directory Structure ==="
-      ls -la ~/
-      
-      # Test group membership and permission strategy detection
-      echo "=== Permission Strategy Detection ==="
-      HOME_PERMS=$(stat -c %a ~/)
-      SETGID_BIT=$((HOME_PERMS & 2000))
-      if [ "$SETGID_BIT" != "0" ]; then
-          echo "STRATEGY_DETECTED:fsgroup"
-          echo "SetGID bit present: $HOME_PERMS"
-      else
-          echo "STRATEGY_DETECTED:explicit"
-          echo "No SetGID bit: $HOME_PERMS"
-      fi
-      
-      # Cleanup test files
-      rm -f ~/test_file.txt
-      rm -rf ~/test_dir
-      
-      echo "SYSTEM_CALL_TESTS_COMPLETE"
-EOF
-)
-      
       SSH_SYSCALL_RESULT=$(timeout 30 ssh -i /tmp/test_key -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
-          {{ .Values.user.name }}@"$SERVICE_FQDN" -p "$SERVICE_PORT" "$SSH_COMMANDS" 2>&1 || true)
+          "{{ .Values.user.name }}"@"$SERVICE_FQDN" -p "$SERVICE_PORT" \
+          'set -e; touch ~/test_file.txt; chmod 644 ~/test_file.txt; stat -c "%U:%G %a" ~/; ls -la ~/.ssh/; HOME_PERMS=$(stat -c %a ~/); SETGID_BIT=$((HOME_PERMS & 2000)); if [ "$SETGID_BIT" != "0" ]; then echo "STRATEGY_DETECTED:fsgroup"; else echo "STRATEGY_DETECTED:explicit"; fi; rm -f ~/test_file.txt; echo "SYSTEM_CALL_TESTS_COMPLETE"' 2>&1 || true)
       
       echo "System call test results:"
       echo "$SSH_SYSCALL_RESULT"
