@@ -81,8 +81,7 @@ jobs:
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
             --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
-            --debug \
-            --wait --timeout=300s &
+            --debug &
           HELM_PID=$!
           
           # Monitor in background
