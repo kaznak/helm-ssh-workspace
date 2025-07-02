@@ -35,6 +35,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Generate SSH test key pair
+        run: |
+          echo "=== Generating SSH test key pair ==="
+          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
+          
+          # Export public key for use in subsequent steps
+          echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
+          echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
+          
+          echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
+
       - name: Check Dockerfile with hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
@@ -51,7 +62,7 @@ jobs:
         run: |
           helm lint helm/ssh-workspace \
             --set user.name="testuser" \
-            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
+            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
             --debug
 
       - name: Create kind cluster
@@ -79,7 +90,7 @@ jobs:
             --set image.tag=${{ env.TEST_IMAGE_TAG }} \
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
-            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
+            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
             --validate \
             --debug
           echo "✓ Helm template validation with Kubernetes API successful"
@@ -92,7 +103,7 @@ jobs:
             --set image.tag=${{ env.TEST_IMAGE_TAG }} \
             --set image.pullPolicy=Never \
             --set user.name="testuser" \
-            --set 'ssh.publicKeys[0]=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILXdG3HVN1wyFVldcqtOp4Ou6+CrSBEvvE1Ll4QUArje test@example.com' \
+            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
             --debug &
           HELM_PID=$!
           
@@ -144,6 +155,71 @@ jobs:
         run: |
           helm test test-workspace --timeout=300s
 
+      - name: SSH Connectivity Test
+        run: |
+          echo "=== SSH Connectivity Test ==="
+          
+          # Wait for pod to be ready
+          echo "Waiting for pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
+          
+          # Get service information
+          SERVICE_PORT=$(kubectl get service test-workspace-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
+          echo "Service port: $SERVICE_PORT"
+          
+          # Port forward for SSH access
+          echo "Setting up port forward..."
+          kubectl port-forward service/test-workspace-ssh-workspace 2222:$SERVICE_PORT &
+          PORT_FORWARD_PID=$!
+          sleep 10
+          
+          # Test SSH connection
+          echo "Testing SSH connection..."
+          ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o ConnectTimeout=10 \
+              -o BatchMode=yes \
+              testuser@localhost -p 2222 \
+              'echo "SSH connection successful! User: $(whoami), Date: $(date)"' || {
+            echo "SSH connection failed!"
+            
+            # Debug information
+            echo "=== Port forward process ==="
+            ps aux | grep "kubectl port-forward" || echo "No port-forward process found"
+            
+            echo "=== Network connectivity test ==="
+            nc -zv localhost 2222 || echo "Port 2222 not accessible"
+            
+            echo "=== Service status ==="
+            kubectl get service test-workspace-ssh-workspace -o wide
+            
+            echo "=== Pod status ==="
+            kubectl get pods -l app.kubernetes.io/name=ssh-workspace -o wide
+            
+            echo "=== Recent pod logs ==="
+            kubectl logs -l app.kubernetes.io/name=ssh-workspace --tail=20
+            
+            # Kill port forward and exit
+            kill $PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          }
+          
+          # Test basic commands
+          echo "Testing basic SSH commands..."
+          ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o ConnectTimeout=10 \
+              -o BatchMode=yes \
+              testuser@localhost -p 2222 \
+              'pwd && ls -la ~/ && uname -a'
+          
+          # Cleanup
+          kill $PORT_FORWARD_PID 2>/dev/null || true
+          
+          echo "✓ SSH connectivity test completed successfully!"
+
       - name: Check deployment status
         if: always()
         run: |
@@ -190,6 +266,9 @@ jobs:
         if: always()
         run: |
           echo "=== Cleaning up ==="
+          # Clean up SSH test keys
+          rm -f $TEST_SSH_PRIVATE_KEY_PATH $TEST_SSH_PRIVATE_KEY_PATH.pub 2>/dev/null || true
+          
           helm uninstall test-workspace --debug || true
           echo "=== Final cluster state ==="
           kubectl get all -A | grep test-workspace || echo "No remaining test-workspace resources"
