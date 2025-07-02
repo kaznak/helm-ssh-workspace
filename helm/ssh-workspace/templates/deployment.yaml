@@ -208,7 +208,7 @@ spec:
             failureThreshold: 3
           readinessProbe:
             tcpSocket:
-              port: ssh
+              port: {{ .Values.ssh.port }}
             initialDelaySeconds: 30
             periodSeconds: 10
             timeoutSeconds: 5
