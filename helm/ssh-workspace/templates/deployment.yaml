@@ -69,8 +69,17 @@ spec:
                 echo "root:x:0:" > /etc/group
               fi
               
+              # Create sshd user for privilege separation
+              if ! getent passwd sshd >/dev/null 2>&1; then
+                groupadd -r -g 74 sshd
+                useradd -r -u 74 -g sshd -s /sbin/nologin -d /var/empty/sshd -c "Privilege-separated SSH" sshd
+                echo "✓ Created sshd user for privilege separation"
+              fi
+              
               # Setup SSH daemon directories and configuration
               mkdir -p /etc/ssh
+              mkdir -p /var/empty/sshd
+              chmod 755 /var/empty/sshd
               
               # Create SSH daemon configuration
               {
@@ -120,8 +129,8 @@ spec:
                 echo "PrintLastLog yes"
                 echo "UseDNS no"
                 echo ""
-                echo "# Privilege separation"
-                echo "UsePrivilegeSeparation sandbox"
+                echo "# Privilege separation (deprecated option removed)"
+                echo "# Modern OpenSSH always uses privilege separation"
               } > /etc/ssh/sshd_config
               echo "✓ Created SSH daemon configuration"
               
