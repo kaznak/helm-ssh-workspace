@@ -97,8 +97,18 @@ jobs:
               echo "=== Pod Descriptions ==="
               kubectl describe pods -l app.kubernetes.io/instance=test-workspace
               echo "=== Pod Logs ==="
-              kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --previous=false --tail=50 || echo "No current logs"
-              kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --previous=true --tail=50 || echo "No previous logs"
+              for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace -o name); do
+                echo "[POD] $pod"
+                
+                echo "[INIT-CONTAINER:ssh-setup]"
+                kubectl logs $pod -c ssh-setup --tail=20 2>/dev/null || echo "[NO-LOGS]"
+                
+                echo "[MAIN-CONTAINER:ssh-workspace]"
+                kubectl logs $pod -c ssh-workspace --tail=20 2>/dev/null || echo "[NO-LOGS]"
+                
+                echo "[PREVIOUS:ssh-workspace]"
+                kubectl logs $pod -c ssh-workspace --previous=true --tail=20 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
+              done
             fi
             
             echo "=== Recent Events ==="
@@ -124,11 +134,23 @@ jobs:
           echo "=== Describing pods ==="
           kubectl describe pod -l app.kubernetes.io/instance=test-workspace
           
-          echo "=== Current Pod logs ==="
-          kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --tail=100 || echo "No current logs available"
+          echo "=== Pod Logs ==="
+          for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-workspace -o name 2>/dev/null); do
+            echo "[POD] $pod"
+            
+            echo "[INIT-CONTAINER:ssh-setup]"
+            kubectl logs $pod -c ssh-setup --tail=30 2>/dev/null || echo "[NO-LOGS]"
+            
+            echo "[MAIN-CONTAINER:ssh-workspace]"
+            kubectl logs $pod -c ssh-workspace --tail=30 2>/dev/null || echo "[NO-LOGS]"
+            
+            echo "[PREVIOUS:ssh-workspace]"
+            kubectl logs $pod -c ssh-workspace --previous=true --tail=30 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
+          done
           
-          echo "=== Previous Pod logs (if crashed) ==="
-          kubectl logs -l app.kubernetes.io/instance=test-workspace --all-containers=true --previous=true --tail=100 || echo "No previous logs available"
+          if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-workspace -o name 2>/dev/null)" ]; then
+            echo "[NO-PODS-FOUND]"
+          fi
           
           echo "=== All Events ==="
           kubectl get events --sort-by='.lastTimestamp' | grep test-workspace || echo "No test-workspace events found"
