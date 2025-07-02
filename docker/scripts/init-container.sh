@@ -143,15 +143,34 @@ else
     fi
 fi
 
-# Set authorized_keys permissions if file exists
+# Set authorized_keys permissions and ownership if file exists
 if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
-    # authorized_keys must be readable only by owner (critical for SSH security)
+    # CRITICAL: authorized_keys must be owned by the SSH user for SSH authentication to work
+    echo "=== Setting authorized_keys ownership and permissions ==="
+    
+    # Show current status
+    echo "Before ownership change:"
+    stat -c "  authorized_keys: %U:%G (%a)" "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "  Cannot stat authorized_keys"
+    
+    # Set correct ownership first (critical for SSH security)
+    chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null && echo "✓ Set authorized_keys ownership to $SSH_USER:$SSH_USER" || {
+        echo "❌ CRITICAL: Cannot set authorized_keys ownership - SSH authentication will fail!"
+        echo "Current authorized_keys ownership: $(stat -c %U:%G "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "unknown")"
+        echo "SSH requires the authorized_keys file to be owned by the SSH user."
+        exit 1
+    }
+    
+    # Set correct permissions (must be readable only by owner)
     chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null && echo "✓ Set authorized_keys permissions to 600" || {
         echo "❌ CRITICAL: Cannot set authorized_keys permissions - SSH authentication will fail!"
         echo "Current authorized_keys permissions: $(stat -c %a "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "unknown")"
         echo "This is a security risk and SSH will reject the key file."
         exit 1
     }
+    
+    # Verify final status
+    echo "After ownership and permission changes:"
+    stat -c "  authorized_keys: %U:%G (%a)" "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "  Cannot stat authorized_keys"
 fi
 echo "✓ Home directory and SSH permissions set for $SSH_USER"
 
