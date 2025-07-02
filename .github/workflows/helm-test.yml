@@ -232,6 +232,52 @@ jobs:
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
 
+      - name: Debug SSH Authentication Files
+        run: |
+          echo "=== SSH Authentication Debugging ===" 
+          echo "Configuration: ${{ matrix.config.name }}"
+          
+          # Get pod name
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name | grep -v test | sed 's|pod/||')
+          echo "Debugging pod: $POD_NAME"
+          
+          # Check SSH file permissions and structure
+          echo "=== SSH Files Analysis ==="
+          kubectl exec "$POD_NAME" -- /bin/sh -c '
+            echo "=== Home directory analysis ==="
+            ls -la /home/testuser/
+            echo "=== SSH directory analysis ==="
+            if [ -d "/home/testuser/.ssh" ]; then
+              ls -la /home/testuser/.ssh/
+              echo "=== authorized_keys content check ==="
+              if [ -f "/home/testuser/.ssh/authorized_keys" ]; then
+                echo "authorized_keys file exists"
+                wc -l /home/testuser/.ssh/authorized_keys
+                echo "First line of authorized_keys:"
+                head -1 /home/testuser/.ssh/authorized_keys
+              else
+                echo "authorized_keys file not found"
+              fi
+            else
+              echo ".ssh directory not found"
+            fi
+            
+            echo "=== SSH daemon configuration check ==="
+            echo "SSH daemon process:"
+            ps aux | grep sshd | grep -v grep || echo "No sshd process found"
+            
+            echo "=== SSH host keys check ==="
+            ls -la /etc/ssh/ssh_host_*
+            
+            echo "=== System permission analysis ==="
+            echo "Process user info:"
+            id
+            echo "File ownership analysis:"
+            stat -c "Home: %U:%G (%a)" /home/testuser 2>/dev/null || echo "Cannot stat home directory"
+            stat -c ".ssh: %U:%G (%a)" /home/testuser/.ssh 2>/dev/null || echo "Cannot stat .ssh directory"  
+            stat -c "authorized_keys: %U:%G (%a)" /home/testuser/.ssh/authorized_keys 2>/dev/null || echo "Cannot stat authorized_keys"
+          ' || echo "Failed to execute SSH debugging commands"
+
       - name: SSH Connectivity Test (External)
         run: |
           echo "=== External SSH Connectivity Test ==="
