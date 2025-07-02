@@ -110,14 +110,37 @@ mount | grep "/home/$SSH_USER" && {
 }
 df -h "/home/$SSH_USER" | tail -1
 
-# Ensure home directory has correct permissions (should be writable by group due to fsGroup)
-if [ "$(stat -c %a "/home/$SSH_USER" 2>/dev/null)" != "755" ]; then
-    chmod 755 "/home/$SSH_USER" 2>/dev/null && echo "✓ Set home directory permissions to 755" || {
-        echo "⚠️ WARNING: Could not set home directory permissions to 755"
-        echo "Current permissions: $(stat -c %a "/home/$SSH_USER" 2>/dev/null || echo "unknown")"
-        echo "This may cause issues with SSH user sessions"
-        # Continue as fsGroup should provide necessary access
-    }
+# Set home directory permissions based on permission strategy
+# CRITICAL: fsGroup strategy sets SetGID bit (02000) which must be preserved
+CURRENT_PERMS=$(stat -c %a "/home/$SSH_USER" 2>/dev/null || echo "000")
+SETGID_CHECK=$((0$CURRENT_PERMS & 02000))
+
+echo "Permission strategy analysis:"
+echo "  Current permissions: $CURRENT_PERMS"
+echo "  SetGID bit detected: $SETGID_CHECK"
+echo "  Permission strategy: ${SSH_PERMISSION_STRATEGY:-explicit}"
+
+if [ "${SSH_PERMISSION_STRATEGY:-explicit}" = "fsgroup" ]; then
+    echo "fsGroup strategy: Preserving Kubernetes-managed permissions"
+    echo "  fsGroup should have set proper ownership and SetGID bit"
+    echo "  Skipping explicit chmod to preserve SetGID bit"
+    if [ "$SETGID_CHECK" = "0" ]; then
+        echo "⚠️ WARNING: fsGroup strategy expected but no SetGID bit found"
+        echo "This may indicate fsGroup is not working properly"
+    else
+        echo "✓ SetGID bit present - fsGroup strategy working correctly"
+    fi
+else
+    echo "Explicit strategy: Setting explicit permissions (755)"
+    if [ "$CURRENT_PERMS" != "755" ]; then
+        chmod 755 "/home/$SSH_USER" 2>/dev/null && echo "✓ Set home directory permissions to 755" || {
+            echo "⚠️ WARNING: Could not set home directory permissions to 755"
+            echo "Current permissions: $(stat -c %a "/home/$SSH_USER" 2>/dev/null || echo "unknown")"
+            echo "This may cause issues with SSH user sessions"
+        }
+    else
+        echo "✓ Home directory already has correct permissions (755)"
+    fi
 fi
 
 # Set authorized_keys permissions if file exists
