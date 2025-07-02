@@ -7,7 +7,6 @@ on:
     paths:
       - 'helm/ssh-workspace/**'
       - '.github/workflows/helm-release.yml'
-  push:
     tags:
       - 'v*.*.*'
   workflow_dispatch:
