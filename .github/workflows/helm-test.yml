@@ -305,17 +305,24 @@ jobs:
             kubectl logs $pod -c ssh-workspace --previous=true --tail=30 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
           done
           
-          echo "=== Test Pod Logs (Failed Tests) ==="
-          for test_pod in $(kubectl get pods -l "helm.sh/hook=test" --field-selector=status.phase=Failed -o name 2>/dev/null); do
+          echo "=== Test Pod Logs (All Test Pods) ==="
+          for test_pod in $(kubectl get pods -l "helm.sh/hook=test" -o name 2>/dev/null); do
             echo "[TEST-POD] $test_pod"
+            pod_status=$(kubectl get $test_pod -o jsonpath='{.status.phase}')
+            echo "[STATUS] $pod_status"
             
             # Get all containers in the test pod
             containers=$(kubectl get $test_pod -o jsonpath='{.spec.containers[*].name}')
             for container in $containers; do
               echo "[CONTAINER:$container]"
-              kubectl logs $test_pod -c $container --tail=50 2>/dev/null || echo "[NO-LOGS-FOR-$container]"
+              kubectl logs $test_pod -c $container --tail=100 2>/dev/null || echo "[NO-LOGS-FOR-$container]"
             done
+            echo "--- End of $test_pod ---"
           done
+          
+          echo "=== Failed Test Pod Specific Logs ==="
+          # Try to get logs for the specific permission test pod
+          kubectl logs test-${{ matrix.config.name }}-ssh-workspace-permission-test -c permission-validation --tail=100 2>/dev/null || echo "[NO-PERMISSION-TEST-LOGS]"
           
           if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
             echo "[NO-PODS-FOUND]"
