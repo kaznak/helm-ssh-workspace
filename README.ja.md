@@ -338,6 +338,27 @@ tests:
 
 SSH接続検証と権限チェックを含む包括的なテストを有効にします。
 
+#### デバッグ設定
+デプロイメントの問題をトラブルシューティングするためのデバッグモードが利用可能です：
+
+```bash
+# chmod失敗分析用のデバッグモードを有効化（開発・トラブルシューティング専用）
+helm install workspace ./ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com" \
+  --set-string 'extraEnvVars[0].name=SSH_WORKSPACE_DEBUG_CHMOD_FAILURES' \
+  --set-string 'extraEnvVars[0].value=true'
+```
+
+**重要なセキュリティ警告:**
+- `SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true` はauthorized_keysのchmodが失敗してもコンテナ起動を許可します
+- **デフォルト**: `false`（安全） - chmodが失敗するとコンテナが終了し、安全でないデプロイメントを防止
+- **有効時**: 詳細な診断情報を提供しますが、ファイル権限が不適切（600ではなく644）になる可能性があります
+- **用途**: 開発時のトラブルシューティングのみ、**本番環境では絶対に使用禁止**
+- **影響**: 有効にすると、不適切なファイル権限でSSHアクセスが動作し、セキュリティ脆弱性を作成する可能性があります
+
+このデバッグモードは、ファイルシステムの制限や権限不足によりchmod操作が失敗する可能性がある開発環境での権限問題の診断を支援するために設計されています。
+
 ### 運用設定
 
 #### ノード配置とスケジューリング

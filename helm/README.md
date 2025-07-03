@@ -269,6 +269,28 @@ tests:
 
 Enables comprehensive testing including SSH connectivity validation and permission checks.
 
+### Debug Configuration
+
+For troubleshooting deployment issues, a debug mode is available:
+
+```bash
+# Enable debug mode for chmod failure analysis (development/troubleshooting only)
+helm install workspace ./ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com" \
+  --set-string 'extraEnvVars[0].name=SSH_WORKSPACE_DEBUG_CHMOD_FAILURES' \
+  --set-string 'extraEnvVars[0].value=true'
+```
+
+**Critical Security Warning:**
+- `SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true` allows containers to start even when authorized_keys chmod fails
+- **Default**: `false` (secure) - container terminates if chmod fails, preventing insecure deployments  
+- **When enabled**: Provides detailed diagnostics but may result in insecure file permissions (644 instead of 600)
+- **Usage**: Only for development troubleshooting, **NEVER in production environments**
+- **Impact**: When enabled, SSH access may work with incorrect file permissions, potentially creating security vulnerabilities
+
+This debug mode is designed to help diagnose permission issues in development environments where chmod operations might fail due to filesystem limitations or missing capabilities.
+
 ## 🌐 Network Access
 
 ### Access Methods by Service Type

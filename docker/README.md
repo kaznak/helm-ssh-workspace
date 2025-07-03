@@ -154,6 +154,29 @@ ssh-ed25519 AAAAC3... user3@example.com" \
 
 **Note**: For testing purposes, this image supports automated SSH connectivity tests when used with Kubernetes. Test SSH keys are automatically cleaned up after test completion and are safe to use. See the [root README](../README.md#advanced-configuration) for details on advanced configuration options.
 
+### Debug Mode
+
+For troubleshooting chmod permission issues, a debug environment variable is available:
+
+```bash
+# Enable debug mode for chmod failure analysis (development/troubleshooting only)
+docker run -d \
+  -p 2222:22 \
+  -e SSH_USER=developer \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
+  -e SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true \
+  ssh-workspace:latest
+```
+
+**Critical Security Warning:**
+- `SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true` allows containers to start even when authorized_keys chmod fails
+- **Default**: `false` (secure) - container terminates if chmod fails, preventing insecure deployments
+- **When enabled**: Provides detailed diagnostics but may result in insecure file permissions (644 instead of 600)
+- **Usage**: Only for development troubleshooting, **NEVER in production environments**
+- **Impact**: When enabled, SSH access may work with incorrect file permissions, potentially creating security vulnerabilities
+
+This debug mode is designed to help diagnose permission issues in development environments where chmod operations might fail due to filesystem limitations or missing capabilities.
+
 ## 🛠️ Developer Guide
 
 ### Script Modification
