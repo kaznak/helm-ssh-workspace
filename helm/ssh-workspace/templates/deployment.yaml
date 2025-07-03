@@ -106,6 +106,9 @@ spec:
               mountPath: /etc-new  # Writable target for prepared configuration
             - name: home
               mountPath: /home/{{ .Values.user.name }}
+              {{- if and .Values.persistence.enabled .Values.persistence.subPath }}
+              subPath: {{ .Values.persistence.subPath }}
+              {{- end }}
               # Init Container always needs write access to prepare home directory
               readOnly: false
             {{- if ne .Values.security.level "basic" }}
@@ -169,6 +172,9 @@ spec:
               mountPath: /etc  # Read-only mount of prepared configuration
             - name: home
               mountPath: /home/{{ .Values.user.name }}
+              {{- if and .Values.persistence.enabled .Values.persistence.subPath }}
+              subPath: {{ .Values.persistence.subPath }}
+              {{- end }}
               # Home directory needs write access for user session activities
             {{- if ne .Values.security.level "basic" }}
             - name: tmp
@@ -228,7 +234,11 @@ spec:
         {{- if .Values.persistence.enabled }}
         - name: home
           persistentVolumeClaim:
+            {{- if .Values.persistence.existingClaim }}
+            claimName: {{ .Values.persistence.existingClaim }}
+            {{- else }}
             claimName: {{ include "ssh-workspace.fullname" . }}-home
+            {{- end }}
         {{- else }}
         - name: home
           emptyDir: {}

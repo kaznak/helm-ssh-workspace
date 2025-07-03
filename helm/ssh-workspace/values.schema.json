@@ -106,10 +106,18 @@
           "type": "boolean",
           "description": "Enable persistent home directory"
         },
+        "existingClaim": {
+          "type": "string",
+          "description": "Use existing PVC instead of creating new one"
+        },
+        "subPath": {
+          "type": "string",
+          "description": "Mount subdirectory from PVC"
+        },
         "size": {
           "type": "string",
           "pattern": "^[0-9]+(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)$",
-          "description": "Storage size"
+          "description": "Storage size for new PVC"
         },
         "storageClass": {
           "type": "string",

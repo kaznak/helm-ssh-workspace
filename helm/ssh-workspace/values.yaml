@@ -41,8 +41,10 @@ ssh:
 # Persistence configuration
 persistence:
   enabled: false  # Enable persistent home directory
-  size: 10Gi  # Storage size
-  storageClass: ""  # Storage class (use default if empty)
+  existingClaim: ""  # Use existing PVC instead of creating new one (optional)
+  subPath: ""  # Mount subdirectory from PVC (optional)
+  size: 10Gi  # Storage size for new PVC (ignored if existingClaim is set)
+  storageClass: ""  # Storage class for new PVC (use default if empty)
   accessModes:
     - ReadWriteOnce
 

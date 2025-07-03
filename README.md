@@ -174,7 +174,7 @@ helm install workspace ./helm/ssh-workspace \
 - **SSH Public Key**: **Required** - Provided via ConfigMap, validated and configured by Init Container
 - **Username**: **Required** - Used for system user creation (`useradd`)
 - **UID/GID**: Optional (auto-assigned if not specified)
-- **Home Directory**: Persistence option (10GiB), uses emptyDir when disabled
+- **Home Directory**: Advanced persistence options - see [Home Directory Persistence](#home-directory-persistence)
 - **sudo Privileges**: Optional (disabled by default), configured during Init Container setup
 - **Configuration Files**: Uses distribution defaults
 - **Security**: User creation isolated to Init Container, main container runs with pre-configured user
@@ -319,6 +319,81 @@ This Helm chart intentionally does not include PDB support due to the following 
 **Recommended Approach**: For cluster maintenance, plan scheduled downtime and communicate with workspace users. The persistent home directory ensures no data loss during pod restarts.
 
 ## 6. Advanced Configuration
+
+### Home Directory Persistence
+
+SSH Workspace provides flexible home directory persistence options to meet various use cases:
+
+#### Requirements
+1. **Persist and reuse work data** - Support both new and existing PVCs
+2. **Segment work data appropriately** - Enable subdirectory mounting for proper data organization
+
+#### Configuration Options
+
+##### Basic Persistence (New PVC)
+```yaml
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "fast-ssd"  # Optional, uses default if empty
+```
+
+##### Using Existing PVC
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "my-existing-data"  # Use pre-existing PVC
+  # size and storageClass are ignored when existingClaim is specified
+```
+
+##### Subdirectory Mounting
+Mount a specific subdirectory from a PVC, useful for:
+- Sharing a large PVC among multiple workspaces
+- Organizing data by user, project, or environment
+- Utilizing existing data structures
+
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "shared-team-storage"
+  subPath: "users/developer"  # Mount only this subdirectory
+```
+
+##### Advanced Examples
+
+**Multi-user Shared Storage:**
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "department-storage"
+  subPath: "workspaces/{{ .Values.user.name }}"
+```
+
+**Project-based Organization:**
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "project-data"
+  subPath: "environments/dev/users/{{ .Values.user.name }}"
+```
+
+**Complete Configuration Reference:**
+```yaml
+persistence:
+  enabled: true              # Enable/disable persistence
+  existingClaim: ""          # Name of existing PVC (optional)
+  subPath: ""                # Subdirectory within PVC (optional)
+  size: 10Gi                 # Size for new PVC (ignored if existingClaim is set)
+  storageClass: ""           # StorageClass for new PVC (optional)
+  accessModes:
+    - ReadWriteOnce          # Access mode (RWO required for single-user workspace)
+```
+
+#### Implementation Notes
+- When `existingClaim` is empty, a new PVC named `{release-name}-ssh-workspace-home` is created
+- The `subPath` can be empty (mount entire PVC) or specify a subdirectory path
+- Subdirectories are created automatically if they don't exist
+- All file operations within mounted directories work normally without limitations
 
 ### Testing Configuration
 
@@ -475,8 +550,10 @@ ssh:
 
 persistence:
   enabled: false # Enable/disable persistence
-  size: 10Gi # Storage size
-  storageClass: "" # Storage class
+  existingClaim: "" # Use existing PVC instead of creating new one (optional)
+  subPath: "" # Mount subdirectory from PVC (optional)
+  size: 10Gi # Storage size for new PVC
+  storageClass: "" # Storage class for new PVC
   accessModes: [ReadWriteOnce] # Access mode
 
 security:
