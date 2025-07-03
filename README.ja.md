@@ -56,6 +56,16 @@ kubectl port-forward svc/workspace-ssh-workspace 2222:2222
 ssh developer@localhost -p 2222
 ```
 
+**注意**: テスト目的では、自動SSH接続テスト用に`ssh.testKeys`を有効にできます。テストSSHキーはテスト完了後に自動的にクリーンアップされ、安全に使用できます。追加機能の詳細については[高度な設定](#6-高度な設定)を参照してください。
+
+```bash
+# 自動テスト用のテストキーを有効化
+helm install workspace ./ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com" \
+  --set ssh.testKeys.enabled=true
+```
+
 ## 🔄 CI/CD & コンテナレジストリ
 
 ### GitHub Container Registry (GHCR)
@@ -165,7 +175,7 @@ helm install workspace ./helm/ssh-workspace \
 - **ユーザ名**: **必須** - システムユーザ作成（`useradd`）に使用
 - **UID/GID**: オプション（未指定時は自動割り当て）
 - **ホームディレクトリ**: 永続化オプション（10GiB）、無効時はemptyDir使用
-- **sudo権限**: オプション（無効）、Init Container設定時に構成
+- **sudo権限**: オプション（デフォルト無効）、Init Container設定時に構成
 - **設定ファイル**: ディストリビューションデフォルト使用
 - **セキュリティ**: ユーザ作成はInit Containerに分離、メインコンテナは事前設定済みユーザで実行
 
@@ -182,15 +192,31 @@ helm install workspace ./helm/ssh-workspace \
 | Standard | 推奨 | true | seccomp有効 |
 | High | 本番環境 | true | seccomp RuntimeDefault |
 
+### 権限管理戦略
+
+チャートではボリューム所有権に対して明示的な権限管理を使用します：
+
+- **explicit**: fsGroupなしでの直接UID/GID管理（SetGIDビットなし）
+- 必要なcapability（CHOWN、DAC_OVERRIDE、FOWNER）による手動ファイル所有権制御
+- 異なるKubernetes環境での一貫した動作を提供
+
 ### Pod Security Context
 - **runAsNonRoot**: false（root実行必須）
 - **readOnlyRootFilesystem**: true（Basicレベル時はfalse）
 - **allowPrivilegeEscalation**: false（sudo有効時は自動でtrue）
 
 ### Capabilities
+
+#### メインコンテナ
 - **drop**: ["ALL"]
-- **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
-- **sudo有効時**: ["SETPCAP", "SYS_ADMIN"]を追加
+- **add**: 
+  - 基本capabilities: ["SETUID", "SETGID", "SYS_CHROOT"]
+  - 権限管理: ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
+  - sudo有効時: ["SETPCAP", "SYS_ADMIN"]
+
+#### Init Container
+- **drop**: ["ALL"]
+- **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE", "FOWNER"]
 
 ### Init Containerアーキテクチャ
 
@@ -220,7 +246,7 @@ SSH Workspaceは、セキュリティ強化のため**デュアルコンテナIn
   - SSHデーモンの実行（`/usr/sbin/sshd -D -e`）
   - Init Containerで事前設定されたユーザ・SSH設定を使用
   - 動的なシステム変更は行わない
-- **ネットワーク公開**: SSH ポート22のみ
+- **ネットワーク公開**: SSH ポート2222のみ
 
 #### 共有リソース
 - **EmptyDir Volume (`/etc`)**: ユーザ・グループ情報とSSH設定
@@ -245,7 +271,7 @@ SSH Workspaceは、セキュリティ強化のため**デュアルコンテナIn
 | 項目 | デフォルト | 選択肢 |
 |------|------------|--------|
 | Service Type | ClusterIP | NodePort/LoadBalancer |
-| SSH Port | 22 | カスタマイズ可能 |
+| SSH Port | 2222 | カスタマイズ可能 |
 | 外部公開 | SSH のみ | localhost アクセス許可 |
 | Ingress | 無効 | TLS終端・トンネリング対応 |
 
@@ -277,7 +303,109 @@ SSH Workspaceは、セキュリティ強化のため**デュアルコンテナIn
 | データ保護 | `helm.sh/resource-policy: keep` |
 | 自動復旧 | restartPolicy Always |
 
-## 6. Helm Chart・技術仕様
+## 6. 高度な設定
+
+### テスト設定
+
+#### SSH テストキー
+自動テストやCI/CDパイプライン用に専用のテストSSHキーを設定できます：
+
+```yaml
+ssh:
+  testKeys:
+    enabled: true
+    keyPairs:
+      - publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrShAQgt+9ZuPDQ1L2KrSwKxL8BEcqhytt7X3ZLZxai test-key@helm-test"
+        privateKey: |
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
+          rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
+          -----END OPENSSH PRIVATE KEY-----
+```
+
+**セキュリティ注意事項:**
+- テストキーは`helm.sh/hook-delete-policy: hook-succeeded`でKubernetes Secretに保存
+- Secretは**テスト完了後に自動削除**される
+- テストキーは**テスト実行中のみ存在**（通常2-3分間）
+- 秘密鍵はログや永続ストレージに露出されない
+
+#### テストRBAC設定
+```yaml
+tests:
+  rbac:
+    create: true  # テスト用のServiceAccount、Role、RoleBindingを作成
+```
+
+SSH接続検証と権限チェックを含む包括的なテストを有効にします。
+
+### 運用設定
+
+#### ノード配置とスケジューリング
+```yaml
+# 特定ノードをターゲット
+nodeSelector:
+  kubernetes.io/arch: amd64
+  node.kubernetes.io/instance-type: m5.large
+
+# ノードtaintの許容
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "ssh-workspaces"
+    effect: "NoSchedule"
+
+# Pod affinity ルール
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ssh-workspace
+          topologyKey: kubernetes.io/hostname
+```
+
+#### メタデータとラベル付け
+```yaml
+# 全リソース用の追加ラベル
+labels:
+  environment: production
+  team: platform
+  cost-center: "12345"
+
+# 追加アノテーション
+annotations:
+  monitoring.coreos.com/scrape: "true"
+  backup.velero.io/backup-volumes: "home"
+```
+
+#### 高可用性運用
+```yaml
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1  # クラスタメンテナンス中に最低1つのPodを保証
+```
+
+### 高度な監視
+
+#### Prometheus統合
+```yaml
+monitoring:
+  enabled: true
+  port: 9312
+  serviceMonitor:
+    enabled: true      # Prometheus Operator用のServiceMonitorを作成
+    interval: 30s      # メトリクス収集頻度
+```
+
+**利用可能なメトリクス:**
+- SSH接続数と期間
+- 認証成功/失敗率
+- リソース使用率（CPU、メモリ、ディスク）
+
+## 7. Helm Chart・技術仕様
 
 ### Chart.yaml
 ```yaml
@@ -311,8 +439,11 @@ user:
 
 ssh:
   publicKeys: [] # SSH公開鍵（必須、配列形式）
-  port: 22 # SSHポート
+  port: 2222 # SSHポート
   config: {} # カスタム設定
+  testKeys: # 自動テスト用テストSSHキー（オプション）
+    enabled: false # テストキー機能の有効化
+    keyPairs: [] # テストキーペア（公開鍵 + 秘密鍵）
 
 persistence:
   enabled: false # 永続化有効/無効
@@ -322,20 +453,48 @@ persistence:
 
 security:
   level: standard # basic/standard/high
-  securityContext: {} # Pod Security Context
-  podSecurityContext: {} # Container Security Context
+  securityContext: {} # 追加Container Security Context
+  podSecurityContext: {} # 追加Pod Security Context
 
 service:
   type: ClusterIP # Service Type
-  port: 22 # Service Port
+  port: 2222 # Service Port
 
 resources: {} # CPU・メモリ制限
 timezone: UTC # タイムゾーン（tzdataパッケージ）
+
+# ノード配置とスケジューリング
+nodeSelector: {} # ノード選択制約
+tolerations: [] # ノードtaintの許容
+affinity: {} # Pod affinity/anti-affinity ルール
+
+# 追加メタデータ
+labels: {} # 追加Podとリソースラベル
+annotations: {} # 追加Podとリソースアノテーション
+
+# 高可用性と運用
+podDisruptionBudget:
+  enabled: false # Pod Disruption Budgetの有効化
+  minAvailable: 1 # 中断時の最小利用可能レプリカ数
+
 monitoring:
   enabled: false # ssh_exporter有効/無効
+  port: 9312 # メトリクスポート
+  serviceMonitor:
+    enabled: false # Prometheus用ServiceMonitorの作成
+    interval: 30s # メトリクス収集間隔
+
 ingress:
   enabled: false # Ingress有効/無効
-  # annotations, className, TLS設定等
+  className: "" # Ingressクラス名
+  annotations: {} # Ingressアノテーション
+  hosts: [] # Ingressホスト設定
+  tls: [] # TLS設定
+
+# テスト設定
+tests:
+  rbac:
+    create: true # テスト用ServiceAccountとRBACの作成
 
 # デプロイ時決定パラメータ以外は全てデフォルト値設定済み
 ```
@@ -353,7 +512,7 @@ ingress:
 - **必須パラメータ**: SSH公開鍵、ユーザ名
 - **Values設計**: デプロイ時決定事項以外は全てオプション（デフォルト値提供）
 
-## 7. セキュリティ監視
+## 8. セキュリティ監視
 
 ### 自動セキュリティスキャン
 
@@ -378,7 +537,7 @@ ingress:
 - **セキュリティ概要**: [セキュリティダッシュボード](https://github.com/kaznak/helm-ssh-workspace/security) - 完全なセキュリティ概要
 - **Security Policy**: `SECURITY.md` - 責任ある開示ガイドライン
 
-## 8. 制限事項
+## 9. 制限事項
 
 - **単一ユーザー専用**: マルチユーザー非対応
 - **root実行必須**: セキュリティコンテキストで制限
