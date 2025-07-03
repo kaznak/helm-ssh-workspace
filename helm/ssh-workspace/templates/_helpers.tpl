@@ -109,6 +109,7 @@ capabilities:
 {{- if eq .Values.security.permissionStrategy "explicit" }}
     - CHOWN       # Required for explicit permission management
     - DAC_OVERRIDE # Required for file ownership changes
+    - FOWNER      # Required for chmod on files owned by other users
 {{- else }}
     - DAC_OVERRIDE # Required for SSH configuration access with fsGroup
 {{- end }}
