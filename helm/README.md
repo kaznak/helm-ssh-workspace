@@ -45,6 +45,8 @@ helm install my-workspace ./ssh-workspace \
   --set ssh.publicKeys[0]="$SSH_PUBLIC_KEY"
 ```
 
+**Note**: For testing purposes, you can enable `ssh.testKeys` for automated SSH connectivity tests. Test SSH keys are automatically cleaned up after test completion and are safe to use. See [Testing Configuration](#testing-configuration) for details.
+
 ### Access Method
 
 ```bash
@@ -177,6 +179,26 @@ resources:
 
 ## 🔒 Security Features
 
+### Dual-Container Init Architecture
+
+SSH Workspace employs a **dual-container Init Container pattern** for enhanced security:
+
+#### Init Container (ssh-setup)
+- **Purpose**: User creation and SSH configuration setup
+- **Security Context**: 
+  - `readOnlyRootFilesystem: false` (required for system modifications)
+  - `allowPrivilegeEscalation: true`
+  - Capabilities: `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`, `FOWNER`
+- **Operations**: Creates user, sets up SSH directory, configures authorized_keys
+- **Execution Time**: Short-lived (completes setup and exits)
+- **Network Exposure**: None
+
+#### Main Container (ssh-workspace)
+- **Purpose**: SSH daemon service only
+- **Security Context**: `readOnlyRootFilesystem: true` (maximum security)
+- **Operations**: Runs SSH daemon using pre-configured settings
+- **Network Exposure**: SSH port 2222 only
+
 ### Security Levels
 
 | Level | Purpose | Features |
@@ -185,6 +207,27 @@ resources:
 | standard | Recommended | readOnlyRootFilesystem enabled |
 | high | Production | seccomp RuntimeDefault + strict SSH settings |
 
+### Permission Management Strategy
+
+The chart uses explicit permission management for volume ownership:
+
+- **explicit**: Direct UID/GID management without fsGroup (no SetGID bit)
+- Manual file ownership control with required capabilities (CHOWN, DAC_OVERRIDE, FOWNER)
+- Provides consistent behavior across different Kubernetes environments
+
+### Capabilities
+
+#### Main Container
+- **drop**: ["ALL"]
+- **add**: 
+  - Base capabilities: ["SETUID", "SETGID", "SYS_CHROOT"]
+  - Permission management: ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
+  - When sudo enabled: ["SETPCAP", "SYS_ADMIN"]
+
+#### Init Container
+- **drop**: ["ALL"]
+- **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE", "FOWNER"]
+
 ### Security Features
 
 - Public key authentication only (password authentication disabled)
@@ -192,6 +235,39 @@ resources:
 - Capabilities restrictions
 - Network policy support (external configuration)
 - Resource isolation (emptyDir, PVC)
+
+## 🧪 Testing Configuration
+
+### SSH Test Keys
+For automated testing and CI/CD pipelines, you can configure dedicated test SSH keys:
+
+```yaml
+ssh:
+  testKeys:
+    enabled: true
+    keyPairs:
+      - publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrShAQgt+9ZuPDQ1L2KrSwKxL8BEcqhytt7X3ZLZxai test-key@helm-test"
+        privateKey: |
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
+          rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
+          -----END OPENSSH PRIVATE KEY-----
+```
+
+**Security Notes:**
+- Test keys are stored in Kubernetes Secrets with `helm.sh/hook-delete-policy: hook-succeeded`
+- Secrets are **automatically deleted** after test completion
+- Test keys are **only present during test execution** (typically 2-3 minutes)
+- Private keys are never exposed in logs or persistent storage
+
+### Test RBAC Configuration
+```yaml
+tests:
+  rbac:
+    create: true  # Creates ServiceAccount, Role, and RoleBinding for tests
+```
+
+Enables comprehensive testing including SSH connectivity validation and permission checks.
 
 ## 🌐 Network Access
 

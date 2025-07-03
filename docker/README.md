@@ -33,6 +33,7 @@ docker build -f docker/Dockerfile -t ssh-workspace:latest .
 | Variable Name | Required | Default | Description |
 |---------------|----------|---------|-------------|
 | `SSH_USER` | ✅ | - | SSH username |
+| `SSH_PUBLIC_KEYS` | ✅ | - | SSH public keys (newline-separated) |
 | `SSH_USER_UID` | ❌ | 1000 | User UID |
 | `SSH_USER_GID` | ❌ | 1000 | User GID |
 | `SSH_USER_SHELL` | ❌ | /bin/bash | Login shell |
@@ -42,16 +43,34 @@ docker build -f docker/Dockerfile -t ssh-workspace:latest .
 
 **Note**: `ETC_TARGET_DIR` is used internally by Kubernetes Init Container (fixed to `/etc-new`).
 
-## 📂 Required Mounts
+## 📂 Optional Mounts
 
-| Path | Purpose | Required |
-|------|---------|----------|
-| `/etc/ssh-keys/authorized_keys` | SSH public keys | ✅ |
-| `/home/{username}` | Home directory | ❌ |
+| Path | Purpose | Required | Alternative |
+|------|---------|----------|-------------|
+| `/etc/ssh-keys/authorized_keys` | SSH public keys | ❌ | Use `SSH_PUBLIC_KEYS` env var |
+| `/home/{username}` | Home directory | ❌ | Uses ephemeral storage |
 
 ## 🔧 Usage Examples
 
-### Basic Execution
+### Basic Execution (Recommended)
+
+Using environment variables (aligned with root README):
+
+```bash
+docker run -d \
+  --name ssh-workspace \
+  -p 2222:22 \
+  -e SSH_USER=developer \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
+  ssh-workspace:latest
+
+# SSH connection
+ssh developer@localhost -p 2222
+```
+
+### Basic Execution (File Mount)
+
+Using file mount approach:
 
 ```bash
 # Prepare SSH public key
@@ -60,7 +79,7 @@ echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
 # Run container
 docker run -d \
   --name ssh-workspace \
-  -p 2222:2222 \
+  -p 2222:22 \
   -e SSH_USER=developer \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
@@ -77,11 +96,11 @@ docker volume create ssh-workspace-home
 
 docker run -d \
   --name ssh-workspace \
-  -p 2222:2222 \
+  -p 2222:22 \
   -e SSH_USER=developer \
   -e SSH_USER_SUDO=true \
   -e TZ=Asia/Tokyo \
-  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
   -v ssh-workspace-home:/home/developer \
   ssh-workspace:latest
 ```
@@ -94,16 +113,31 @@ docker run --rm ssh-workspace:latest timedatectl list-timezones | head -20
 
 # Run with Japan time
 docker run -d \
+  -p 2222:22 \
   -e TZ=Asia/Tokyo \
   -e SSH_USER=developer \
-  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
   ssh-workspace:latest
 
 # Run with US Eastern time
 docker run -d \
+  -p 2222:22 \
   -e TZ=America/New_York \
   -e SSH_USER=developer \
-  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
+  ssh-workspace:latest
+```
+
+### Multiple SSH Keys
+
+```bash
+# Multiple SSH keys (newline-separated)
+docker run -d \
+  -p 2222:22 \
+  -e SSH_USER=developer \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user1@example.com
+ssh-rsa AAAAB3... user2@example.com
+ssh-ed25519 AAAAC3... user3@example.com" \
   ssh-workspace:latest
 ```
 
@@ -114,6 +148,11 @@ docker run -d \
 - Privilege separation process usage
 - Runs with minimal privileges
 - SSH host keys must be provided via Kubernetes Secret (not embedded in image)
+- Explicit permission management with required capabilities (CHOWN, DAC_OVERRIDE, FOWNER)
+
+## 🧪 Testing & Development
+
+**Note**: For testing purposes, this image supports automated SSH connectivity tests when used with Kubernetes. Test SSH keys are automatically cleaned up after test completion and are safe to use. See the [root README](../README.md#advanced-configuration) for details on advanced configuration options.
 
 ## 🛠️ Developer Guide
 
