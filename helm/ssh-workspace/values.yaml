@@ -50,11 +50,6 @@ persistence:
 # Security configuration
 security:
   level: standard  # Security level: basic, standard, high
-  
-  # Permission management strategy for volumes and file ownership
-  # explicit: Explicit UID/GID management (no fsGroup usage)
-  permissionStrategy: explicit
-  
   securityContext: {}  # Additional Container Security Context (overrides defaults)
   podSecurityContext: {}  # Additional Pod Security Context (added to defaults)
 

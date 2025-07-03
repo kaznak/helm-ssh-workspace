@@ -338,7 +338,6 @@ persistence:
 
 security:
   level: standard # basic/standard/high
-  permissionStrategy: explicit # explicit permission management (no fsGroup)
   securityContext: {} # Additional Container Security Context
   podSecurityContext: {} # Additional Pod Security Context
 

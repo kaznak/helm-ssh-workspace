@@ -27,7 +27,7 @@ spec:
       apk add --no-cache openssh-client netcat-openbsd kubectl
       
       echo "=== Helm SSH Connectivity Test (Cluster Internal) ==="
-      echo "Configuration: {{ .Values.security.permissionStrategy }}/{{ .Values.security.level }}"
+      echo "Configuration: explicit/{{ .Values.security.level }}"
       
       # Load test SSH private key from secret
       echo "Loading test SSH private key..."
@@ -93,10 +93,10 @@ spec:
           echo "✓ PASS: System call tests completed successfully"
           
           # Validate detected strategy matches configuration
-          if echo "$SSH_SYSCALL_RESULT" | grep -q "STRATEGY_DETECTED:{{ .Values.security.permissionStrategy }}"; then
-              echo "✓ PASS: Permission strategy correctly detected as {{ .Values.security.permissionStrategy }}"
+          if echo "$SSH_SYSCALL_RESULT" | grep -q "STRATEGY_DETECTED:explicit"; then
+              echo "✓ PASS: Permission strategy correctly detected as explicit"
           else
-              echo "❌ FAIL: Permission strategy mismatch - expected {{ .Values.security.permissionStrategy }}"
+              echo "❌ FAIL: Permission strategy mismatch - expected explicit"
               exit 1
           fi
       else
@@ -112,7 +112,7 @@ spec:
       echo "✓ SSH protocol banner confirmed" 
       echo "✓ SSH authentication with test key successful"
       echo "✓ System calls and file operations working"
-      echo "✓ Permission strategy '{{ .Values.security.permissionStrategy }}' correctly detected"
+      echo "✓ Permission strategy 'explicit' correctly detected"
       echo "✓ SSH workspace ready for production use"
       
     volumeMounts:

@@ -26,7 +26,7 @@ spec:
       
       echo "=== Permission Strategy Validation ==="
       echo "Testing deployed configuration:"
-      echo "  Strategy: {{ .Values.security.permissionStrategy }}"
+      echo "  Strategy: explicit"
       echo "  Security Level: {{ .Values.security.level }}"
       echo "  Release Name: {{ .Release.Name }}"
       echo "  Test Pod: $(hostname)"
@@ -167,7 +167,7 @@ spec:
       
       # Validate strategy implementation
       echo "=== Strategy Validation ==="
-      echo "Testing strategy: {{ .Values.security.permissionStrategy }}"
+      echo "Testing strategy: explicit"
       
       # Check if required values were parsed correctly
       if [ -z "$HOME_PERMS" ]; then
@@ -182,36 +182,17 @@ spec:
           exit 1
       fi
       
-      case "{{ .Values.security.permissionStrategy }}" in
-          "fsgroup")
-              echo "Validating fsgroup strategy..."
-              echo "Expected: SetGID bit should be present (non-zero)"
-              echo "Actual: SetGID bit = $SETGID_BIT"
-              if [ "$SETGID_BIT" != "0" ]; then
-                  echo "✓ PASS: SetGID bit correctly present for fsgroup strategy (permissions: $HOME_PERMS)"
-              else
-                  echo "❌ FAIL: SetGID bit missing for fsgroup strategy (permissions: $HOME_PERMS)"
-                  echo "Analysis: fsGroup should set SetGID bit on volumes, but it's missing"
-                  exit 1
-              fi
-              ;;
-          "explicit")
-              echo "Validating explicit strategy..."
-              echo "Expected: SetGID bit should be absent (zero)"
-              echo "Actual: SetGID bit = $SETGID_BIT"
-              if [ "$SETGID_BIT" = "0" ]; then
-                  echo "✓ PASS: SetGID bit correctly absent for explicit strategy (permissions: $HOME_PERMS)"
-              else
-                  echo "❌ FAIL: SetGID bit unexpectedly present for explicit strategy (permissions: $HOME_PERMS)"
-                  echo "Analysis: explicit strategy should not use fsGroup, but SetGID bit is present"
-                  exit 1
-              fi
-              ;;
-          *)
-              echo "❌ UNKNOWN STRATEGY: {{ .Values.security.permissionStrategy }}"
-              echo "Only 'fsgroup' and 'explicit' strategies are supported"
-              exit 1
-              ;;
+      # Always validate explicit strategy (only supported strategy)
+      echo "Validating explicit strategy..."
+      echo "Expected: SetGID bit should be absent (zero)"
+      echo "Actual: SetGID bit = $SETGID_BIT"
+      if [ "$SETGID_BIT" = "0" ]; then
+          echo "✓ PASS: SetGID bit correctly absent for explicit strategy (permissions: $HOME_PERMS)"
+      else
+          echo "❌ FAIL: SetGID bit unexpectedly present for explicit strategy (permissions: $HOME_PERMS)"
+          echo "Analysis: explicit strategy should not use fsGroup, but SetGID bit is present"
+          exit 1
+      fi
       esac
       
       # Validate SSH permissions
@@ -275,7 +256,7 @@ spec:
       
       echo "=== Test Summary ==="
       echo "✓ Permission strategy validation completed successfully"
-      echo "Strategy: {{ .Values.security.permissionStrategy }}"
+      echo "Strategy: explicit"
       echo "Home permissions: $HOME_PERMS"
       echo "SetGID bit: $SETGID_BIT"
       echo "✓ Security validation completed"

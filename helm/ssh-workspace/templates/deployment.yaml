@@ -73,8 +73,6 @@ spec:
             {{- end }}
             - name: ETC_TARGET_DIR
               value: "/etc-new"
-            - name: SSH_PERMISSION_STRATEGY
-              value: {{ .Values.security.permissionStrategy | quote }}
             - name: SSH_PUBLIC_KEYS
               value: |
                 {{- range .Values.ssh.publicKeys }}
