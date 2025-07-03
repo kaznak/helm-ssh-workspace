@@ -95,11 +95,6 @@ ingress:
 labels: {}
 annotations: {}
 
-# Pod disruption budget
-podDisruptionBudget:
-  enabled: false
-  minAvailable: 1
-
 # Additional environment variables
 extraEnvVars: []
 # Example:

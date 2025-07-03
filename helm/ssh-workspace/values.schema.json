@@ -269,23 +269,6 @@
     "annotations": {
       "type": "object",
       "description": "Additional annotations"
-    },
-    "podDisruptionBudget": {
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean",
-          "description": "Enable PodDisruptionBudget"
-        },
-        "minAvailable": {
-          "type": ["integer", "string"],
-          "description": "Minimum available pods"
-        },
-        "maxUnavailable": {
-          "type": ["integer", "string"],
-          "description": "Maximum unavailable pods"
-        }
-      }
     }
   }
 }

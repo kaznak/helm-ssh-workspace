@@ -70,9 +70,6 @@
 #   level: high
 # service:
 #   type: ClusterIP
-# podDisruptionBudget:
-#   enabled: true
-#   minAvailable: 1
 
 # Multi-environment configuration
 # user:

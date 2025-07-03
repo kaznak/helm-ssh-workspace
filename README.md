@@ -295,6 +295,29 @@ SSH Workspace employs a **dual-container Init Container pattern** for enhanced s
 | Data protection | `helm.sh/resource-policy: keep` |
 | Auto recovery | restartPolicy Always |
 
+### Pod Disruption Budget (PDB) Considerations
+
+**⚠️ IMPORTANT: Pod Disruption Budget is NOT supported**
+
+This Helm chart intentionally does not include PDB support due to the following architectural constraints:
+
+1. **Single Replica Design**: SSH Workspace runs as a single pod (`replicas: 1`) because:
+   - Each workspace is dedicated to a single user with persistent session state
+   - Home directory persistence uses `ReadWriteOnce` PVC (single node access only)
+   - Multiple replicas would break SSH session continuity and file consistency
+
+2. **Recreate Strategy**: The deployment uses `strategy: type: Recreate` which:
+   - Ensures clean shutdown before starting a new pod
+   - Prevents data corruption in persistent volumes
+   - Is incompatible with PDB's rolling update assumptions
+
+3. **Operational Impact**: Adding PDB with `minAvailable: 1` would:
+   - Block all cluster maintenance operations permanently
+   - Prevent pod eviction during node drains
+   - Create a deadlock situation requiring manual intervention
+
+**Recommended Approach**: For cluster maintenance, plan scheduled downtime and communicate with workspace users. The persistent home directory ensures no data loss during pod restarts.
+
 ## 6. Advanced Configuration
 
 ### Testing Configuration
@@ -393,14 +416,6 @@ annotations:
   backup.velero.io/backup-volumes: "home"
 ```
 
-#### High Availability Operations
-```yaml
-# Pod Disruption Budget
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1  # Ensure at least 1 pod during cluster maintenance
-```
-
 ### Advanced Monitoring
 
 #### Prometheus Integration
@@ -491,11 +506,6 @@ affinity: {} # Pod affinity/anti-affinity rules
 # Additional metadata
 labels: {} # Additional Pod and resource labels
 annotations: {} # Additional Pod and resource annotations
-
-# High availability and operations
-podDisruptionBudget:
-  enabled: false # Enable Pod Disruption Budget
-  minAvailable: 1 # Minimum available replicas during disruptions
 
 monitoring:
   enabled: false # Enable/disable ssh_exporter
