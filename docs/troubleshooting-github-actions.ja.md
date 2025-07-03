@@ -291,9 +291,169 @@ grep -n "ssh.publicKeys" .github/workflows/ci.yml
 - 一括置換後は必ず全ファイルを確認
 - テンプレート化やDRY原則の適用を検討
 
+### 9. Init Container での chmod 600 権限エラー（authorized_keys）
+
+#### 問題の概要
+2025年7月3日、SSH ワークスペースの Init Container で `authorized_keys` ファイルに対する `chmod 600` 操作が失敗する問題が発生しました。この問題により、SSH接続は動作するものの、セキュリティ要件を満たさない状態となっていました。
+
+#### エラーメッセージ
+```bash
+❌ chmod failed with exit code: 1
+Operation not permitted
+```
+
+#### 発生環境
+- **影響範囲**: 全ストレージバックエンド（emptyDir、PVC）
+- **セキュリティレベル**: basic、standard 両方
+- **権限戦略**: explicit（明示的権限管理）
+
+#### 根本原因の調査
+
+**段階1: 詳細診断の実装**
+初期調査では chmod が失敗する原因が不明だったため、包括的な診断機能を実装：
+
+```bash
+# ファイルシステム情報
+findmnt "/home/$SSH_USER" 
+
+# Linux capabilities 確認
+grep -i "cap" /proc/self/status
+
+# ファイル属性チェック
+lsattr "/home/$SSH_USER/.ssh/authorized_keys"
+```
+
+**段階2: 権限とケーパビリティの分析**
+診断結果から以下が判明：
+
+```bash
+# 期待されるケーパビリティ
+CapPrm: 00000000000000cb  # SETUID + SETGID + CHOWN + DAC_OVERRIDE + FOWNER
+
+# 実際のケーパビリティ（問題時）
+CapPrm: 00000000000000c3  # SETUID + SETGID + CHOWN + DAC_OVERRIDE（FOWNERなし）
+```
+
+**段階3: CAP_FOWNER ケーパビリティの不足特定**
+- `CAP_FOWNER` (bit 3, 0x8) が不足していることが根本原因
+- このケーパビリティは他のユーザーが所有するファイルの chmod 操作に必要
+- Init Container で `chown testuser:testuser` した後の `chmod 600` が失敗
+
+#### 解決方法
+
+**1. Init Container への CAP_FOWNER 追加**
+`helm/ssh-workspace/templates/_helpers.tpl` の修正：
+
+```yaml
+{{- define "ssh-workspace.initSecurityContext" -}}
+runAsNonRoot: false
+readOnlyRootFilesystem: false
+allowPrivilegeEscalation: true
+capabilities:
+  drop:
+    - ALL
+  add:
+    - SETUID   # Required for useradd
+    - SETGID   # Required for groupadd  
+    - CHOWN    # Required for file ownership setup
+    - DAC_OVERRIDE  # Required for file permission setup
+    - FOWNER   # Required for chmod on files owned by other users ← 追加
+{{- end }}
+```
+
+**2. chmod 失敗検出機能の実装**
+SSH接続テストが成功してもセキュリティ要件が満たされていない場合を検出：
+
+```bash
+# Init Container (init-container.sh)
+chmod 600 "/home/$SSH_USER/.ssh/authorized_keys" || {
+    echo "CHMOD_FAILED" > /tmp/chmod_failure_marker
+    echo "authorized_keys chmod failed with exit code $?" >> /tmp/chmod_failure_marker
+}
+
+# Main Container (entrypoint.sh)  
+if [ -f "/tmp/chmod_failure_marker" ]; then
+    echo "INIT_CHMOD_FAILED" > /tmp/ssh_security_failure
+    echo "authorized_keys permissions are incorrect (not 600)" >> /tmp/ssh_security_failure
+fi
+
+# テスト (permission-validation-test.yaml)
+SECURITY_FAILURE_OUTPUT=$(kubectl exec "$POD_NAME" -- /bin/sh -c '
+    if [ -f "/tmp/ssh_security_failure" ]; then
+        echo "SECURITY_FAILURE_DETECTED"
+        cat /tmp/ssh_security_failure
+    else
+        echo "NO_SECURITY_FAILURES"
+    fi
+')
+
+if echo "$SECURITY_FAILURE_OUTPUT" | grep -q "SECURITY_FAILURE_DETECTED"; then
+    echo "❌ CRITICAL SECURITY FAILURE DETECTED!"
+    exit 1
+fi
+```
+
+#### 検証結果
+
+修正後のテスト実行で以下が確認されました：
+
+**Init Container のケーパビリティ**
+```bash
+CapPrm: 00000000000000cb  # CAP_FOWNER を含む完全なケーパビリティセット
+CapEff: 00000000000000cb
+CapBnd: 00000000000000cb
+```
+
+**chmod 600 の成功**
+```bash
+✓ Set authorized_keys permissions to 600
+After ownership and permission changes:
+  authorized_keys: testuser:testuser (600)
+```
+
+**セキュリティ検証の成功**
+```bash
+✓ No security failures detected from containers
+✓ Permission strategy validation completed successfully
+```
+
+#### 技術的詳細
+
+**Linux Capabilities について**
+- `CAP_FOWNER`: ファイル所有者以外による chmod/chown 操作を許可
+- 必要性: Init Container が root として実行されても、`chown` でユーザー所有にした後の `chmod` には CAP_FOWNER が必要
+- セキュリティ: 最小権限の原則に従い、必要最小限のケーパビリティのみを付与
+
+**chmod(2) システムコールの EPERM 条件**
+以下の場合に `chmod` は EPERM（Operation not permitted）で失敗：
+1. プロセスの実効ユーザーIDがファイル所有者と異なる
+2. かつ、`CAP_FOWNER` ケーパビリティを持たない
+
+**解決策の選択理由**
+1. **ConfigMap マウント方式の廃止**: 権限問題を回避するため環境変数方式に変更
+2. **診断機能の充実**: 将来の類似問題に備えて包括的な診断ロジックを実装  
+3. **遅延失敗検出**: SSH接続成功でもセキュリティ要件未達成の場合を検出
+4. **最小権限の原則**: 必要最小限のケーパビリティのみを追加
+
+#### 学習事項
+
+**Kubernetes セキュリティコンテキスト設計**
+- Init Container と Main Container で異なるケーパビリティ要件を持つ場合がある
+- ファイル所有権の変更後は、それに応じたケーパビリティの見直しが必要
+- `runAsRoot: false` でもケーパビリティ制限により予期しない動作が発生する可能性
+
+**トラブルシューティング手法**
+- **段階的診断**: システムコール失敗時は、ファイルシステム、権限、ケーパビリティを順次確認
+- **根本原因追求**: 表面的な症状（SSH動作）ではなく、セキュリティ要件の確認も重要
+- **防御的実装**: False positive を避けつつ、セキュリティ不備を確実に検出する仕組み
+
+この修正により、SSH Workspace は完全なセキュリティ要件を満たしつつ、堅牢な動作を実現しています。
+
 ## 参考リンク
 
 - [GitHub Actions permissions documentation](https://docs.github.com/en/actions/using-jobs/assigning-permissions-to-jobs)
 - [Helm lint documentation](https://helm.sh/docs/helm/helm_lint/)
 - [Helm template documentation](https://helm.sh/docs/helm/helm_template/)
 - [Docker build-push-action documentation](https://github.com/docker/build-push-action)
+- [Linux Capabilities(7) man page](https://man7.org/linux/man-pages/man7/capabilities.7.html)
+- [chmod(2) system call documentation](https://man7.org/linux/man-pages/man2/chmod.2.html)
