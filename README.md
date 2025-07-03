@@ -395,6 +395,53 @@ persistence:
 - Subdirectories are created automatically if they don't exist
 - All file operations within mounted directories work normally without limitations
 
+### Development Environment Setup
+
+SSH Workspace includes a comprehensive setup script for installing development package managers and tools.
+
+#### Package Manager Installation Script
+
+Run the following script to install Linuxbrew (Homebrew), Node.js via NVM, and Rust:
+
+```bash
+# Install all development environments
+/opt/ssh-workspace/bin/user-package-managers.sh
+
+# Or install specific tools only
+/opt/ssh-workspace/bin/user-package-managers.sh --homebrew-only
+/opt/ssh-workspace/bin/user-package-managers.sh --node-only  
+/opt/ssh-workspace/bin/user-package-managers.sh --rust-only
+```
+
+**Features:**
+- **Linuxbrew**: Install packages like `jq`, `stow`, `htop`, `tree`, `tmux`, `screen`
+- **Node.js**: Modern JavaScript runtime via NVM
+- **Rust**: Systems programming language and toolchain
+- **Safe & Secure**: Official installation methods, HTTPS downloads, verification checks
+
+**Environment Variables:**
+```bash
+# Customize versions
+NVM_VERSION=v0.39.0 NODE_VERSION=18 /opt/ssh-workspace/bin/user-package-managers.sh
+```
+
+**After Installation:**
+```bash
+# Reload shell environment
+source ~/.bashrc
+
+# Install useful packages via Homebrew
+brew install jq stow htop tree tmux screen
+
+# Use Node.js
+node --version
+npm install -g typescript
+
+# Use Rust  
+cargo --version
+rustc --version
+```
+
 ### Testing Configuration
 
 #### SSH Test Keys
