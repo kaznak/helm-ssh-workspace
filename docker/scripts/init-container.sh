@@ -215,9 +215,31 @@ if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
         echo "Process info:"
         id || echo "Cannot get process id"
         
+        echo "Capabilities info:"
+        if [ -f /proc/self/status ]; then
+            grep -i "cap" /proc/self/status 2>/dev/null || echo "Cannot read capabilities from /proc/self/status"
+        fi
+        
+        # Try to check specific capability
+        if command -v capsh >/dev/null 2>&1; then
+            echo "Current capabilities (capsh):"
+            capsh --print 2>/dev/null || echo "capsh command failed"
+        fi
+        
+        # Check file immutable attributes
+        echo "File attributes check:"
+        if command -v lsattr >/dev/null 2>&1; then
+            lsattr "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "lsattr not available or failed"
+        fi
+        
         echo "Directory permissions:"
         stat -c "  .ssh dir: %a (%A) %U:%G" "/home/$SSH_USER/.ssh" 2>/dev/null || echo "  Cannot stat .ssh dir"
         stat -c "  home dir: %a (%A) %U:%G" "/home/$SSH_USER" 2>/dev/null || echo "  Cannot stat home dir"
+        
+        echo "Filesystem information:"
+        df -T "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "Cannot get filesystem type"
+        mount | grep "/home/$SSH_USER" 2>/dev/null || echo "No specific mount for home directory"
+        findmnt -T "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "findmnt not available"
         
         # straceが利用可能な場合の詳細トレース
         if command -v strace >/dev/null 2>&1; then
