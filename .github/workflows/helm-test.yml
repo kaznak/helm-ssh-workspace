@@ -113,36 +113,36 @@ jobs:
         # Testing chmod behavior across various Kubernetes volume types
         config:
           # emptyDir volumes (current behavior - chmod fails)
-          - name: "explicit-basic-emptydir"
+          - name: "basic-emptydir"
             permission_strategy: "explicit"
             security_level: "basic"
             persistence_enabled: "false"
             use_container_filesystem: "false"
-          - name: "explicit-standard-emptydir"
+          - name: "std-emptydir"
             permission_strategy: "explicit"
             security_level: "standard" 
             persistence_enabled: "false"
             use_container_filesystem: "false"
           
           # PVC volumes (expected - chmod should work)
-          - name: "explicit-basic-pvc"
+          - name: "basic-pvc"
             permission_strategy: "explicit"
             security_level: "basic"
             persistence_enabled: "true"
             use_container_filesystem: "false"
-          - name: "explicit-standard-pvc"
+          - name: "std-pvc"
             permission_strategy: "explicit"
             security_level: "standard"
             persistence_enabled: "true"
             use_container_filesystem: "false"
           
           # Container filesystem (no volume mount - expected chmod should work)
-          - name: "explicit-basic-container"
+          - name: "basic-container"
             permission_strategy: "explicit"
             security_level: "basic"
             persistence_enabled: "false"
             use_container_filesystem: "true"
-          - name: "explicit-standard-container"
+          - name: "std-container"
             permission_strategy: "explicit"
             security_level: "standard"
             persistence_enabled: "false"
