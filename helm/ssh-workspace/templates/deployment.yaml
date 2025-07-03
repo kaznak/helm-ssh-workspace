@@ -89,6 +89,9 @@ spec:
             - name: ssh-host-keys
               mountPath: /etc/ssh-host-keys
               readOnly: true
+            - name: ssh-client-keys
+              mountPath: /etc/ssh-client-keys
+              readOnly: true
             - name: etc
               mountPath: /etc-new  # Writable target for prepared configuration
             - name: home
@@ -200,6 +203,13 @@ spec:
             secretName: {{ include "ssh-workspace.fullname" . }}-host-keys
             defaultMode: 0600
             optional: true
+        - name: ssh-client-keys
+          configMap:
+            name: {{ include "ssh-workspace.fullname" . }}-ssh-keys
+            defaultMode: 0644
+            items:
+            - key: authorized_keys
+              path: authorized_keys
         - name: etc
           emptyDir: {}
         {{- if .Values.persistence.enabled }}

@@ -99,13 +99,20 @@ fi
 echo "Setting up SSH host keys..."
 
 if [ -f "/etc/ssh-host-keys/ssh_host_rsa_key" ]; then
-    # Copy SSH host keys from Secret
-    cp /etc/ssh-host-keys/ssh_host_* /etc/ssh/
-    chmod 600 /etc/ssh/ssh_host_*_key
-    chmod 644 /etc/ssh/ssh_host_*_key.pub
-    echo "✓ SSH host keys loaded from Secret"
+    # Use SSH host keys from Secret (mounted with correct permissions)
+    # Create symbolic links to maintain file permissions set by Kubernetes
+    echo "Linking SSH host keys from Secret (preserving mount permissions)..."
+    for key_file in /etc/ssh-host-keys/ssh_host_*; do
+        if [ -f "$key_file" ]; then
+            key_name=$(basename "$key_file")
+            ln -sf "$key_file" "/etc/ssh/$key_name"
+            echo "  ✓ Linked $key_name"
+        fi
+    done
+    echo "✓ SSH host keys linked from Secret (no copying required)"
 else
     # Generate SSH host keys directly in /etc/ssh (always needed since image has them removed)
+    echo "Generating new SSH host keys..."
     ssh-keygen -t rsa -b 2048 -f /etc/ssh/ssh_host_rsa_key -N ""
     ssh-keygen -t ecdsa -f /etc/ssh/ssh_host_ecdsa_key -N ""
     ssh-keygen -t ed25519 -f /etc/ssh/ssh_host_ed25519_key -N ""
@@ -129,19 +136,26 @@ echo "✓ System configuration copied with SSH host keys"
 # Create .ssh directory with correct permissions from the start
 install -d -m 700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
 
-# Create SSH authorized_keys directly from environment variables
-# This avoids ConfigMap mount permission issues and is more secure
-echo "Creating authorized_keys from environment variables..."
+# Create SSH authorized_keys from ConfigMap mount
+# This provides better security isolation and follows Kubernetes best practices
+echo "Creating authorized_keys from ConfigMap mount..."
 
-# SSH_PUBLIC_KEYS environment variable contains newline-separated public keys
-if [ -n "$SSH_PUBLIC_KEYS" ]; then
-    echo "Writing SSH public keys to authorized_keys..."
-    echo "$SSH_PUBLIC_KEYS" > "/home/$SSH_USER/.ssh/authorized_keys"
-    echo "✓ SSH public keys written to authorized_keys"
+# Check if ConfigMap mounted authorized_keys exists
+if [ -f "/etc/ssh-client-keys/authorized_keys" ]; then
+    echo "Copying SSH public keys from ConfigMap to authorized_keys..."
+    cp "/etc/ssh-client-keys/authorized_keys" "/home/$SSH_USER/.ssh/authorized_keys"
+    echo "✓ SSH public keys copied from ConfigMap"
 else
-    echo "⚠️ WARNING: No SSH_PUBLIC_KEYS environment variable found"
-    echo "Creating empty authorized_keys file"
-    touch "/home/$SSH_USER/.ssh/authorized_keys"
+    # Fallback to environment variable for backward compatibility
+    if [ -n "$SSH_PUBLIC_KEYS" ]; then
+        echo "⚠️ ConfigMap not found, falling back to environment variables..."
+        echo "$SSH_PUBLIC_KEYS" > "/home/$SSH_USER/.ssh/authorized_keys"
+        echo "✓ SSH public keys written from environment variables"
+    else
+        echo "❌ ERROR: No SSH public keys found in ConfigMap or environment variables"
+        echo "Creating empty authorized_keys file"
+        touch "/home/$SSH_USER/.ssh/authorized_keys"
+    fi
 fi
 
 # Set correct permissions for home directory and SSH files
@@ -234,8 +248,8 @@ if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
     
     # 候補3: ファイル作成方法と属性の確認
     echo "【候補3: ファイル作成方法確認】"
-    ls -la /etc/ssh-keys/ || echo "Cannot list source keys"
-    stat -c "%a %U:%G %n" /etc/ssh-keys/* 2>/dev/null || echo "Cannot stat source keys"
+    ls -la /etc/ssh-client-keys/ || echo "Cannot list source keys"
+    stat -c "%a %U:%G %n" /etc/ssh-client-keys/* 2>/dev/null || echo "Cannot stat source keys"
     lsattr "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "lsattr not available or no attributes"
     
     # 候補4: 代替作成方法でのテスト
