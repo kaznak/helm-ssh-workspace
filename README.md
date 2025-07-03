@@ -56,6 +56,16 @@ kubectl port-forward svc/workspace-ssh-workspace 2222:2222
 ssh developer@localhost -p 2222
 ```
 
+**Note**: For testing purposes, you can enable `ssh.testKeys` for automated SSH connectivity tests. Test SSH keys are automatically cleaned up after test completion and are safe to use. See [Advanced Configuration](#advanced-configuration) for details on additional features.
+
+```bash
+# Enable test keys for automated testing
+helm install workspace ./ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com" \
+  --set ssh.testKeys.enabled=true
+```
+
 ## 🔄 CI/CD & Container Registry
 
 ### GitHub Container Registry (GHCR)
@@ -293,7 +303,109 @@ SSH Workspace employs a **dual-container Init Container pattern** for enhanced s
 | Data protection | `helm.sh/resource-policy: keep` |
 | Auto recovery | restartPolicy Always |
 
-## 6. Helm Chart & Technical Specifications
+## 6. Advanced Configuration
+
+### Testing Configuration
+
+#### SSH Test Keys
+For automated testing and CI/CD pipelines, you can configure dedicated test SSH keys:
+
+```yaml
+ssh:
+  testKeys:
+    enabled: true
+    keyPairs:
+      - publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrShAQgt+9ZuPDQ1L2KrSwKxL8BEcqhytt7X3ZLZxai test-key@helm-test"
+        privateKey: |
+          -----BEGIN OPENSSH PRIVATE KEY-----
+          b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
+          rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
+          -----END OPENSSH PRIVATE KEY-----
+```
+
+**Security Notes:**
+- Test keys are stored in Kubernetes Secrets with `helm.sh/hook-delete-policy: hook-succeeded`
+- Secrets are **automatically deleted** after test completion
+- Test keys are **only present during test execution** (typically 2-3 minutes)
+- Private keys are never exposed in logs or persistent storage
+
+#### Test RBAC Configuration
+```yaml
+tests:
+  rbac:
+    create: true  # Creates ServiceAccount, Role, and RoleBinding for tests
+```
+
+Enables comprehensive testing including SSH connectivity validation and permission checks.
+
+### Operational Configuration
+
+#### Node Placement and Scheduling
+```yaml
+# Target specific nodes
+nodeSelector:
+  kubernetes.io/arch: amd64
+  node.kubernetes.io/instance-type: m5.large
+
+# Tolerate node taints
+tolerations:
+  - key: "dedicated"
+    operator: "Equal"
+    value: "ssh-workspaces"
+    effect: "NoSchedule"
+
+# Pod affinity rules
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ssh-workspace
+          topologyKey: kubernetes.io/hostname
+```
+
+#### Metadata and Labeling
+```yaml
+# Additional labels for all resources
+labels:
+  environment: production
+  team: platform
+  cost-center: "12345"
+
+# Additional annotations
+annotations:
+  monitoring.coreos.com/scrape: "true"
+  backup.velero.io/backup-volumes: "home"
+```
+
+#### High Availability Operations
+```yaml
+# Pod Disruption Budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1  # Ensure at least 1 pod during cluster maintenance
+```
+
+### Advanced Monitoring
+
+#### Prometheus Integration
+```yaml
+monitoring:
+  enabled: true
+  port: 9312
+  serviceMonitor:
+    enabled: true      # Creates ServiceMonitor for Prometheus Operator
+    interval: 30s      # Metrics collection frequency
+```
+
+**Available Metrics:**
+- SSH connection count and duration
+- Authentication success/failure rates
+- Resource utilization (CPU, memory, disk)
+
+## 7. Helm Chart & Technical Specifications
 
 ### Chart.yaml
 ```yaml
@@ -329,6 +441,9 @@ ssh:
   publicKeys: [] # SSH public keys (required, array format)
   port: 2222 # SSH port
   config: {} # Custom configuration
+  testKeys: # Test SSH keys for automated testing (optional)
+    enabled: false # Enable test key functionality
+    keyPairs: [] # Test key pairs (public + private keys)
 
 persistence:
   enabled: false # Enable/disable persistence
@@ -347,11 +462,39 @@ service:
 
 resources: {} # CPU & memory limits
 timezone: UTC # Timezone (tzdata package)
+
+# Node placement and scheduling
+nodeSelector: {} # Node selection constraints
+tolerations: [] # Tolerate node taints
+affinity: {} # Pod affinity/anti-affinity rules
+
+# Additional metadata
+labels: {} # Additional Pod and resource labels
+annotations: {} # Additional Pod and resource annotations
+
+# High availability and operations
+podDisruptionBudget:
+  enabled: false # Enable Pod Disruption Budget
+  minAvailable: 1 # Minimum available replicas during disruptions
+
 monitoring:
   enabled: false # Enable/disable ssh_exporter
+  port: 9312 # Metrics port
+  serviceMonitor:
+    enabled: false # Create ServiceMonitor for Prometheus
+    interval: 30s # Metrics collection interval
+
 ingress:
   enabled: false # Enable/disable Ingress
-  # annotations, className, TLS configuration, etc.
+  className: "" # Ingress class name
+  annotations: {} # Ingress annotations
+  hosts: [] # Ingress hosts configuration
+  tls: [] # TLS configuration
+
+# Testing configuration
+tests:
+  rbac:
+    create: true # Create ServiceAccount and RBAC for tests
 
 # All parameters except deployment-time decisions have default values
 ```
