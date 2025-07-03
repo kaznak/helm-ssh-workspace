@@ -46,6 +46,11 @@ persistence:
   accessModes:
     - ReadWriteOnce
 
+# Test configuration for storage backends
+# This is used only for testing different chmod behaviors
+test:
+  useContainerFilesystem: false  # For testing: use container filesystem instead of volumes
+
 # Security configuration
 security:
   level: standard  # Security level: basic, standard, high

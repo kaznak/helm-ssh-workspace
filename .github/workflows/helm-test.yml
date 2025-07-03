@@ -109,27 +109,44 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        # Test explicit permission strategy with all security levels
-        # fsgroup cases are temporarily disabled due to chmod restrictions in high security environments
+        # Test explicit permission strategy with different storage backends
+        # Testing chmod behavior across various Kubernetes volume types
         config:
-          # - name: "fsgroup-basic"
-          #   permission_strategy: "fsgroup"
-          #   security_level: "basic"
-          - name: "explicit-basic"
+          # emptyDir volumes (current behavior - chmod fails)
+          - name: "explicit-basic-emptydir"
             permission_strategy: "explicit"
             security_level: "basic"
-          # - name: "fsgroup-standard"
-          #   permission_strategy: "fsgroup"
-          #   security_level: "standard"
-          - name: "explicit-standard"
+            persistence_enabled: "false"
+            use_container_filesystem: "false"
+          - name: "explicit-standard-emptydir"
+            permission_strategy: "explicit"
+            security_level: "standard" 
+            persistence_enabled: "false"
+            use_container_filesystem: "false"
+          
+          # PVC volumes (expected - chmod should work)
+          - name: "explicit-basic-pvc"
+            permission_strategy: "explicit"
+            security_level: "basic"
+            persistence_enabled: "true"
+            use_container_filesystem: "false"
+          - name: "explicit-standard-pvc"
             permission_strategy: "explicit"
             security_level: "standard"
-          # - name: "fsgroup-high"
-          #   permission_strategy: "fsgroup"
-          #   security_level: "high"
-          - name: "explicit-high"
+            persistence_enabled: "true"
+            use_container_filesystem: "false"
+          
+          # Container filesystem (no volume mount - expected chmod should work)
+          - name: "explicit-basic-container"
             permission_strategy: "explicit"
-            security_level: "high"
+            security_level: "basic"
+            persistence_enabled: "false"
+            use_container_filesystem: "true"
+          - name: "explicit-standard-container"
+            permission_strategy: "explicit"
+            security_level: "standard"
+            persistence_enabled: "false"
+            use_container_filesystem: "true"
       fail-fast: false
     steps:
       - name: Checkout repository
@@ -195,6 +212,8 @@ jobs:
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
+            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            --set test.useContainerFilesystem=${{ matrix.config.use_container_filesystem }} \
             --validate \
             --debug
           echo "✓ Helm template validation with Kubernetes API successful"
@@ -213,6 +232,8 @@ jobs:
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
+            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            --set test.useContainerFilesystem=${{ matrix.config.use_container_filesystem }} \
             --timeout=300s \
             --wait \
             --debug

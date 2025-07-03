@@ -93,10 +93,12 @@ spec:
               readOnly: true
             - name: etc
               mountPath: /etc-new  # Writable target for prepared configuration
+            {{- if not .Values.test.useContainerFilesystem }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}
               # Init Container always needs write access to prepare home directory
               readOnly: false
+            {{- end }}
             {{- if ne .Values.security.level "basic" }}
             - name: var-run
               mountPath: /var/run
@@ -153,9 +155,11 @@ spec:
           volumeMounts:
             - name: etc
               mountPath: /etc  # Read-only mount of prepared configuration
+            {{- if not .Values.test.useContainerFilesystem }}
             - name: home
               mountPath: /home/{{ .Values.user.name }}
               # Home directory needs write access for user session activities
+            {{- end }}
             {{- if ne .Values.security.level "basic" }}
             - name: tmp
               mountPath: /tmp
@@ -204,6 +208,7 @@ spec:
             optional: true
         - name: etc
           emptyDir: {}
+        {{- if not .Values.test.useContainerFilesystem }}
         {{- if .Values.persistence.enabled }}
         - name: home
           persistentVolumeClaim:
@@ -211,6 +216,7 @@ spec:
         {{- else }}
         - name: home
           emptyDir: {}
+        {{- end }}
         {{- end }}
         {{- if ne .Values.security.level "basic" }}
         - name: tmp
