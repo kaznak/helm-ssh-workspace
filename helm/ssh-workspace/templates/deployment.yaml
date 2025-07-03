@@ -62,7 +62,7 @@ spec:
         - name: ssh-setup
           image: {{ include "ssh-workspace.image" . }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/usr/local/bin/init-container.sh"]
+          command: ["/opt/ssh-workspace/bin/init-container.sh"]
           env:
             - name: SSH_USER
               value: {{ .Values.user.name | quote }}
