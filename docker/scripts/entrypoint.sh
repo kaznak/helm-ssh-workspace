@@ -154,6 +154,22 @@ if [ -d "/home/$SSH_USER" ]; then
 fi
 
 echo "SSH Workspace initialization completed successfully"
+
+# Check for chmod failures from Init Container
+if [ -f "/tmp/chmod_failure_marker" ]; then
+    echo "❌ CRITICAL: Init Container chmod failure detected!"
+    echo "Details:"
+    cat /tmp/chmod_failure_marker
+    echo ""
+    echo "This indicates that authorized_keys file does not have the required 600 permissions."
+    echo "SSH may still work but this represents a security vulnerability."
+    echo "The container will continue to allow SSH connections for testing, but this deployment should be considered FAILED."
+    
+    # Create a marker that tests can detect
+    echo "INIT_CHMOD_FAILED" > /tmp/ssh_security_failure
+    echo "authorized_keys permissions are incorrect (not 600)" >> /tmp/ssh_security_failure
+fi
+
 echo "Starting SSH daemon for user: $SSH_USER"
 
 # SSH daemon の起動

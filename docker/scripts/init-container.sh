@@ -206,6 +206,10 @@ if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
         CHMOD_EXIT_CODE=$?
         echo "❌ chmod failed with exit code: $CHMOD_EXIT_CODE"
         
+        # Mark chmod failure for later detection by tests
+        echo "CHMOD_FAILED" > /tmp/chmod_failure_marker
+        echo "authorized_keys chmod failed with exit code $CHMOD_EXIT_CODE" >> /tmp/chmod_failure_marker
+        
         # 詳細診断
         echo "Current file status:"
         stat -c "  Permissions: %a (%A)" "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || echo "  Cannot stat file"

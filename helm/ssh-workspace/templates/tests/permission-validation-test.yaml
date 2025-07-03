@@ -242,11 +242,43 @@ spec:
           echo "⚠️ WARNING: authorized_keys file not found or permissions not readable"
       fi
       
+      # Check for security failures from containers
+      echo "=== Final Security Validation ==="
+      echo "Checking for security issues from Init Container and Main Container..."
+      
+      # Check for chmod failures from Init Container via Main Container marker
+      SECURITY_FAILURE_OUTPUT=$(kubectl exec "$POD_NAME" -- /bin/sh -c '
+          if [ -f "/tmp/ssh_security_failure" ]; then
+              echo "SECURITY_FAILURE_DETECTED"
+              cat /tmp/ssh_security_failure
+          else
+              echo "NO_SECURITY_FAILURES"
+          fi
+      ' 2>/dev/null || echo "CANNOT_CHECK_SECURITY_FAILURES")
+      
+      echo "Security check result: $SECURITY_FAILURE_OUTPUT"
+      
+      if echo "$SECURITY_FAILURE_OUTPUT" | grep -q "SECURITY_FAILURE_DETECTED"; then
+          echo "❌ CRITICAL SECURITY FAILURE DETECTED!"
+          echo "Details from container:"
+          echo "$SECURITY_FAILURE_OUTPUT" | grep -v "SECURITY_FAILURE_DETECTED"
+          echo ""
+          echo "This deployment has security issues that must be resolved."
+          echo "Even though SSH connections may work, the security requirements are not met."
+          exit 1
+      elif echo "$SECURITY_FAILURE_OUTPUT" | grep -q "NO_SECURITY_FAILURES"; then
+          echo "✓ No security failures detected from containers"
+      else
+          echo "⚠️ WARNING: Could not verify security status from containers"
+          echo "Raw output: $SECURITY_FAILURE_OUTPUT"
+      fi
+      
       echo "=== Test Summary ==="
       echo "✓ Permission strategy validation completed successfully"
       echo "Strategy: {{ .Values.security.permissionStrategy }}"
       echo "Home permissions: $HOME_PERMS"
       echo "SetGID bit: $SETGID_BIT"
+      echo "✓ Security validation completed"
       echo "All validation checks passed!"
     
     resources:

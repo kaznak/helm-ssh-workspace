@@ -81,6 +81,7 @@ capabilities:
     - SETGID   # Required for groupadd  
     - CHOWN    # Required for file ownership setup
     - DAC_OVERRIDE  # Required for file permission setup
+    - FOWNER   # Required for chmod on files owned by other users
     # SYS_CHROOT not needed for Init Container (user setup only)
 {{- end }}
 
