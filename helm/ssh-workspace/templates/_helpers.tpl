@@ -89,9 +89,6 @@ Main Container Security Context based on security level and permission strategy
 Design: SSH daemon requires root privileges, but permission management varies by strategy.
 */}}
 {{- define "ssh-workspace.securityContext" -}}
-{{- if eq .Values.security.level "basic" }}
-runAsNonRoot: false
-{{- else }}
 runAsNonRoot: false  # SSH daemon must run as root
 {{- if ne .Values.security.level "basic" }}
 readOnlyRootFilesystem: true  # Enhanced security: no write access to root filesystem
@@ -120,7 +117,6 @@ capabilities:
 {{- if eq .Values.security.level "high" }}
 seccompProfile:
   type: RuntimeDefault
-{{- end }}
 {{- end }}
 {{- with .Values.security.securityContext }}
 {{ toYaml . }}
