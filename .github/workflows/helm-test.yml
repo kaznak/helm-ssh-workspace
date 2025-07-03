@@ -224,14 +224,17 @@ jobs:
 
       - name: Debug Deployment Configuration
         run: |
-          echo "=== Checking Deployment Readiness Probe Configuration ==="
+          echo "::group::Deployment Readiness Probe Configuration"
           kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
+          echo "::endgroup::"
           
-          echo "=== Checking Pod Status ==="
+          echo "::group::Pod Status Overview"
           kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
+          echo "::endgroup::"
           
-          echo "=== Checking Pod Readiness Details ==="
+          echo "::group::Pod Readiness Details"
           kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
+          echo "::endgroup::"
 
       - name: Run Helm Tests
         run: |
@@ -239,11 +242,9 @@ jobs:
 
       - name: Debug SSH Authentication Files
         run: |
-          echo "=== SSH Authentication Debugging ===" 
-          echo "Configuration: ${{ matrix.config.name }}"
+          echo "::group::SSH Authentication Debugging - ${{ matrix.config.name }}"
           
-          # Get pod name
-          echo "Finding pods with labels:"
+          echo "::group::Finding Workspace Pod"
           kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }}
           
           # Get deployment pod (not test pods) - test pods have helm.sh/hook annotation
@@ -267,22 +268,26 @@ jobs:
           fi
           
           echo "Debugging pod: $POD_NAME"
+          echo "::endgroup::"
           
           if [ -z "$POD_NAME" ]; then
-            echo "❌ ERROR: Could not find workspace pod"
+            echo "::error::Could not find workspace pod"
             kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
             exit 0  # Continue with test, but skip this debugging step
           fi
           
-          # Check SSH file permissions and structure
-          echo "=== SSH Files Analysis ==="
+          echo "::group::SSH Files Analysis"
           kubectl exec "$POD_NAME" -- /bin/sh -c '
-            echo "=== Home directory analysis ==="
+            echo "::group::Home Directory Analysis"
             ls -la /home/testuser/
-            echo "=== SSH directory analysis ==="
+            echo "::endgroup::"
+            
+            echo "::group::SSH Directory Analysis"
             if [ -d "/home/testuser/.ssh" ]; then
               ls -la /home/testuser/.ssh/
-              echo "=== authorized_keys content check ==="
+              echo "::endgroup::"
+              
+              echo "::group::Authorized Keys Content Check"
               if [ -f "/home/testuser/.ssh/authorized_keys" ]; then
                 echo "authorized_keys file exists"
                 wc -l /home/testuser/.ssh/authorized_keys
@@ -291,46 +296,55 @@ jobs:
               else
                 echo "authorized_keys file not found"
               fi
+              echo "::endgroup::"
             else
               echo ".ssh directory not found"
+              echo "::endgroup::"
             fi
             
-            echo "=== SSH daemon configuration check ==="
+            echo "::group::SSH Daemon Configuration"
             echo "SSH daemon process:"
             ps aux | grep sshd | grep -v grep || echo "No sshd process found"
+            echo "::endgroup::"
             
-            echo "=== SSH host keys check ==="
+            echo "::group::SSH Host Keys"
             ls -la /etc/ssh/ssh_host_*
+            echo "::endgroup::"
             
-            echo "=== System permission analysis ==="
+            echo "::group::System Permission Analysis"
             echo "Process user info:"
             id
             echo "File ownership analysis:"
             stat -c "Home: %U:%G (%a)" /home/testuser 2>/dev/null || echo "Cannot stat home directory"
             stat -c ".ssh: %U:%G (%a)" /home/testuser/.ssh 2>/dev/null || echo "Cannot stat .ssh directory"  
             stat -c "authorized_keys: %U:%G (%a)" /home/testuser/.ssh/authorized_keys 2>/dev/null || echo "Cannot stat authorized_keys"
+            echo "::endgroup::"
           ' || echo "Failed to execute SSH debugging commands"
+          echo "::endgroup::"
+          echo "::endgroup::"
 
       - name: SSH Connectivity Test (External)
         run: |
-          echo "=== External SSH Connectivity Test ==="
-          echo "Configuration: ${{ matrix.config.name }}"
+          echo "::group::External SSH Connectivity Test - ${{ matrix.config.name }}"
           
-          # Wait for pod to be ready
+          echo "::group::Pod Readiness Check"
           echo "Waiting for pod to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
+          echo "::endgroup::"
           
-          # Get service information
+          echo "::group::Service Configuration"
           SERVICE_PORT=$(kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
           echo "Service port: $SERVICE_PORT"
+          echo "::endgroup::"
           
-          # Port forward for SSH access
+          echo "::group::Port Forward Setup"
           echo "Setting up port forward..."
           kubectl port-forward service/test-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
           PORT_FORWARD_PID=$!
           sleep 10
+          echo "::endgroup::"
           
-          # Test external SSH connectivity only
+          echo "::group::SSH Connection Test"
           echo "Testing external SSH connection..."
           ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
               -o StrictHostKeyChecking=no \
@@ -341,22 +355,26 @@ jobs:
               'echo "External SSH connection successful! Configuration: ${{ matrix.config.name }}"' || {
             echo "❌ External SSH connection failed!"
             
-            # Basic debugging
-            echo "=== Network connectivity test ==="
+            echo "::group::Connection Failure Debugging"
+            echo "Network connectivity test:"
             nc -zv localhost 2222 || echo "Port 2222 not accessible"
             
-            echo "=== Service status ==="
+            echo "Service status:"
             kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o wide
+            echo "::endgroup::"
             
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
             exit 1
           }
+          echo "::endgroup::"
           
+          echo "::group::Cleanup"
           # Cleanup
           kill $PORT_FORWARD_PID 2>/dev/null || true
-          
           echo "✓ External SSH connectivity test completed successfully!"
+          echo "::endgroup::"
+          echo "::endgroup::"
 
       - name: Check deployment status
         if: always()
