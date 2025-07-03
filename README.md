@@ -3,6 +3,8 @@
 A project to build SSH-accessible workspace environments.
 Provides Docker images and Kubernetes Helm Charts.
 
+→ **Ready to get started?** See [🚀 Quick Start](#-quick-start)
+
 ## Overview & Basic Features
 
 ### Concept
