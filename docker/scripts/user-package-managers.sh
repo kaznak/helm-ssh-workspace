@@ -56,39 +56,46 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Auto-detect latest versions
-auto_detect_versions() {
-    log_info "Auto-detecting latest versions..."
-    
-    # Auto-detect latest NVM version if not specified
-    if [ -z "$NVM_VERSION" ]; then
-        log_info "Detecting latest NVM version..."
-        NVM_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | \
-                     grep '"tag_name":' | \
-                     sed -E 's/.*"([^"]+)".*/\1/')
-        
-        if [ -z "$NVM_VERSION" ] || [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            log_warning "Could not detect NVM version, using fallback"
-            NVM_VERSION="v0.39.0"
-        else
-            log_success "Latest NVM version: $NVM_VERSION"
-        fi
+# Auto-detect latest NVM version
+auto_detect_nvm_version() {
+    if [ -n "$NVM_VERSION" ]; then
+        return 0  # Already specified
     fi
     
-    # Auto-detect latest LTS Node.js version if not specified
-    if [ -z "$NODE_VERSION" ]; then
-        log_info "Detecting latest Node.js LTS version..."
-        NODE_VERSION=$(curl -s https://nodejs.org/dist/index.json | \
+    log_info "Detecting latest NVM version..."
+    local detected_version
+    detected_version=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | \
+                      grep '"tag_name":' | \
+                      sed -E 's/.*"([^"]+)".*/\1/')
+    
+    if [ -z "$detected_version" ] || [[ ! "$detected_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_warning "Could not detect NVM version, using fallback"
+        NVM_VERSION="v0.39.0"
+    else
+        NVM_VERSION="$detected_version"
+        log_success "Latest NVM version: $NVM_VERSION"
+    fi
+}
+
+# Auto-detect latest Node.js LTS version
+auto_detect_node_version() {
+    if [ -n "$NODE_VERSION" ]; then
+        return 0  # Already specified
+    fi
+    
+    log_info "Detecting latest Node.js LTS version..."
+    local detected_version
+    detected_version=$(curl -s https://nodejs.org/dist/index.json | \
                       grep -E '"lts":"[^"]*"' | \
                       head -1 | \
                       sed -E 's/.*"version":"v([0-9]+)\..*"/\1/')
-        
-        if [ -z "$NODE_VERSION" ] || ! [[ "$NODE_VERSION" =~ ^[0-9]+$ ]]; then
-            log_warning "Could not detect Node.js LTS version, using fallback"
-            NODE_VERSION="20"
-        else
-            log_success "Latest Node.js LTS major version: $NODE_VERSION"
-        fi
+    
+    if [ -z "$detected_version" ] || ! [[ "$detected_version" =~ ^[0-9]+$ ]]; then
+        log_warning "Could not detect Node.js LTS version, using fallback"
+        NODE_VERSION="20"
+    else
+        NODE_VERSION="$detected_version"
+        log_success "Latest Node.js LTS major version: $NODE_VERSION"
     fi
 }
 
@@ -168,6 +175,10 @@ install_node() {
         log_warning "NVM is already installed. Skipping NVM setup."
         return 0
     fi
+    
+    # Ensure versions are detected
+    auto_detect_nvm_version
+    auto_detect_node_version
     
     # Validate NVM version format
     if [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
@@ -305,10 +316,17 @@ main() {
     log_info "Starting SSH Workspace package manager setup..."
     
     validate_environment
-    auto_detect_versions
     
-    log_info "Using NVM Version: $NVM_VERSION"
-    log_info "Using Node Version: $NODE_VERSION"
+    # Only detect versions when needed
+    if $node_only || (!$homebrew_only && !$rust_only); then
+        auto_detect_nvm_version
+        auto_detect_node_version
+    fi
+    
+    if $node_only || (!$homebrew_only && !$rust_only); then
+        log_info "Using NVM Version: $NVM_VERSION"
+        log_info "Using Node Version: $NODE_VERSION"
+    fi
     log_info "Bash Environment: $BASH_ENV"
     
     setup_bash_env
