@@ -145,14 +145,53 @@ helm install workspace ./helm/ssh-workspace \
 ## 1. Overview & Basic Features
 
 ### Concept
-- Dedicated SSH workspace environment per deployment per user
-- High-security SSH server on Kubernetes
-- Optional home directory persistence
+SSH Workspace provides a **dedicated, secure SSH-accessible development environment** running on Kubernetes. Each deployment creates an isolated workspace for a single user with persistent data storage and comprehensive security controls.
+
+### Core Features
+
+#### 🔐 **Security & Authentication**
+- **SSH Key-based Authentication**: Public key authentication only, no password authentication → [SSH Features](#ssh-features)
+- **Multi-layered Security**: Three security levels (Basic/Standard/High) with configurable restrictions → [Security Levels](#security-levels)
+- **Init Container Pattern**: Secure dual-container architecture separating setup and runtime → [Init Container Architecture](#init-container-architecture)
+- **Permission Management**: Explicit UID/GID control with required Linux capabilities → [Permission Management Strategy](#permission-management-strategy)
+
+#### 👤 **User Management**
+- **Auto User Creation**: Automatic user account setup with specified UID/GID → [User Configuration](#user-configuration)
+- **SSH Public Key Management**: ConfigMap-based key distribution with validation → [SSH & User Configuration](#2-ssh--user-configuration)
+- **Sudo Support**: Optional sudo privileges with security considerations → [User Configuration](#user-configuration)
+- **Shell Customization**: Configurable login shell (bash, zsh, fish, etc.) → [User Configuration](#user-configuration)
+
+#### 💾 **Data Persistence**
+- **Home Directory Persistence**: Flexible PVC-based home directory storage → [Home Directory Persistence](#home-directory-persistence)
+- **Existing PVC Support**: Integration with pre-existing storage volumes → [Home Directory Persistence](#home-directory-persistence)
+- **Subdirectory Mounting**: Multi-user shared storage with path isolation → [Home Directory Persistence](#home-directory-persistence)
+- **Data Protection**: Persistent resources retained after Helm release deletion → [Home Directory Persistence](#home-directory-persistence)
+
+#### 🛠️ **Development Environment**
+- **Package Manager Setup**: Automated installation of Homebrew, Node.js (NVM), and Rust → [Development Environment Setup](#development-environment-setup)
+- **Development Tools**: Comprehensive toolchain including Kubernetes, Python, and semantic web tools → [Development Environment Setup](#development-environment-setup)
+- **Custom Packages**: Support for additional software via custom Docker images → [Limitations](#limitations)
+
+#### 🔍 **Monitoring & Operations**
+- **Health Checks**: SSH daemon monitoring with liveness and readiness probes → [Health Checks](#health-checks)
+- **Prometheus Integration**: Optional SSH metrics collection and monitoring → [Advanced Monitoring](#advanced-monitoring)
+- **Resource Management**: CPU and memory limits with node placement controls → [Operational Configuration](#operational-configuration)
+
+#### 🧪 **Testing & Debugging**
+- **Automated Testing**: SSH connectivity validation with temporary test keys → [Testing Configuration](#testing-configuration)
+- **Debug Mode**: Development troubleshooting with security safeguards → [Debug Configuration](#debug-configuration)
+- **CI/CD Integration**: Comprehensive test suite with security scanning → [Security Monitoring](#security-monitoring)
+
+#### ☁️ **Cloud Native Integration**
+- **Helm Chart**: Production-ready Kubernetes deployment with extensive configuration options → [Helm Chart & Technical Specifications](#helm-chart--technical-specifications)
+- **OCI Registry**: Container and chart distribution via GitHub Container Registry → [CI/CD & Container Registry](#cicd--container-registry)
+- **Multi-Architecture**: Support for AMD64 and ARM64 platforms → [CI/CD & Container Registry](#cicd--container-registry)
 
 ### Basic Architecture
-- **Base Image**: Ubuntu (minimal SSH environment packages)
-- **Resource Management**: Active use of ConfigMap, Secret, PVC
-- **Persistence**: PVC, ConfigMap, Secret retained after Helm Release deletion
+- **Base Image**: Ubuntu 22.04 with minimal SSH environment packages
+- **Resource Management**: Extensive use of ConfigMap, Secret, and PVC for configuration
+- **Persistence**: Storage resources retained after Helm Release deletion for data protection
+- **Security**: Read-only root filesystem with capability-based permission model
 
 ## 2. SSH & User Configuration
 
