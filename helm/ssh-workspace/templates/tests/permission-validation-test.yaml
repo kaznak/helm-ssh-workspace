@@ -193,7 +193,6 @@ spec:
           echo "Analysis: explicit strategy should not use fsGroup, but SetGID bit is present"
           exit 1
       fi
-      esac
       
       # Validate SSH permissions
       echo "=== SSH Permission Validation ==="
