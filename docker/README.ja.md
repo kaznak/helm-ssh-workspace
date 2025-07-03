@@ -33,6 +33,7 @@ docker build -f docker/Dockerfile -t ssh-workspace:latest .
 | 変数名 | 必須 | デフォルト | 説明 |
 |--------|------|-----------|------|
 | `SSH_USER` | ✅ | - | SSHユーザー名 |
+| `SSH_PUBLIC_KEYS` | ✅ | - | SSH公開鍵（改行区切り） |
 | `SSH_USER_UID` | ❌ | 1000 | ユーザーUID |
 | `SSH_USER_GID` | ❌ | 1000 | ユーザーGID |
 | `SSH_USER_SHELL` | ❌ | /bin/bash | ログインシェル |
@@ -42,16 +43,34 @@ docker build -f docker/Dockerfile -t ssh-workspace:latest .
 
 **注意**: `ETC_TARGET_DIR`はKubernetes Init Containerで内部的に使用されます（`/etc-new`に固定）。
 
-## 📂 必要なマウント
+## 📂 オプションマウント
 
-| パス | 用途 | 必須 |
-|------|------|------|
-| `/etc/ssh-keys/authorized_keys` | SSH公開鍵 | ✅ |
-| `/home/{username}` | ホームディレクトリ | ❌ |
+| パス | 用途 | 必須 | 代替手段 |
+|------|------|------|----------|
+| `/etc/ssh-keys/authorized_keys` | SSH公開鍵 | ❌ | `SSH_PUBLIC_KEYS`環境変数を使用 |
+| `/home/{username}` | ホームディレクトリ | ❌ | 一時ストレージを使用 |
 
 ## 🔧 使用例
 
-### 基本的な実行
+### 基本的な実行（推奨）
+
+環境変数を使用する方法：
+
+```bash
+docker run -d \
+  --name ssh-workspace \
+  -p 2222:2222 \
+  -e SSH_USER=developer \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
+  ssh-workspace:latest
+
+# SSH接続
+ssh developer@localhost -p 2222
+```
+
+### 基本的な実行（ファイルマウント）
+
+ファイルマウント方式：
 
 ```bash
 # SSH公開鍵を準備
@@ -64,9 +83,19 @@ docker run -d \
   -e SSH_USER=developer \
   -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   ssh-workspace:latest
+```
 
-# SSH接続
-ssh developer@localhost -p 2222
+### 複数SSH鍵の設定
+
+```bash
+# 複数のSSH鍵（改行区切り）
+docker run -d \
+  -p 2222:2222 \
+  -e SSH_USER=developer \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user1@example.com
+ssh-rsa AAAAB3... user2@example.com
+ssh-ed25519 AAAAC3... user3@example.com" \
+  ssh-workspace:latest
 ```
 
 ### 永続化ありの実行
@@ -79,9 +108,9 @@ docker run -d \
   --name ssh-workspace \
   -p 2222:2222 \
   -e SSH_USER=developer \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
   -e SSH_USER_SUDO=true \
   -e TZ=Asia/Tokyo \
-  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
   -v ssh-workspace-home:/home/developer \
   ssh-workspace:latest
 ```

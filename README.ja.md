@@ -35,10 +35,10 @@ ssh-workspace/
 cd docker
 docker build -t ssh-workspace .
 
-echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
+# SSH公開鍵は環境変数で提供
 docker run -d -p 2222:22 \
   -e SSH_USER=developer \
-  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
   ssh-workspace
 
 ssh developer@localhost -p 2222
@@ -426,7 +426,78 @@ monitoring:
 - 認証成功/失敗率
 - リソース使用率（CPU、メモリ、ディスク）
 
-## 7. Helm Chart・技術仕様
+## 7. 開発環境セットアップ
+
+SSH Workspaceには、開発用パッケージマネージャーとツールをインストールするための包括的なセットアップスクリプトが含まれています。
+
+### ステップ1: パッケージマネージャーのインストール
+
+まず、基盤となるパッケージマネージャー（Linuxbrew、NVM経由のNode.js、Rust）をインストールします：
+
+```bash
+# 全パッケージマネージャーをインストール
+/opt/ssh-workspace/bin/user-package-managers.sh
+
+# または特定のパッケージマネージャーのみをインストール
+/opt/ssh-workspace/bin/user-package-managers.sh --homebrew-only
+/opt/ssh-workspace/bin/user-package-managers.sh --node-only  
+/opt/ssh-workspace/bin/user-package-managers.sh --rust-only
+```
+
+**機能:**
+- **Linuxbrew**: Linux用の現代的なパッケージマネージャー
+- **Node.js**: NVM経由での自動バージョン検出付きモダンJavaScriptランタイム
+- **Rust**: システムプログラミング言語とツールチェーン
+- **安全性・セキュリティ**: 公式インストール方法、HTTPS ダウンロード、検証チェック
+
+### ステップ2: 開発ツールのインストール
+
+パッケージマネージャーのインストール後、包括的な開発ツールをインストールします：
+
+```bash
+# 全開発ツールをインストール（ステップ1のパッケージマネージャーが必要）
+/opt/ssh-workspace/bin/install-user-packages.sh
+```
+
+**インストールされるツール:**
+- **コマンドラインツール**: `ripgrep`, `jq`, `stow`, `htop`, `tree`, `tmux`, `screen`
+- **Kubernetes ツール**: `kubectl`, `helm`, `kustomize`, `helmfile`, `sops`, `age`, `talosctl`
+- **Helm プラグイン**: `helm-diff`, `helm-git`, `helm-s3`, `helm-secrets`
+- **Python ツール**: `uv` (現代的なPythonパッケージマネージャー)
+- **オントロジーツール**: `raptor`, `jena` (セマンティックWeb開発)
+- **Node.js ツール**: `@anthropic-ai/claude-code` (Claude Code CLI)
+- **Rust ツール**: `cargo-edit`, `cargo-watch` と `rustfmt`, `clippy`
+
+**環境変数:**
+```bash
+# 最新バージョンを自動検出（デフォルト動作）
+/opt/ssh-workspace/bin/user-package-managers.sh
+
+# またはステップ1用に特定バージョンをカスタマイズ
+NVM_VERSION=v0.39.0 NODE_VERSION=18 /opt/ssh-workspace/bin/user-package-managers.sh
+
+# ステップ2用にNode.jsバージョンをカスタマイズ
+NODE_VERSION=18 /opt/ssh-workspace/bin/install-user-packages.sh
+```
+
+**インストール後:**
+```bash
+# シェル環境をリロード
+source ~/.bashrc
+
+# インストール確認
+brew --version
+node --version
+cargo --version
+
+# インストールしたツールを使用
+kubectl version --client
+helm version
+jq --version
+tmux -V
+```
+
+## 8. Helm Chart・技術仕様
 
 ### Chart.yaml
 ```yaml
@@ -533,7 +604,7 @@ tests:
 - **必須パラメータ**: SSH公開鍵、ユーザ名
 - **Values設計**: デプロイ時決定事項以外は全てオプション（デフォルト値提供）
 
-## 8. セキュリティ監視
+## 9. セキュリティ監視
 
 ### 自動セキュリティスキャン
 
@@ -558,7 +629,7 @@ tests:
 - **セキュリティ概要**: [セキュリティダッシュボード](https://github.com/kaznak/helm-ssh-workspace/security) - 完全なセキュリティ概要
 - **Security Policy**: `SECURITY.md` - 責任ある開示ガイドライン
 
-## 9. 制限事項
+## 10. 制限事項
 
 - **単一ユーザー専用**: マルチユーザー非対応
 - **root実行必須**: セキュリティコンテキストで制限

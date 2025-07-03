@@ -399,33 +399,54 @@ persistence:
 
 SSH Workspace includes a comprehensive setup script for installing development package managers and tools.
 
-#### Package Manager Installation Script
+#### Step 1: Package Manager Installation
 
-Run the following script to install Linuxbrew (Homebrew), Node.js via NVM, and Rust:
+First, install the foundational package managers (Linuxbrew, Node.js via NVM, and Rust):
 
 ```bash
-# Install all development environments
+# Install all package managers
 /opt/ssh-workspace/bin/user-package-managers.sh
 
-# Or install specific tools only
+# Or install specific package managers only
 /opt/ssh-workspace/bin/user-package-managers.sh --homebrew-only
 /opt/ssh-workspace/bin/user-package-managers.sh --node-only  
 /opt/ssh-workspace/bin/user-package-managers.sh --rust-only
 ```
 
 **Features:**
-- **Linuxbrew**: Install packages like `jq`, `stow`, `htop`, `tree`, `tmux`, `screen`
-- **Node.js**: Modern JavaScript runtime via NVM
+- **Linuxbrew**: Modern package manager for Linux
+- **Node.js**: Modern JavaScript runtime via NVM with auto-version detection
 - **Rust**: Systems programming language and toolchain
 - **Safe & Secure**: Official installation methods, HTTPS downloads, verification checks
+
+#### Step 2: Development Tools Installation
+
+After installing package managers, install comprehensive development tools:
+
+```bash
+# Install all development tools (requires package managers from step 1)
+/opt/ssh-workspace/bin/install-user-packages.sh
+```
+
+**Installed Tools:**
+- **Command Line Tools**: `ripgrep`, `jq`, `stow`, `htop`, `tree`, `tmux`, `screen`
+- **Kubernetes Tools**: `kubectl`, `helm`, `kustomize`, `helmfile`, `sops`, `age`, `talosctl`
+- **Helm Plugins**: `helm-diff`, `helm-git`, `helm-s3`, `helm-secrets`
+- **Python Tools**: `uv` (modern Python package manager)
+- **Ontology Tools**: `raptor`, `jena` (semantic web development)
+- **Node.js Tools**: `@anthropic-ai/claude-code` (Claude Code CLI)
+- **Rust Tools**: `cargo-edit`, `cargo-watch` with `rustfmt` and `clippy`
 
 **Environment Variables:**
 ```bash
 # Auto-detect latest versions (default behavior)
 /opt/ssh-workspace/bin/user-package-managers.sh
 
-# Or customize specific versions
+# Or customize specific versions for step 1
 NVM_VERSION=v0.39.0 NODE_VERSION=18 /opt/ssh-workspace/bin/user-package-managers.sh
+
+# Customize Node.js version for step 2
+NODE_VERSION=18 /opt/ssh-workspace/bin/install-user-packages.sh
 ```
 
 **After Installation:**
@@ -433,16 +454,16 @@ NVM_VERSION=v0.39.0 NODE_VERSION=18 /opt/ssh-workspace/bin/user-package-managers
 # Reload shell environment
 source ~/.bashrc
 
-# Install useful packages via Homebrew
-brew install jq stow htop tree tmux screen
-
-# Use Node.js
+# Verify installations
+brew --version
 node --version
-npm install -g typescript
-
-# Use Rust  
 cargo --version
-rustc --version
+
+# Use installed tools
+kubectl version --client
+helm version
+jq --version
+tmux -V
 ```
 
 ### Testing Configuration
