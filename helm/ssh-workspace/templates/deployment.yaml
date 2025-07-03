@@ -25,7 +25,14 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
       annotations:
-        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/ssh-keys-config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/host-keys-secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- if .Values.ssh.config }}
+        checksum/ssh-custom-config: {{ .Values.ssh.config | toYaml | sha256sum }}
+        {{- end }}
+        {{- if .Values.monitoring.enabled }}
+        checksum/ssh-exporter-config: {{ include (print $.Template.BasePath "/monitoring-configmap.yaml") . | sha256sum }}
+        {{- end }}
         {{- with .Values.annotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
