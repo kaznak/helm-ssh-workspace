@@ -17,8 +17,9 @@
 set -euo pipefail
 
 # Default versions - can be overridden by environment variables
-NVM_VERSION="${NVM_VERSION:-v0.39.0}"
-NODE_VERSION="${NODE_VERSION:-20}"
+# Leave empty for auto-detection of latest versions
+NVM_VERSION="${NVM_VERSION:-}"
+NODE_VERSION="${NODE_VERSION:-}"
 BASH_ENV="${BASH_ENV:-.bash_env}"
 
 # Color codes for output
@@ -54,6 +55,42 @@ cleanup() {
     fi
 }
 trap cleanup EXIT
+
+# Auto-detect latest versions
+auto_detect_versions() {
+    log_info "Auto-detecting latest versions..."
+    
+    # Auto-detect latest NVM version if not specified
+    if [ -z "$NVM_VERSION" ]; then
+        log_info "Detecting latest NVM version..."
+        NVM_VERSION=$(curl -s https://api.github.com/repos/nvm-sh/nvm/releases/latest | \
+                     grep '"tag_name":' | \
+                     sed -E 's/.*"([^"]+)".*/\1/')
+        
+        if [ -z "$NVM_VERSION" ] || [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            log_warning "Could not detect NVM version, using fallback"
+            NVM_VERSION="v0.39.0"
+        else
+            log_success "Latest NVM version: $NVM_VERSION"
+        fi
+    fi
+    
+    # Auto-detect latest LTS Node.js version if not specified
+    if [ -z "$NODE_VERSION" ]; then
+        log_info "Detecting latest Node.js LTS version..."
+        NODE_VERSION=$(curl -s https://nodejs.org/dist/index.json | \
+                      grep -E '"lts":"[^"]*"' | \
+                      head -1 | \
+                      sed -E 's/.*"version":"v([0-9]+)\..*"/\1/')
+        
+        if [ -z "$NODE_VERSION" ] || ! [[ "$NODE_VERSION" =~ ^[0-9]+$ ]]; then
+            log_warning "Could not detect Node.js LTS version, using fallback"
+            NODE_VERSION="20"
+        else
+            log_success "Latest Node.js LTS major version: $NODE_VERSION"
+        fi
+    fi
+}
 
 # Validate environment
 validate_environment() {
@@ -134,7 +171,7 @@ install_node() {
     
     # Validate NVM version format
     if [[ ! "$NVM_VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-        log_error "Invalid NVM_VERSION format: $NVM_VERSION (expected: v0.39.0)"
+        log_error "Invalid NVM_VERSION format: $NVM_VERSION (expected: vX.Y.Z)"
         return 1
     fi
     
@@ -220,8 +257,8 @@ OPTIONS:
     --help            Show this help message
 
 ENVIRONMENT VARIABLES:
-    NVM_VERSION       NVM version to install (default: v0.39.0)
-    NODE_VERSION      Node.js version to install (default: 20)
+    NVM_VERSION       NVM version to install (default: auto-detect latest)
+    NODE_VERSION      Node.js version to install (default: auto-detect LTS)
     BASH_ENV          Bash environment file (default: .bash_env)
 
 EXAMPLES:
@@ -266,11 +303,14 @@ main() {
     done
     
     log_info "Starting SSH Workspace package manager setup..."
-    log_info "NVM Version: $NVM_VERSION"
-    log_info "Node Version: $NODE_VERSION"
-    log_info "Bash Environment: $BASH_ENV"
     
     validate_environment
+    auto_detect_versions
+    
+    log_info "Using NVM Version: $NVM_VERSION"
+    log_info "Using Node Version: $NODE_VERSION"
+    log_info "Bash Environment: $BASH_ENV"
+    
     setup_bash_env
     
     if $homebrew_only; then

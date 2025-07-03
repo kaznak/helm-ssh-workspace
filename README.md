@@ -421,7 +421,10 @@ Run the following script to install Linuxbrew (Homebrew), Node.js via NVM, and R
 
 **Environment Variables:**
 ```bash
-# Customize versions
+# Auto-detect latest versions (default behavior)
+/opt/ssh-workspace/bin/user-package-managers.sh
+
+# Or customize specific versions
 NVM_VERSION=v0.39.0 NODE_VERSION=18 /opt/ssh-workspace/bin/user-package-managers.sh
 ```
 
