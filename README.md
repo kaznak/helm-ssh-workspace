@@ -192,14 +192,6 @@ helm install workspace ./helm/ssh-workspace \
 | Standard | Recommended | true | seccomp enabled |
 | High | Production | true | seccomp RuntimeDefault |
 
-### Permission Management Strategy
-
-The chart uses explicit permission management for volume ownership:
-
-- **explicit**: Direct UID/GID management without fsGroup (no SetGID bit)
-- Manual file ownership control with required capabilities (CHOWN, DAC_OVERRIDE, FOWNER)
-- Provides consistent behavior across different Kubernetes environments
-
 ### Pod Security Context
 - **runAsNonRoot**: false (root execution required)
 - **readOnlyRootFilesystem**: true (false for Basic level)
@@ -438,8 +430,8 @@ appVersion: "1.0.0"
 description: SSH accessible workspace environment
 keywords: [ssh, workspace, development, terminal]
 maintainers:
-  - name: SSH Workspace Team
-    email: maintainer@example.com
+  - name: Nakamura Kazutaka
+    email: kaznak.at.work@ipebble.org
 ```
 
 ### Values.yaml Structure
@@ -483,6 +475,13 @@ service:
 
 resources: {} # CPU & memory limits
 timezone: UTC # Timezone (tzdata package)
+
+# Additional environment variables (optional)
+extraEnvVars: [] # Additional environment variables for containers
+# Example:
+# extraEnvVars:
+#   - name: SSH_WORKSPACE_DEBUG_CHMOD_FAILURES
+#     value: "true"
 
 # Node placement and scheduling
 nodeSelector: {} # Node selection constraints

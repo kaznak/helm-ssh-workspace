@@ -73,6 +73,9 @@ spec:
             {{- end }}
             - name: ETC_TARGET_DIR
               value: "/etc-new"
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
             - name: SSH_PUBLIC_KEYS
               value: |
                 {{- range .Values.ssh.publicKeys }}
@@ -132,6 +135,9 @@ spec:
             {{- if .Values.user.additionalGroups }}
             - name: SSH_USER_ADDITIONAL_GROUPS
               value: {{ .Values.user.additionalGroups | join "," | quote }}
+            {{- end }}
+            {{- with .Values.extraEnvVars }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
           livenessProbe:
             exec:
