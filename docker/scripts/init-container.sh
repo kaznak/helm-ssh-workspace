@@ -4,6 +4,55 @@ set -e
 # Init Container script for SSH Workspace
 # This script sets up user, SSH configuration, and system files
 
+# =============================================================================
+# SSH_WORKSPACE_DEBUG_CHMOD_FAILURES Environment Variable
+# =============================================================================
+# 
+# **Purpose**: Enable diagnostic mode for chmod operation failures
+# 
+# **Background**: 
+# During development and troubleshooting of Kubernetes permission issues,
+# it's sometimes necessary to continue container initialization even when
+# chmod operations fail, to allow SSH connectivity tests to proceed and
+# gather diagnostic information.
+# 
+# **Normal Behavior (Default)**:
+# - chmod failures on security-critical files (like authorized_keys) cause
+#   immediate script termination with exit code 1
+# - This ensures security requirements are strictly enforced
+# 
+# **Debug Mode Behavior**:
+# - chmod failures are logged and marked for detection by test validation
+# - Script continues execution to allow SSH connectivity testing
+# - Test validation will ultimately fail the deployment if chmod failed
+# 
+# **Usage**:
+# Set SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true in container environment:
+# 
+# Example in Helm values.yaml:
+# ```yaml
+# deployment:
+#   env:
+#     SSH_WORKSPACE_DEBUG_CHMOD_FAILURES: "true"
+# ```
+# 
+# Example in kubectl:
+# ```bash
+# kubectl set env deployment/ssh-workspace SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true
+# ```
+# 
+# **Security Warning**: 
+# This debug mode should NEVER be used in production environments as it
+# allows containers to start with potentially insecure file permissions.
+# Only use during development and troubleshooting.
+# 
+# **Related Files**:
+# - docker/scripts/entrypoint.sh: Detects chmod failures from init container
+# - helm/ssh-workspace/templates/tests/permission-validation-test.yaml: 
+#   Final validation that fails deployment if chmod failed
+# 
+# =============================================================================
+
 echo "Starting SSH Workspace initialization (Init Container)..."
 
 # Check required environment variables
@@ -253,9 +302,22 @@ if [ -f "/home/$SSH_USER/.ssh/authorized_keys" ]; then
             echo "strace not available for detailed analysis"
         fi
         
-        echo "=== chmod診断完了 - 権限変更に失敗しましたが続行します ==="
-        # SSH接続テストが成功することを確認するため、一時的にexitしない
-        # exit 1
+        echo "=== chmod診断完了 - 権限変更に失敗しました ==="
+        
+        # Check if debug mode is enabled for chmod failures
+        if [ "${SSH_WORKSPACE_DEBUG_CHMOD_FAILURES:-false}" = "true" ]; then
+            echo "⚠️ DEBUG MODE: chmod failure detected but continuing due to SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true"
+            echo "⚠️ WARNING: This container may have insecure file permissions!"
+            echo "⚠️ DEBUG MODE should NEVER be used in production environments"
+        else
+            echo "❌ CRITICAL SECURITY FAILURE: authorized_keys file permissions cannot be secured"
+            echo "❌ SSH authentication requires authorized_keys to have 600 permissions"
+            echo "❌ Terminating initialization to prevent insecure deployment"
+            echo ""
+            echo "To enable debug mode for troubleshooting (NOT for production):"
+            echo "Set environment variable: SSH_WORKSPACE_DEBUG_CHMOD_FAILURES=true"
+            exit 1
+        fi
     }
     
     # Verify final status
