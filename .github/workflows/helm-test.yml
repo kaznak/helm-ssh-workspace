@@ -109,7 +109,7 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        # Test explicit permission strategy with different storage backends
+        # Test explicit permission strategy with different storage backends and security levels
         # Testing chmod behavior across various Kubernetes volume types
         config:
           # emptyDir volumes (current behavior - chmod fails)
@@ -121,6 +121,10 @@ jobs:
             permission_strategy: "explicit"
             security_level: "standard" 
             persistence_enabled: "false"
+          - name: "high-emptydir"
+            permission_strategy: "explicit"
+            security_level: "high"
+            persistence_enabled: "false"
           
           # PVC volumes (expected - chmod should work)
           - name: "basic-pvc"
@@ -130,6 +134,10 @@ jobs:
           - name: "std-pvc"
             permission_strategy: "explicit"
             security_level: "standard"
+            persistence_enabled: "true"
+          - name: "high-pvc"
+            permission_strategy: "explicit"
+            security_level: "high"
             persistence_enabled: "true"
           
       fail-fast: false
