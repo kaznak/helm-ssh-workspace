@@ -80,9 +80,19 @@ echo "✓ System configuration copied with SSH host keys"
 # Create .ssh directory with correct permissions from the start
 install -d -m 700 -o "$SSH_USER" -g "$SSH_USER" "/home/$SSH_USER/.ssh"
 
-# Copy SSH public keys
-if [ -d "/etc/ssh-keys" ]; then
-    cat /etc/ssh-keys/* > "/home/$SSH_USER/.ssh/authorized_keys" 2>/dev/null || true
+# Create SSH authorized_keys directly from environment variables
+# This avoids ConfigMap mount permission issues and is more secure
+echo "Creating authorized_keys from environment variables..."
+
+# SSH_PUBLIC_KEYS environment variable contains newline-separated public keys
+if [ -n "$SSH_PUBLIC_KEYS" ]; then
+    echo "Writing SSH public keys to authorized_keys..."
+    echo "$SSH_PUBLIC_KEYS" > "/home/$SSH_USER/.ssh/authorized_keys"
+    echo "✓ SSH public keys written to authorized_keys"
+else
+    echo "⚠️ WARNING: No SSH_PUBLIC_KEYS environment variable found"
+    echo "Creating empty authorized_keys file"
+    touch "/home/$SSH_USER/.ssh/authorized_keys"
 fi
 
 # Set correct permissions for home directory and SSH files

@@ -75,12 +75,19 @@ spec:
               value: "/etc-new"
             - name: SSH_PERMISSION_STRATEGY
               value: {{ .Values.security.permissionStrategy | quote }}
+            - name: SSH_PUBLIC_KEYS
+              value: |
+                {{- range .Values.ssh.publicKeys }}
+                {{ . }}
+                {{- end }}
+                {{- if .Values.ssh.testKeys.enabled }}
+                {{- range .Values.ssh.testKeys.keyPairs }}
+                {{ .publicKey }}
+                {{- end }}
+                {{- end }}
           securityContext:
             {{- include "ssh-workspace.initSecurityContext" . | nindent 12 }}
           volumeMounts:
-            - name: ssh-keys
-              mountPath: /etc/ssh-keys
-              readOnly: true
             - name: ssh-host-keys
               mountPath: /etc/ssh-host-keys
               readOnly: true
@@ -144,9 +151,6 @@ spec:
           securityContext:
             {{- include "ssh-workspace.securityContext" . | nindent 12 }}
           volumeMounts:
-            - name: ssh-keys
-              mountPath: /etc/ssh-keys
-              readOnly: true
             - name: etc
               mountPath: /etc  # Read-only mount of prepared configuration
             - name: home
@@ -193,10 +197,6 @@ spec:
               memory: 32Mi
         {{- end }}
       volumes:
-        - name: ssh-keys
-          configMap:
-            name: {{ include "ssh-workspace.fullname" . }}-ssh-keys
-            defaultMode: 0600
         - name: ssh-host-keys
           secret:
             secretName: {{ include "ssh-workspace.fullname" . }}-host-keys
