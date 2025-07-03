@@ -184,8 +184,8 @@ SSH Workspace provides a **dedicated, secure SSH-accessible development environm
 
 #### ☁️ **Cloud Native Integration**
 - **Helm Chart**: Production-ready Kubernetes deployment with extensive configuration options → [Helm Chart & Technical Specifications](#7-helm-chart--technical-specifications)
-- **OCI Registry**: Container and chart distribution via GitHub Container Registry → [CI/CD & Container Registry](#cicd--container-registry)
-- **Multi-Architecture**: Support for AMD64 and ARM64 platforms → [CI/CD & Container Registry](#cicd--container-registry)
+- **OCI Registry**: Container and chart distribution via GitHub Container Registry → [CI/CD & Container Registry](#-cicd--container-registry)
+- **Multi-Architecture**: Support for AMD64 and ARM64 platforms → [CI/CD & Container Registry](#-cicd--container-registry)
 
 ### Basic Architecture
 - **Base Image**: Ubuntu 22.04 with minimal SSH environment packages
