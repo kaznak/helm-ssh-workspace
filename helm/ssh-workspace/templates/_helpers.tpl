@@ -86,8 +86,8 @@ capabilities:
 {{- end }}
 
 {{/*
-Main Container Security Context based on security level and permission strategy
-Design: SSH daemon requires root privileges, but permission management varies by strategy.
+Main Container Security Context - Always uses explicit permission management
+Design: SSH daemon requires root privileges with explicit permission capabilities.
 */}}
 {{- define "ssh-workspace.securityContext" -}}
 runAsNonRoot: false  # SSH daemon must run as root
@@ -104,13 +104,9 @@ capabilities:
     - SETUID      # Required for SSH user switching
     - SETGID      # Required for SSH group switching
     - SYS_CHROOT  # Required for SSH privilege separation
-{{- if eq .Values.security.permissionStrategy "explicit" }}
     - CHOWN       # Required for explicit permission management
     - DAC_OVERRIDE # Required for file ownership changes
     - FOWNER      # Required for chmod on files owned by other users
-{{- else }}
-    - DAC_OVERRIDE # Required for SSH configuration access with fsGroup
-{{- end }}
 {{- if .Values.user.sudo }}
     - SETPCAP
     - SYS_ADMIN
@@ -125,22 +121,12 @@ seccompProfile:
 {{- end }}
 
 {{/*
-Pod Security Context
-Supports two permission management strategies:
-1. fsgroup: Uses Kubernetes fsGroup (SetGID bit behavior)
-2. explicit: Manual UID/GID management (traditional Unix permissions)
+Pod Security Context - Always uses explicit permission management strategy
 */}}
 {{- define "ssh-workspace.podSecurityContext" -}}
-{{- if eq .Values.security.permissionStrategy "explicit" }}
-{{/* Explicit strategy: No fsGroup, rely on manual permission management */}}
 runAsUser: 0  # SSH daemon requires root privileges
 runAsGroup: 0
 runAsNonRoot: false
-{{- else }}
-{{/* fsGroup strategy: Use Kubernetes fsGroup (default) */}}
-fsGroup: {{ .Values.user.gid | default 1000 }}
-fsGroupChangePolicy: "OnRootMismatch"
-{{- end }}
 {{- with .Values.security.podSecurityContext }}
 {{ toYaml . }}
 {{- end }}

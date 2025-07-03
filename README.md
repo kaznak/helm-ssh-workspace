@@ -182,19 +182,13 @@ helm install workspace ./helm/ssh-workspace \
 | Standard | Recommended | true | seccomp enabled |
 | High | Production | true | seccomp RuntimeDefault |
 
-### Permission Management Strategies
+### Permission Management Strategy
 
-The chart supports two permission management strategies for volume ownership:
+The chart uses explicit permission management for volume ownership:
 
-| Strategy | Description | fsGroup Usage | SetGID Bit | Use Case |
-|----------|-------------|---------------|------------|----------|
-| **fsgroup** (default) | Kubernetes-managed permissions | Used | Present (2xxx) | Standard deployments |
-| **explicit** | Manual UID/GID management | Not used | Absent | Custom security requirements |
-
-- **fsgroup**: Leverages Kubernetes fsGroup for volume ownership (creates SetGID bit)
-- **explicit**: Direct file ownership management without fsGroup (no SetGID bit)
-
-Configure via `security.permissionStrategy` in values.yaml.
+- **explicit**: Direct UID/GID management without fsGroup (no SetGID bit)
+- Manual file ownership control with required capabilities (CHOWN, DAC_OVERRIDE, FOWNER)
+- Provides consistent behavior across different Kubernetes environments
 
 ### Pod Security Context
 - **runAsNonRoot**: false (root execution required)
@@ -207,8 +201,7 @@ Configure via `security.permissionStrategy` in values.yaml.
 - **drop**: ["ALL"]
 - **add**: 
   - Base capabilities: ["SETUID", "SETGID", "SYS_CHROOT"]
-  - Permission strategy "explicit": ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
-  - Permission strategy "fsgroup": ["DAC_OVERRIDE"]
+  - Permission management: ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
   - When sudo enabled: ["SETPCAP", "SYS_ADMIN"]
 
 #### Init Container
@@ -345,7 +338,7 @@ persistence:
 
 security:
   level: standard # basic/standard/high
-  permissionStrategy: fsgroup # fsgroup/explicit (volume permission management)
+  permissionStrategy: explicit # explicit permission management (no fsGroup)
   securityContext: {} # Additional Container Security Context
   podSecurityContext: {} # Additional Pod Security Context
 
