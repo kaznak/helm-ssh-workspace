@@ -192,6 +192,14 @@ helm install workspace ./helm/ssh-workspace \
 | Standard | Recommended | true | seccomp enabled |
 | High | Production | true | seccomp RuntimeDefault |
 
+### Permission Management Strategy
+
+The chart uses explicit permission management for volume ownership:
+
+- **explicit**: Direct UID/GID management without fsGroup (no SetGID bit)
+- Manual file ownership control through required capabilities (CHOWN, DAC_OVERRIDE, FOWNER)
+- Provides consistent behavior across different Kubernetes environments
+
 ### Pod Security Context
 - **runAsNonRoot**: false (root execution required)
 - **readOnlyRootFilesystem**: true (false for Basic level)
@@ -517,6 +525,8 @@ helm install workspace ./ssh-workspace \
 - **When enabled**: Provides detailed diagnostics but may result in insecure file permissions (644 instead of 600)
 - **Usage**: Only for development troubleshooting, **NEVER in production environments**
 - **Impact**: When enabled, SSH access may work with incorrect file permissions, potentially creating security vulnerabilities
+- **File Permission Risk**: authorized_keys may have world-readable permissions (644) instead of secure permissions (600)
+- **Security Vulnerability**: Incorrect permissions expose SSH keys to unauthorized access on multi-user systems
 
 This debug mode is designed to help diagnose permission issues in development environments where chmod operations might fail due to filesystem limitations or missing capabilities.
 
@@ -645,6 +655,10 @@ extraEnvVars: [] # Additional environment variables for containers
 # extraEnvVars:
 #   - name: SSH_WORKSPACE_DEBUG_CHMOD_FAILURES
 #     value: "true"
+# 
+# Helm command line usage:
+# --set-string 'extraEnvVars[0].name=SSH_WORKSPACE_DEBUG_CHMOD_FAILURES' \
+# --set-string 'extraEnvVars[0].value=true'
 
 # Node placement and scheduling
 nodeSelector: {} # Node selection constraints
