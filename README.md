@@ -180,10 +180,10 @@ SSH Workspace provides a **dedicated, secure SSH-accessible development environm
 #### 🧪 **Testing & Debugging**
 - **Automated Testing**: SSH connectivity validation with temporary test keys → [Testing Configuration](#testing-configuration)
 - **Debug Mode**: Development troubleshooting with security safeguards → [Debug Configuration](#debug-configuration)
-- **CI/CD Integration**: Comprehensive test suite with security scanning → [Security Monitoring](#security-monitoring)
+- **CI/CD Integration**: Comprehensive test suite with security scanning → [Security Monitoring](#7-security-monitoring)
 
 #### ☁️ **Cloud Native Integration**
-- **Helm Chart**: Production-ready Kubernetes deployment with extensive configuration options → [Helm Chart & Technical Specifications](#helm-chart--technical-specifications)
+- **Helm Chart**: Production-ready Kubernetes deployment with extensive configuration options → [Helm Chart & Technical Specifications](#7-helm-chart--technical-specifications)
 - **OCI Registry**: Container and chart distribution via GitHub Container Registry → [CI/CD & Container Registry](#cicd--container-registry)
 - **Multi-Architecture**: Support for AMD64 and ARM64 platforms → [CI/CD & Container Registry](#cicd--container-registry)
 
