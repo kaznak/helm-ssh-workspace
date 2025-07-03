@@ -35,10 +35,10 @@ ssh-workspace/
 cd docker
 docker build -t ssh-workspace .
 
-echo "ssh-ed25519 AAAAC3... user@example.com" > authorized_keys
+# SSH public keys are provided via environment variables
 docker run -d -p 2222:22 \
   -e SSH_USER=developer \
-  -v $(pwd)/authorized_keys:/etc/ssh-keys/authorized_keys:ro \
+  -e SSH_PUBLIC_KEYS="ssh-ed25519 AAAAC3... user@example.com" \
   ssh-workspace
 
 ssh developer@localhost -p 2222
@@ -182,15 +182,38 @@ helm install workspace ./helm/ssh-workspace \
 | Standard | Recommended | true | seccomp enabled |
 | High | Production | true | seccomp RuntimeDefault |
 
+### Permission Management Strategies
+
+The chart supports two permission management strategies for volume ownership:
+
+| Strategy | Description | fsGroup Usage | SetGID Bit | Use Case |
+|----------|-------------|---------------|------------|----------|
+| **fsgroup** (default) | Kubernetes-managed permissions | Used | Present (2xxx) | Standard deployments |
+| **explicit** | Manual UID/GID management | Not used | Absent | Custom security requirements |
+
+- **fsgroup**: Leverages Kubernetes fsGroup for volume ownership (creates SetGID bit)
+- **explicit**: Direct file ownership management without fsGroup (no SetGID bit)
+
+Configure via `security.permissionStrategy` in values.yaml.
+
 ### Pod Security Context
 - **runAsNonRoot**: false (root execution required)
 - **readOnlyRootFilesystem**: true (false for Basic level)
 - **allowPrivilegeEscalation**: false (auto true when sudo enabled)
 
 ### Capabilities
+
+#### Main Container
 - **drop**: ["ALL"]
-- **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE"]
-- **When sudo enabled**: ["SETPCAP", "SYS_ADMIN"] added
+- **add**: 
+  - Base capabilities: ["SETUID", "SETGID", "SYS_CHROOT"]
+  - Permission strategy "explicit": ["CHOWN", "DAC_OVERRIDE", "FOWNER"]
+  - Permission strategy "fsgroup": ["DAC_OVERRIDE"]
+  - When sudo enabled: ["SETPCAP", "SYS_ADMIN"]
+
+#### Init Container
+- **drop**: ["ALL"]
+- **add**: ["SETUID", "SETGID", "CHOWN", "DAC_OVERRIDE", "FOWNER"]
 
 ### Init Container Architecture
 
@@ -201,7 +224,7 @@ SSH Workspace employs a **dual-container Init Container pattern** for enhanced s
 - **Security Context**: 
   - `readOnlyRootFilesystem: false` (required for system modifications)
   - `allowPrivilegeEscalation: true`
-  - Capabilities: `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`
+  - Capabilities: `SETUID`, `SETGID`, `CHOWN`, `DAC_OVERRIDE`, `FOWNER`
 - **Operations**:
   - Creates user and group using `groupadd`/`useradd`
   - Sets up SSH directory structure (`/home/user/.ssh`)
@@ -322,8 +345,9 @@ persistence:
 
 security:
   level: standard # basic/standard/high
-  securityContext: {} # Pod Security Context
-  podSecurityContext: {} # Container Security Context
+  permissionStrategy: fsgroup # fsgroup/explicit (volume permission management)
+  securityContext: {} # Additional Container Security Context
+  podSecurityContext: {} # Additional Pod Security Context
 
 service:
   type: ClusterIP # Service type
