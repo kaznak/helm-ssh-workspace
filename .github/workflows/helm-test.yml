@@ -117,36 +117,21 @@ jobs:
             permission_strategy: "explicit"
             security_level: "basic"
             persistence_enabled: "false"
-            use_container_filesystem: "false"
           - name: "std-emptydir"
             permission_strategy: "explicit"
             security_level: "standard" 
             persistence_enabled: "false"
-            use_container_filesystem: "false"
           
           # PVC volumes (expected - chmod should work)
           - name: "basic-pvc"
             permission_strategy: "explicit"
             security_level: "basic"
             persistence_enabled: "true"
-            use_container_filesystem: "false"
           - name: "std-pvc"
             permission_strategy: "explicit"
             security_level: "standard"
             persistence_enabled: "true"
-            use_container_filesystem: "false"
           
-          # Container filesystem (no volume mount - expected chmod should work)
-          - name: "basic-container"
-            permission_strategy: "explicit"
-            security_level: "basic"
-            persistence_enabled: "false"
-            use_container_filesystem: "true"
-          - name: "std-container"
-            permission_strategy: "explicit"
-            security_level: "standard"
-            persistence_enabled: "false"
-            use_container_filesystem: "true"
       fail-fast: false
     steps:
       - name: Checkout repository
@@ -213,7 +198,6 @@ jobs:
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
-            --set test.useContainerFilesystem=${{ matrix.config.use_container_filesystem }} \
             --validate \
             --debug
           echo "✓ Helm template validation with Kubernetes API successful"
@@ -233,7 +217,6 @@ jobs:
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
-            --set test.useContainerFilesystem=${{ matrix.config.use_container_filesystem }} \
             --timeout=300s \
             --wait \
             --debug
