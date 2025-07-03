@@ -303,7 +303,105 @@ SSH Workspaceは、セキュリティ強化のため**デュアルコンテナIn
 | データ保護 | `helm.sh/resource-policy: keep` |
 | 自動復旧 | restartPolicy Always |
 
+### Pod Disruption Budget (PDB) 考慮事項
+
+**⚠️ 重要: Pod Disruption Budgetはサポートされていません**
+
+このHelm Chartは、以下のアーキテクチャ制約により意図的にPDBサポートを含んでいません：
+
+1. **シングルレプリカ設計**: SSH Workspaceは単一Pod（`replicas: 1`）で動作します：
+   - 各ワークスペースは永続セッション状態を持つ単一ユーザー専用
+   - ホームディレクトリ永続化は`ReadWriteOnce` PVC（単一ノードアクセスのみ）を使用
+   - 複数レプリカはSSHセッション継続性とファイル整合性を破損させる
+
+2. **Recreate戦略**: デプロイメントは`strategy: type: Recreate`を使用：
+   - 新しいPodを開始する前にクリーンシャットダウンを保証
+   - 永続ボリュームのデータ破損を防止
+   - PDBのローリングアップデート前提と非互換
+
+3. **運用影響**: `minAvailable: 1`でPDBを追加すると：
+   - 全てのクラスターメンテナンス作業を永続的にブロック
+   - ノードドレイン時のPod退避を阻止
+   - 手動介入が必要なデッドロック状況を作成
+
+**推奨アプローチ**: クラスターメンテナンス時は、計画的ダウンタイムを設定し、ワークスペースユーザーと連携してください。永続ホームディレクトリによりPod再起動時にもデータ損失はありません。
+
 ## 6. 高度な設定
+
+### ホームディレクトリ永続化
+
+SSH Workspaceは、様々な用途に対応する柔軟なホームディレクトリ永続化オプションを提供します：
+
+#### 要件
+1. **作業データの永続化と再利用** - 新規および既存PVCの両方をサポート
+2. **適切なデータ分離** - 適切なデータ組織化のためのサブディレクトリマウント機能
+
+#### 設定オプション
+
+##### 基本永続化（新規PVC）
+```yaml
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClass: "fast-ssd"  # オプション、空の場合はデフォルトを使用
+```
+
+##### 既存PVCの使用
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "my-existing-data"  # 既存PVCを使用
+  # existingClaimが指定された場合、sizeとstorageClassは無視される
+```
+
+##### サブディレクトリマウント
+PVCから特定のサブディレクトリをマウント。以下の用途に便利：
+- 複数のワークスペース間での大きなPVCの共有
+- ユーザー、プロジェクト、環境によるデータ組織化
+- 既存のデータ構造の活用
+
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "shared-team-storage"
+  subPath: "users/developer"  # このサブディレクトリのみをマウント
+```
+
+##### 高度な例
+
+**マルチユーザー共有ストレージ:**
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "department-storage"
+  subPath: "workspaces/{{ .Values.user.name }}"
+```
+
+**プロジェクトベース組織化:**
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "project-data"
+  subPath: "environments/dev/users/{{ .Values.user.name }}"
+```
+
+**完全な設定リファレンス:**
+```yaml
+persistence:
+  enabled: true              # 永続化の有効/無効
+  existingClaim: ""          # 既存PVC名（オプション）
+  subPath: ""                # PVC内のサブディレクトリ（オプション）
+  size: 10Gi                 # 新規PVCのサイズ（existingClaimが設定されている場合は無視）
+  storageClass: ""           # 新規PVCのStorageClass（オプション）
+  accessModes:
+    - ReadWriteOnce          # アクセスモード（シングルユーザーワークスペースにはRWOが必要）
+```
+
+#### 実装メモ
+- `existingClaim`が空の場合、`{release-name}-ssh-workspace-home`という名前の新規PVCが作成される
+- `subPath`は空（PVC全体をマウント）またはサブディレクトリパスを指定可能
+- サブディレクトリが存在しない場合は自動的に作成される
+- マウントされたディレクトリ内のファイル操作は制限なく正常に動作する
 
 ### テスト設定
 
@@ -399,14 +497,6 @@ labels:
 annotations:
   monitoring.coreos.com/scrape: "true"
   backup.velero.io/backup-volumes: "home"
-```
-
-#### 高可用性運用
-```yaml
-# Pod Disruption Budget
-podDisruptionBudget:
-  enabled: true
-  minAvailable: 1  # クラスタメンテナンス中に最低1つのPodを保証
 ```
 
 ### 高度な監視
@@ -509,8 +599,8 @@ appVersion: "1.0.0"
 description: SSH accessible workspace environment
 keywords: [ssh, workspace, development, terminal]
 maintainers:
-  - name: SSH Workspace Team
-    email: maintainer@example.com
+  - name: Nakamura Kazutaka
+    email: kaznak.at.work@ipebble.org
 ```
 
 ### Values.yaml構造
