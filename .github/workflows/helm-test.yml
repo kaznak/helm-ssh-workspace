@@ -298,6 +298,60 @@ jobs:
           # Cleanup
           rm -f /tmp/pod_authorized_keys
 
+      - name: SSH Connectivity Test (External)
+        if: always()
+        run: |
+          echo "::group::External SSH Connectivity Test - ${{ matrix.config.name }}"
+          
+          echo "::group::Pod Readiness Check"
+          echo "Waiting for pod to be ready..."
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
+          echo "::endgroup::"
+          
+          echo "::group::Service Configuration"
+          SERVICE_PORT=$(kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
+          echo "Service port: $SERVICE_PORT"
+          echo "::endgroup::"
+          
+          echo "::group::Port Forward Setup"
+          echo "Setting up port forward..."
+          kubectl port-forward service/test-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
+          PORT_FORWARD_PID=$!
+          sleep 10
+          echo "::endgroup::"
+          
+          echo "::group::SSH Connection Test"
+          echo "Testing external SSH connection..."
+          ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
+              -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
+              -o ConnectTimeout=10 \
+              -o BatchMode=yes \
+              testuser@localhost -p 2222 \
+              'echo "External SSH connection successful! Configuration: ${{ matrix.config.name }}"' || {
+            echo "❌ External SSH connection failed!"
+            
+            echo "::group::Connection Failure Debugging"
+            echo "Network connectivity test:"
+            nc -zv localhost 2222 || echo "Port 2222 not accessible"
+            
+            echo "Service status:"
+            kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o wide
+            echo "::endgroup::"
+            
+            # Kill port forward and exit
+            kill $PORT_FORWARD_PID 2>/dev/null || true
+            exit 1
+          }
+          echo "::endgroup::"
+          
+          echo "::group::Cleanup"
+          # Cleanup
+          kill $PORT_FORWARD_PID 2>/dev/null || true
+          echo "✓ External SSH connectivity test completed successfully!"
+          echo "::endgroup::"
+          echo "::endgroup::"
+
       - name: Run Helm Tests
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
