@@ -100,6 +100,20 @@ spec:
         fi
       done
       
+      # Display SSH directory permissions
+      echo "Checking SSH directory permissions..."
+      if ssh_exec "ls -la ~/.ssh/" 2>/dev/null; then
+        echo "✅ SSH directory listing successful"
+      else
+        echo "⚠️ WARNING: Cannot list ~/.ssh directory"
+      fi
+      
+      if ssh_exec "stat -c '%n: %a (%A)' ~/.ssh ~/.ssh/*" 2>/dev/null; then
+        echo "✅ SSH file permissions displayed"
+      else
+        echo "⚠️ WARNING: Cannot display SSH file permissions"
+      fi
+      
       # Phase 2: File System Operations Test
       echo "=== Phase 2: File System Operations Test ==="
       
