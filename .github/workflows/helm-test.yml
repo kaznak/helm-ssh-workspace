@@ -271,6 +271,50 @@ jobs:
             echo "✅ SSH Keys Secret found in template rendering"
             echo "SSH Keys Secret content:"
             grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -25
+            
+            echo ""
+            echo "🔍 Validating SSH key pair consistency..."
+            
+            # Extract base64 encoded keys from the rendered template
+            TEMPLATE_PRIVATE_KEY=$(grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | grep "test-key-0:" | cut -d: -f2 | tr -d ' ')
+            TEMPLATE_PUBLIC_KEY=$(grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | grep "test-key-0\.pub:" | cut -d: -f2 | tr -d ' ')
+            
+            if [ -n "$TEMPLATE_PRIVATE_KEY" ] && [ -n "$TEMPLATE_PUBLIC_KEY" ]; then
+              echo "Found keys in template, decoding and validating..."
+              
+              # Decode keys
+              echo "$TEMPLATE_PRIVATE_KEY" | base64 -d > /tmp/template-private-key
+              echo "$TEMPLATE_PUBLIC_KEY" | base64 -d > /tmp/template-public-key
+              
+              # Generate public key from private key for comparison
+              ssh-keygen -y -f /tmp/template-private-key > /tmp/derived-public-key 2>/dev/null
+              
+              if [ $? -eq 0 ]; then
+                echo "Successfully derived public key from private key"
+                
+                # Compare the keys
+                if diff -q /tmp/template-public-key /tmp/derived-public-key >/dev/null; then
+                  echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
+                  echo "Private key fingerprint: $(ssh-keygen -l -f /tmp/template-private-key 2>/dev/null | cut -d' ' -f1-2)"
+                  echo "Public key fingerprint:  $(ssh-keygen -l -f /tmp/template-public-key 2>/dev/null | cut -d' ' -f1-2)"
+                else
+                  echo "❌ SSH key pair validation FAILED - Keys do NOT match"
+                  echo "Template public key:"
+                  cat /tmp/template-public-key
+                  echo "Derived public key:"
+                  cat /tmp/derived-public-key
+                fi
+              else
+                echo "❌ Failed to derive public key from private key - Invalid private key format"
+              fi
+              
+              # Cleanup
+              rm -f /tmp/template-private-key /tmp/template-public-key /tmp/derived-public-key
+            else
+              echo "❌ Could not extract keys from template"
+              echo "TEMPLATE_PRIVATE_KEY found: $([ -n "$TEMPLATE_PRIVATE_KEY" ] && echo "yes" || echo "no")"
+              echo "TEMPLATE_PUBLIC_KEY found: $([ -n "$TEMPLATE_PUBLIC_KEY" ] && echo "yes" || echo "no")"
+            fi
           else
             echo "❌ SSH Keys Secret NOT found in template rendering"
             echo "This indicates the template conditions are not being met in GitHub Actions"
