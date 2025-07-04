@@ -316,6 +316,7 @@ jobs:
           
           echo "::group::🔍 Decoded Private Key Content"
           cat /tmp/secret-private-key
+          echo ""
           echo "::endgroup::"
           echo -n "Private key file info: "
           ls -la /tmp/secret-private-key
@@ -333,6 +334,7 @@ jobs:
           
           echo "::group::🔍 Decoded Public Key Content"
           cat /tmp/secret-public-key
+          echo ""
           echo "::endgroup::"
           echo -n "Public key file info: "
           ls -la /tmp/secret-public-key
