@@ -204,8 +204,8 @@ jobs:
 
       - name: Create Test Values File
         run: |
-          # Create temporary values.yaml file with SSH key parameters
-          cat > /tmp/test-values.yaml << 'EOF'
+          echo "::group::📄 Generated values.yaml"
+          cat << EOF  | tee /tmp/test-values.yaml 
           image:
             repository: ${{ env.TEST_IMAGE_NAME }}
             tag: ${{ env.TEST_IMAGE_TAG }}
@@ -220,13 +220,7 @@ jobs:
               keyPairs:
                 - publicKey: $TEST_SSH_PUBLIC_KEY
                   privateKey: |
-          EOF
-          
-          # Append private key with proper indentation
-          sed 's/^/          /' $TEST_SSH_PRIVATE_KEY_PATH >> /tmp/test-values.yaml
-          
-          # Append remaining values
-          cat >> /tmp/test-values.yaml << EOF
+          $(sed 's/^/          /' $TEST_SSH_PRIVATE_KEY_PATH)
           tests:
             sshConnectivity:
               enabled: true
@@ -236,9 +230,6 @@ jobs:
           persistence:
             enabled: ${{ matrix.config.persistence_enabled }}
           EOF
-          
-          echo "::group::📄 Generated values.yaml"
-          cat /tmp/test-values.yaml
           echo "::endgroup::"
           echo "✓ Test values file created"
 
