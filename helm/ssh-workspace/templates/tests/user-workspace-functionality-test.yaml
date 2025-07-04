@@ -43,7 +43,7 @@ spec:
       
       # Set up SSH connection details
       SERVICE_FQDN="{{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
-      SSH_USER="testuser"
+      SSH_USER="{{ .Values.user.name }}"
       SSH_PORT="{{ .Values.service.port }}"
       
       # Wait for SSH service to be ready

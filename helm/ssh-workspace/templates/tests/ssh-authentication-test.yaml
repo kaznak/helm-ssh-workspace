@@ -126,7 +126,7 @@ spec:
           -o ConnectTimeout=10 \
           -o BatchMode=yes \
           -o PasswordAuthentication=no \
-          testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+          {{ .Values.user.name }}@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
           'echo "SSH authentication successful"' 2>/dev/null; then
         echo "✅ SSH authentication test PASSED"
       else
@@ -141,7 +141,7 @@ spec:
             -o BatchMode=yes \
             -o PasswordAuthentication=no \
             -o LogLevel=DEBUG3 \
-            testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+            {{ .Values.user.name }}@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
             'echo test' 2>&1 | tail -30 || true
         
         echo "=== Remote authorized_keys Investigation ==="
@@ -160,7 +160,7 @@ spec:
             -o BatchMode=yes \
             -o PasswordAuthentication=no \
             -v \
-            testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+            {{ .Values.user.name }}@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
             'pwd' 2>&1 | grep -E "(debug1|Permission|auth|key)" | head -10 || echo "Verbose connection failed"
         
         # Test 2: Try to connect to see what auth methods are offered
@@ -169,7 +169,7 @@ spec:
             -o ConnectTimeout=5 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
-            testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+            {{ .Values.user.name }}@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
             2>&1 | grep -i "auth\|permission\|method" | head -5 || echo "Could not determine auth methods"
         
         echo "=== Key Format and Compatibility Check ==="
