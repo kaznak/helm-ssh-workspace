@@ -314,6 +314,14 @@ jobs:
           echo "✓ Private key decoded successfully"
           chmod 600 /tmp/secret-private-key
           
+          echo "::group::🔍 Decoded Private Key Content"
+          cat /tmp/secret-private-key
+          echo "::endgroup::"
+          echo -n "Private key file info: "
+          ls -la /tmp/secret-private-key
+          echo -n "File type detection: "
+          file /tmp/secret-private-key
+          
           # Decode public key
           if ! echo "$SECRET_PUBLIC_KEY" | base64 -d > /tmp/secret-public-key 2>/dev/null; then
             echo "❌ Failed to decode public key from secret"
@@ -322,6 +330,12 @@ jobs:
           fi
           
           echo "✓ Public key decoded successfully"
+          
+          echo "::group::🔍 Decoded Public Key Content"
+          cat /tmp/secret-public-key
+          echo "::endgroup::"
+          echo -n "Public key file info: "
+          ls -la /tmp/secret-public-key
           
           # Generate public key from private key for comparison
           if ! ssh-keygen -y -f /tmp/secret-private-key > /tmp/derived-public-key 2>/dev/null; then
