@@ -267,7 +267,6 @@ jobs:
         run: |
           
           echo "::group::SSH Keys Secret Template Check"
-          echo "=== SSH Keys Secret Template Check ==="
           if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
             echo "✅ SSH Keys Secret found in template rendering"
             echo "SSH Keys Secret content:"
@@ -279,7 +278,6 @@ jobs:
           echo "::endgroup::"
           
           echo "::group::SSH Authentication Test Pod Check"
-          echo "=== SSH Authentication Test Pod Check ==="
           if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
             echo "✅ SSH Authentication Test Pod found in template rendering"
             echo "SSH Auth Test Pod metadata:"
@@ -290,7 +288,6 @@ jobs:
           echo "::endgroup::"
           
           echo "::group::Values Debug Output"
-          echo "=== Values Debug Output ==="
           echo "Debugging template conditions..."
           helm template test-${{ matrix.config.name }} helm/ssh-workspace \
             --set image.repository=${{ env.TEST_IMAGE_NAME }} \
@@ -309,7 +306,6 @@ jobs:
           echo "::endgroup::"
           
           echo "::group::Template Condition Values Check"
-          echo "=== Template Condition Values Check ==="
           echo "Checking values that control SSH test resource creation:"
           echo "ssh.testKeys.enabled: should be true"
           echo "tests.sshConnectivity.enabled: should be true"
