@@ -299,9 +299,6 @@ jobs:
 
       - name: SSH Authentication Diagnosis
         run: |
-          echo "::group::SSH Authentication Comprehensive Diagnosis - ${{ matrix.config.name }}"
-          
-          # 1. Test Pod Status Check
           echo "::group::Test Pod Status Analysis"
           SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
           echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
@@ -454,8 +451,6 @@ jobs:
               kubectl delete pod network-test-${{ matrix.config.name }} --ignore-not-found=true
             fi
           fi
-          echo "::endgroup::"
-          
           echo "::endgroup::"
 
       - name: Run Helm Tests
