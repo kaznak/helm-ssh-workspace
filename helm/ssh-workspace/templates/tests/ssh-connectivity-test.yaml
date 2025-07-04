@@ -24,7 +24,12 @@ spec:
       set -e
       
       # Install required tools
-      apk add --no-cache openssh-client netcat-openbsd kubectl
+      apk add --no-cache openssh-client netcat-openbsd curl
+      
+      # Install kubectl for Alpine Linux
+      curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      chmod +x kubectl
+      mv kubectl /usr/local/bin/
       
       echo "=== Helm SSH Connectivity Test (Cluster Internal) ==="
       echo "Configuration: explicit/{{ .Values.security.level }}"
