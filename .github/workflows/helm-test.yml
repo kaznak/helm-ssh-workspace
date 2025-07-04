@@ -285,6 +285,167 @@ jobs:
           ssh-keygen -l -f /tmp/test_ssh_key.pub
           echo "::endgroup::"
 
+      - name: SSH Authentication Diagnosis
+        run: |
+          echo "::group::SSH Authentication Comprehensive Diagnosis - ${{ matrix.config.name }}"
+          
+          # 1. Test Pod Status Check
+          echo "::group::Test Pod Status Analysis"
+          SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
+          echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
+          
+          if kubectl get pod "$SSH_AUTH_TEST_POD" >/dev/null 2>&1; then
+            echo "✅ SSH auth test pod exists"
+            kubectl get pod "$SSH_AUTH_TEST_POD" -o wide
+            kubectl describe pod "$SSH_AUTH_TEST_POD"
+            
+            # Check pod status
+            POD_STATUS=$(kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.phase}')
+            echo "Pod status: $POD_STATUS"
+            
+            # Get container statuses
+            echo "Container statuses:"
+            kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.containerStatuses[*].state}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse container statuses"
+            
+          else
+            echo "❌ SSH auth test pod does not exist"
+            echo "Available test pods:"
+            kubectl get pods -l "helm.sh/hook=test" --show-labels
+          fi
+          echo "::endgroup::"
+          
+          # 2. SSH Keys Secret Validation
+          echo "::group::SSH Keys Secret Validation"
+          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
+          echo "Checking SSH keys secret: $SECRET_NAME"
+          
+          if kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
+            echo "✅ SSH keys secret exists"
+            kubectl describe secret "$SECRET_NAME"
+            
+            # Check secret keys
+            echo "Secret keys:"
+            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse secret keys"
+            
+            # Validate key content (first few chars)
+            echo "Private key (first 50 chars):"
+            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0}' | base64 -d | head -c 50 && echo "..."
+            echo "Public key:"
+            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0\.pub}' | base64 -d
+            
+          else
+            echo "❌ SSH keys secret does not exist"
+            echo "Available secrets:"
+            kubectl get secrets | grep test || echo "No test secrets found"
+          fi
+          echo "::endgroup::"
+          
+          # 3. SSH Workspace Pod Analysis
+          echo "::group::SSH Workspace Pod Analysis"
+          WORKSPACE_POD="test-${{ matrix.config.name }}-ssh-workspace"
+          echo "Checking SSH workspace pod pattern: $WORKSPACE_POD*"
+          
+          # Find workspace pod
+          WORKSPACE_PODS=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o name 2>/dev/null | grep -v test | head -1)
+          
+          if [ -n "$WORKSPACE_PODS" ]; then
+            POD_NAME=$(echo $WORKSPACE_PODS | sed 's|pod/||')
+            echo "✅ Found workspace pod: $POD_NAME"
+            kubectl get pod "$POD_NAME" -o wide
+            
+            # Check SSH daemon
+            echo "SSH daemon status:"
+            kubectl exec "$POD_NAME" -c ssh-workspace -- ps aux | grep sshd | grep -v grep || echo "No SSH daemon found"
+            
+            # Check SSH service port
+            echo "SSH service listening:"
+            kubectl exec "$POD_NAME" -c ssh-workspace -- netstat -tlnp | grep :2222 || echo "SSH not listening on port 2222"
+            
+            # Check authorized_keys
+            echo "Authorized keys status:"
+            kubectl exec "$POD_NAME" -c ssh-workspace -- ls -la /home/testuser/.ssh/ 2>/dev/null || echo "SSH directory not found"
+            kubectl exec "$POD_NAME" -c ssh-workspace -- cat /home/testuser/.ssh/authorized_keys 2>/dev/null | wc -l || echo "Authorized keys not readable"
+            
+          else
+            echo "❌ No running workspace pod found"
+            echo "All workspace pods:"
+            kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --show-labels
+          fi
+          echo "::endgroup::"
+          
+          # 4. Service and Network Analysis
+          echo "::group::Service and Network Analysis"
+          SERVICE_NAME="test-${{ matrix.config.name }}-ssh-workspace"
+          echo "Checking SSH service: $SERVICE_NAME"
+          
+          if kubectl get service "$SERVICE_NAME" >/dev/null 2>&1; then
+            echo "✅ SSH service exists"
+            kubectl get service "$SERVICE_NAME" -o wide
+            kubectl describe service "$SERVICE_NAME"
+            
+            # Check endpoints
+            echo "Service endpoints:"
+            kubectl get endpoints "$SERVICE_NAME" -o yaml
+            
+          else
+            echo "❌ SSH service does not exist"
+            echo "Available services:"
+            kubectl get services | grep test || echo "No test services found"
+          fi
+          echo "::endgroup::"
+          
+          # 5. Direct Network Test
+          echo "::group::Direct Network Connectivity Test"
+          if [ -n "$WORKSPACE_PODS" ]; then
+            POD_NAME=$(echo $WORKSPACE_PODS | sed 's|pod/||')
+            SERVICE_FQDN="test-${{ matrix.config.name }}-ssh-workspace.default.svc.cluster.local"
+            
+            echo "Testing network connectivity from auth test environment:"
+            # Create a temporary test pod to check connectivity
+            cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            name: network-test-${{ matrix.config.name }}
+            labels:
+              test: network-connectivity
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: network-test
+              image: alpine:3.18
+              command: ["sleep", "300"]
+          EOF
+            
+            # Wait for pod to be ready
+            kubectl wait --for=condition=ready pod/network-test-${{ matrix.config.name }} --timeout=60s || echo "Network test pod not ready"
+            
+            if kubectl get pod network-test-${{ matrix.config.name }} >/dev/null 2>&1; then
+              echo "Network test pod ready, testing connectivity:"
+              
+              # Install tools
+              kubectl exec network-test-${{ matrix.config.name }} -- apk add --no-cache netcat-openbsd openssh-client || echo "Failed to install tools"
+              
+              # Test DNS resolution
+              echo "DNS resolution test:"
+              kubectl exec network-test-${{ matrix.config.name }} -- nslookup "$SERVICE_FQDN" || echo "DNS resolution failed"
+              
+              # Test TCP connection
+              echo "TCP connection test:"
+              kubectl exec network-test-${{ matrix.config.name }} -- nc -zv "$SERVICE_FQDN" 2222 || echo "TCP connection failed"
+              
+              # Test SSH banner
+              echo "SSH banner test:"
+              kubectl exec network-test-${{ matrix.config.name }} -- timeout 5 sh -c "echo '' | nc '$SERVICE_FQDN' 2222" || echo "SSH banner test failed"
+              
+              # Cleanup
+              kubectl delete pod network-test-${{ matrix.config.name }} --ignore-not-found=true
+            fi
+          fi
+          echo "::endgroup::"
+          
+          echo "::endgroup::"
+
       - name: Run Helm Tests
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
