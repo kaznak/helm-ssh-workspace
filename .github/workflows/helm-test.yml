@@ -226,7 +226,8 @@ jobs:
               enabled: true
             workspaceFunctionality:
               enabled: true
-              networkTest: true
+              networkTest:
+                enabled: true
           security:
             permissionStrategy: ${{ matrix.config.permission_strategy }}
             level: ${{ matrix.config.security_level }}
