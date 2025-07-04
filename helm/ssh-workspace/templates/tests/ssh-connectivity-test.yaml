@@ -76,11 +76,26 @@ spec:
         sleep 1
       done
       
+      # Comprehensive SSH diagnosis before attempting connection
+      echo "=== SSH Key Diagnosis ==="
+      echo "Test SSH key fingerprint:"
+      ssh-keygen -l -f /test-ssh-keys/test-key-0 || echo "Failed to get private key fingerprint"
+      ssh-keygen -l -f /test-ssh-keys/test-key-0.pub || echo "Failed to get public key fingerprint"
+      
+      echo "Test SSH key content (first 50 chars):"
+      head -c 50 /test-ssh-keys/test-key-0.pub && echo "..."
+      
+      echo "=== Remote SSH Configuration Diagnosis ==="
+      # Test if we can reach the SSH service and get version
+      echo "Testing SSH service banner:"
+      timeout 5 nc "$SERVICE_FQDN" {{ .Values.service.port }} <<< "" | head -1 || echo "No SSH banner received"
+      
       # Perform SSH key-based authentication test
-      echo "Testing SSH key-based authentication..."
+      echo "=== SSH Authentication Test ==="
       chmod 600 /test-ssh-keys/test-key-0
       
-      # Attempt SSH connection with the test key
+      # First attempt: normal connection
+      echo "Attempting SSH connection..."
       if ssh -i /test-ssh-keys/test-key-0 \
           -o StrictHostKeyChecking=no \
           -o UserKnownHostsFile=/dev/null \
@@ -88,20 +103,58 @@ spec:
           -o BatchMode=yes \
           -o PasswordAuthentication=no \
           testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
-          'echo "SSH authentication successful"'; then
+          'echo "SSH authentication successful"' 2>/dev/null; then
         echo "✅ SSH connectivity test PASSED"
       else
-        echo "ERROR: SSH authentication failed"
-        echo "SSH debug information:"
+        echo "❌ SSH authentication failed - Starting detailed diagnosis..."
+        
+        echo "=== Detailed SSH Debug Information ==="
+        echo "Full SSH debug output:"
         ssh -i /test-ssh-keys/test-key-0 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -o ConnectTimeout=10 \
             -o BatchMode=yes \
             -o PasswordAuthentication=no \
+            -o LogLevel=DEBUG3 \
+            testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+            'echo test' 2>&1 | tail -30 || true
+        
+        echo "=== Remote authorized_keys Investigation ==="
+        # Try to get remote authorized_keys via different methods
+        echo "Attempting to check remote authorized_keys configuration..."
+        
+        # Use simple commands to check remote state without requiring full auth
+        echo "Testing different connection approaches:"
+        
+        # Test 1: Try with verbose output to see what's happening
+        echo "Test 1 - Connection attempt with full verbose:"
+        timeout 15 ssh -i /test-ssh-keys/test-key-0 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=5 \
+            -o BatchMode=yes \
+            -o PasswordAuthentication=no \
             -v \
             testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
-            'echo test' 2>&1 | head -20 || true
+            'pwd' 2>&1 | grep -E "(debug1|Permission|auth|key)" | head -10 || echo "Verbose connection failed"
+        
+        # Test 2: Try to connect to see what auth methods are offered
+        echo "Test 2 - SSH auth methods offered by server:"
+        timeout 10 ssh -o BatchMode=yes \
+            -o ConnectTimeout=5 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+            2>&1 | grep -i "auth\|permission\|method" | head -5 || echo "Could not determine auth methods"
+        
+        echo "=== Key Format and Compatibility Check ==="
+        echo "Key type analysis:"
+        file /test-ssh-keys/test-key-0 /test-ssh-keys/test-key-0.pub || true
+        
+        echo "Public key format validation:"
+        ssh-keygen -l -f /test-ssh-keys/test-key-0.pub | cut -d' ' -f1-2 || echo "Invalid key format"
+        
         exit 1
       fi
       
