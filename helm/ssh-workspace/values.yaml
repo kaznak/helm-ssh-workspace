@@ -108,3 +108,7 @@ extraEnvVars: []
 tests:
   rbac:
     create: true  # Create ServiceAccount and RBAC for tests
+  
+  # SSH connectivity test configuration
+  sshConnectivity:
+    enabled: false  # Enable SSH connectivity tests (requires ssh.testKeys.enabled: true)
