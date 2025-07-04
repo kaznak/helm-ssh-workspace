@@ -2,7 +2,7 @@
 
 image:
   repository: ssh-workspace
-  tag: "1.0.0"
+  tag: ""  # When empty, defaults to Chart.appVersion
   pullPolicy: IfNotPresent
   pullSecrets: []
 
