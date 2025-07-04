@@ -202,7 +202,7 @@ jobs:
             exit 1
           fi
 
-      - name: Validate Helm Chart Templates with Kubernetes
+      - name: Create Test Values File
         run: |
           # Create temporary values.yaml file with SSH key parameters
           cat > /tmp/test-values.yaml << 'EOF'
@@ -237,6 +237,13 @@ jobs:
             enabled: ${{ matrix.config.persistence_enabled }}
           EOF
           
+          echo "::group::📄 Generated values.yaml"
+          cat /tmp/test-values.yaml
+          echo "::endgroup::"
+          echo "✓ Test values file created"
+
+      - name: Validate Helm Chart Templates with Kubernetes
+        run: |
           # Validate Helm templates using the test image we just built
           helm template test helm/ssh-workspace \
             -f /tmp/test-values.yaml \
