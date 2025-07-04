@@ -910,6 +910,46 @@ tests:
 - **Required Parameters**: SSH public key, username
 - **Values Design**: All optional except deployment-time decisions (default values provided)
 
+### Known Issues
+
+#### SSH Private Key Format with `--set` Parameter
+
+**⚠️ CRITICAL: SSH private keys cannot be passed via `--set` parameter**
+
+When using SSH private keys with the `--set` parameter, the `$(cat private_key_file)` command substitution removes trailing newlines, which breaks the SSH private key format and causes authentication failures.
+
+**Problem:**
+```bash
+# This WILL FAIL - newlines are removed
+helm install workspace ./ssh-workspace \
+  --set "ssh.testKeys.keyPairs[0].privateKey=$(cat private_key_file)"
+
+# Error: Invalid SSH private key format
+```
+
+**Solution: Use values.yaml file instead**
+```bash
+# Create values.yaml with proper formatting
+cat > values.yaml << EOF
+ssh:
+  testKeys:
+    keyPairs:
+      - privateKey: |
+$(sed 's/^/          /' private_key_file)
+EOF
+
+# Install using values file
+helm install workspace ./ssh-workspace -f values.yaml
+```
+
+**Root Cause:**
+- SSH private keys require trailing newlines after `-----END OPENSSH PRIVATE KEY-----`
+- Command substitution `$(cat file)` removes these essential newlines
+- The `sed` command with proper indentation preserves the original formatting
+- YAML literal block scalars (`|`) maintain all whitespace and newlines
+
+**Recommendation:** Always use values.yaml files for SSH private keys in production deployments.
+
 ## Security Monitoring
 
 ### Automated Security Scanning
