@@ -243,6 +243,48 @@ jobs:
           kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
           echo "::endgroup::"
 
+      - name: Debug SSH Authentication Test Templates
+        run: |
+          echo "::group::SSH Authentication Test Template Analysis"
+          
+          # Check if the SSH auth test template uses correct user name
+          echo "Checking SSH auth test template for user name references..."
+          grep -n "testuser" helm/ssh-workspace/templates/tests/ssh-authentication-test.yaml || echo "No hardcoded testuser found"
+          
+          echo "Checking for template variable usage..."
+          grep -n "Values.user.name" helm/ssh-workspace/templates/tests/ssh-authentication-test.yaml || echo "No template variables found"
+          
+          echo "::endgroup::"
+          
+          echo "::group::Template Rendering Test"
+          # Render the template to see what gets generated
+          helm template test helm/ssh-workspace \
+            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
+            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
+            --set image.pullPolicy=Never \
+            --set user.name="testuser" \
+            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set ssh.testKeys.enabled=true \
+            --set tests.sshConnectivity.enabled=true \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
+            --set security.level=${{ matrix.config.security_level }} \
+            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            --show-only templates/tests/ssh-authentication-test.yaml > /tmp/ssh-auth-test-rendered.yaml
+          
+          echo "Rendered SSH auth test template:"
+          cat /tmp/ssh-auth-test-rendered.yaml
+          echo "::endgroup::"
+          
+          echo "::group::SSH Key Validation"
+          echo "SSH test keys validation:"
+          echo "Private key file: $TEST_SSH_PRIVATE_KEY_PATH"
+          ls -la $TEST_SSH_PRIVATE_KEY_PATH
+          echo "Public key: $TEST_SSH_PUBLIC_KEY"
+          ssh-keygen -l -f /tmp/test_ssh_key.pub
+          echo "::endgroup::"
+
       - name: Run Helm Tests
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
@@ -423,6 +465,27 @@ jobs:
             done
             echo "--- End of $test_pod ---"
           done
+          
+          echo "=== SSH Authentication Test Pod Specific Analysis ==="
+          SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
+          echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
+          
+          if kubectl get pod "$SSH_AUTH_TEST_POD" >/dev/null 2>&1; then
+            echo "SSH auth test pod exists, getting detailed analysis..."
+            kubectl describe pod "$SSH_AUTH_TEST_POD"
+            
+            echo "Getting SSH auth test pod logs..."
+            kubectl logs "$SSH_AUTH_TEST_POD" -c ssh-auth-validation --tail=200 2>/dev/null || {
+              echo "Cannot get ssh-auth-validation container logs, trying all containers..."
+              containers=$(kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.spec.containers[*].name}')
+              for container in $containers; do
+                echo "[SSH-AUTH-CONTAINER:$container]"
+                kubectl logs "$SSH_AUTH_TEST_POD" -c "$container" --tail=100 2>/dev/null || echo "[NO-LOGS-FOR-$container]"
+              done
+            }
+          else
+            echo "SSH auth test pod does not exist"
+          fi
           
           echo "=== Failed Test Pod Specific Logs ==="
           # Try to get logs for the specific permission test pod with more details
