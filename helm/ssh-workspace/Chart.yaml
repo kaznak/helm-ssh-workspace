@@ -2,8 +2,8 @@ apiVersion: v2
 name: ssh-workspace
 description: SSH accessible workspace environment
 type: application
-version: 1.0.0
-appVersion: "1.0.0"
+version: 0.4.0
+appVersion: "0.4.0"
 
 keywords:
   - ssh
@@ -26,10 +26,18 @@ annotations:
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
     - kind: added
-      description: Initial release of SSH Workspace Helm Chart
+      description: Enhanced SSH key handling with values.yaml support
+    - kind: added
+      description: Comprehensive file and directory permission tests
+    - kind: added
+      description: SSH directory permission validation
+    - kind: fixed
+      description: SSH private key format preservation in values.yaml
+    - kind: improved
+      description: Test suite reliability and debugging capabilities
   artifacthub.io/images: |
     - name: ssh-workspace
-      image: ghcr.io/kaznak/ssh-workspace:1.0.0
+      image: ghcr.io/kaznak/ssh-workspace:0.4.0
   artifacthub.io/links: |
     - name: Chart Source
       url: https://github.com/kaznak/helm-ssh-workspace/tree/main/helm/ssh-workspace

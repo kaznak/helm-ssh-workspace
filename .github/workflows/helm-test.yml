@@ -37,21 +37,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate SSH test key pair
-        run: |
-          echo "=== Generating SSH test key pair ==="
-          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
-          
-          # Export keys for use in subsequent steps
-          echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
-          echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
-          
-          # Create base64 encoded private key for Helm values
-          TEST_SSH_PRIVATE_KEY_B64=$(base64 -w0 /tmp/test_ssh_key)
-          echo "TEST_SSH_PRIVATE_KEY_B64=$TEST_SSH_PRIVATE_KEY_B64" >> $GITHUB_ENV
-          
-          echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
-
       - name: Check Dockerfile with hadolint
         uses: hadolint/hadolint-action@v3.1.0
         with:
@@ -66,13 +51,17 @@ jobs:
 
       - name: Lint Helm Chart
         run: |
+          echo "=== Generating SSH test key pair for linting ==="
+          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
+          
+          echo "=== Linting Helm Chart ==="
           helm lint helm/ssh-workspace \
             --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.publicKeys[0]=$(cat /tmp/test_ssh_key.pub)" \
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$(cat /tmp/test_ssh_key.pub)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --debug
 
       - name: Set up Docker Buildx
@@ -95,14 +84,6 @@ jobs:
           path: /tmp/ssh-workspace-image.tar
           retention-days: 1
 
-      - name: Upload SSH test keys artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ssh-test-keys
-          path: |
-            /tmp/test_ssh_key
-            /tmp/test_ssh_key.pub
-          retention-days: 1
 
   test:
     name: Test (${{ matrix.config.name }})
@@ -142,28 +123,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download SSH test keys artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ssh-test-keys
-          path: /tmp
-
-      - name: Setup SSH test keys
-        run: |
-          echo "=== Setting up SSH test keys from artifact ==="
-          chmod 600 /tmp/test_ssh_key
-          chmod 644 /tmp/test_ssh_key.pub
-          
-          # Export keys for use in subsequent steps
-          echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
-          echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
-          
-          echo "Using SSH public key: $(cat /tmp/test_ssh_key.pub)"
-
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
           version: '3.12.1'
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
 
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
@@ -188,565 +156,267 @@ jobs:
           # Load the test image into kind cluster for Helm chart testing
           kind load docker-image ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} --name test-cluster-${{ matrix.config.name }} -v 3
 
+      - name: Generate SSH test key pair
+        run: |
+          echo "=== Generating SSH test key pair ==="
+          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
+          
+          # Set proper permissions
+          chmod 600 /tmp/test_ssh_key
+          chmod 644 /tmp/test_ssh_key.pub
+          
+          # Export keys for use in subsequent steps
+          echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
+          echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
+          
+          echo "::group::🔍 Generated Public Key"
+          cat /tmp/test_ssh_key.pub
+          echo ""
+          echo "::endgroup::"
+          echo -n "Public key file info: "
+          ls -la /tmp/test_ssh_key.pub
+          echo -n "File type detection: "
+          file /tmp/test_ssh_key.pub
+
+          echo "::group::🔍 Generated Private Key"
+          cat /tmp/test_ssh_key
+          echo ""
+          echo "::endgroup::"
+          echo -n "Private key file info: "
+          ls -la /tmp/test_ssh_key
+          echo -n "File type detection: "
+          file /tmp/test_ssh_key
+
+          echo "🔍 Verifying SSH key pair consistency..."
+          # Generate public key from private key to verify they match
+          DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
+          ORIGINAL_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)
+          
+          if [ "$DERIVED_PUBLIC_KEY" = "$ORIGINAL_PUBLIC_KEY" ]; then
+            echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
+            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/test_ssh_key.pub | cut -d' ' -f1-2)"
+          else
+            echo "❌ SSH key pair validation FAILED - Generated keys do NOT match"
+            echo "Original public key: $ORIGINAL_PUBLIC_KEY"
+            echo "Derived public key: $DERIVED_PUBLIC_KEY"
+            exit 1
+          fi
+
+      - name: Create Test Values File
+        run: |
+          echo "::group::📄 Generated values.yaml"
+          cat << EOF  | tee /tmp/test-values.yaml 
+          image:
+            repository: ${{ env.TEST_IMAGE_NAME }}
+            tag: ${{ env.TEST_IMAGE_TAG }}
+            pullPolicy: Never
+          user:
+            name: testuser
+          ssh:
+            publicKeys:
+              - $TEST_SSH_PUBLIC_KEY
+            testKeys:
+              enabled: true
+              keyPairs:
+                - publicKey: $TEST_SSH_PUBLIC_KEY
+                  privateKey: |
+          $(sed 's/^/          /' $TEST_SSH_PRIVATE_KEY_PATH)
+          tests:
+            sshConnectivity:
+              enabled: true
+            workspaceFunctionality:
+              enabled: true
+              networkTest:
+                enabled: true
+          security:
+            permissionStrategy: ${{ matrix.config.permission_strategy }}
+            level: ${{ matrix.config.security_level }}
+          persistence:
+            enabled: ${{ matrix.config.persistence_enabled }}
+          EOF
+          echo "::endgroup::"
+          echo "✓ Test values file created"
+
       - name: Validate Helm Chart Templates with Kubernetes
         run: |
           # Validate Helm templates using the test image we just built
           helm template test helm/ssh-workspace \
-            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
-            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
-            --set image.pullPolicy=Never \
-            --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
-            --set ssh.testKeys.enabled=true \
-            --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
-            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
-            --set security.level=${{ matrix.config.security_level }} \
-            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            -f /tmp/test-values.yaml \
             --validate \
-            --debug
+            --debug | tee /tmp/full-template-render.yaml
           echo "✓ Helm template validation with Kubernetes API successful"
 
       - name: Install Helm Chart
         run: |
           echo "=== Installing Helm Chart: ${{ matrix.config.name }} ==="
           helm install test-${{ matrix.config.name }} helm/ssh-workspace \
-            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
-            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
-            --set image.pullPolicy=Never \
-            --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
-            --set ssh.testKeys.enabled=true \
-            --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
-            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
-            --set security.level=${{ matrix.config.security_level }} \
-            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            -f /tmp/test-values.yaml \
             --timeout=300s \
             --wait \
             --debug
           echo "✓ Helm chart installation completed"
 
-      - name: Debug Deployment Configuration
+      - name: Verify SSH Keys in Service Pod
         run: |
-          echo "::group::Deployment Readiness Probe Configuration"
-          kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
-          echo "::endgroup::"
+          echo "🔍 Verifying SSH keys configuration in pod..."
           
-          echo "::group::Pod Status Overview"
-          kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
-          echo "::endgroup::"
+          # Get the pod name
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
           
-          echo "::group::Pod Readiness Details"
-          kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
-          echo "::endgroup::"
-
-      - name: Debug SSH Authentication Test Templates
-        run: |
-          echo "::group::SSH Authentication Test Template Analysis"
+          if [ -z "$POD_NAME" ]; then
+            echo "❌ No running SSH workspace pod found"
+            exit 1
+          fi
           
-          # Check if the SSH auth test template uses correct user name
-          echo "Checking SSH auth test template for user name references..."
-          grep -n "testuser" helm/ssh-workspace/templates/tests/ssh-authentication-test.yaml || echo "No hardcoded testuser found"
+          echo "Using pod: $POD_NAME"
           
-          echo "Checking for template variable usage..."
-          grep -n "Values.user.name" helm/ssh-workspace/templates/tests/ssh-authentication-test.yaml || echo "No template variables found"
+          # Get authorized_keys from pod
+          echo "Retrieving authorized_keys from pod..."
+          kubectl exec "$POD_NAME" -c ssh-workspace -- cat /home/testuser/.ssh/authorized_keys > /tmp/pod_authorized_keys
           
-          echo "::endgroup::"
+          # Show what we retrieved
+          echo "Retrieved authorized_keys content:"
+          cat /tmp/pod_authorized_keys
           
-          echo "::group::Template Rendering Test"
-          # Render the template to see what gets generated
-          helm template test helm/ssh-workspace \
-            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
-            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
-            --set image.pullPolicy=Never \
-            --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
-            --set ssh.testKeys.enabled=true \
-            --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
-            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
-            --set security.level=${{ matrix.config.security_level }} \
-            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
-            --show-only templates/tests/ssh-authentication-test.yaml > /tmp/ssh-auth-test-rendered.yaml
+          # Extract public key from our private key for comparison
+          echo "🔍 Deriving public key from our test private key..."
+          DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
           
-          echo "Rendered SSH auth test template:"
-          cat /tmp/ssh-auth-test-rendered.yaml
-          echo "::endgroup::"
-          
-          echo "::group::SSH Key Validation"
-          echo "SSH test keys validation:"
-          echo "Private key file: $TEST_SSH_PRIVATE_KEY_PATH"
-          ls -la $TEST_SSH_PRIVATE_KEY_PATH
-          echo "Public key: $TEST_SSH_PUBLIC_KEY"
-          ssh-keygen -l -f /tmp/test_ssh_key.pub
-          echo "::endgroup::"
-
-      - name: Pre-Test Template Rendering Verification
-        run: |
-          echo "::group::GitHub Actions Template Rendering Verification - ${{ matrix.config.name }}"
-          
-          echo "=== Helm Template Rendering Test ==="
-          echo "Using the same values as the actual installation..."
-          
-          # Render templates with exact same parameters as installation
-          helm template test-${{ matrix.config.name }} helm/ssh-workspace \
-            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
-            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
-            --set image.pullPolicy=Never \
-            --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
-            --set ssh.testKeys.enabled=true \
-            --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
-            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
-            --set security.level=${{ matrix.config.security_level }} \
-            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
-            --debug > /tmp/full-template-render.yaml
-          
-          echo "=== SSH Keys Secret Template Check ==="
-          if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
-            echo "✅ SSH Keys Secret found in template rendering"
-            echo "SSH Keys Secret content:"
-            grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -25
+          # Compare with authorized_keys
+          if grep -Fq "$DERIVED_PUBLIC_KEY" /tmp/pod_authorized_keys; then
+            echo "✅ SSH key verification PASSED - Our private key matches public key in pod's authorized_keys"
+            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/test_ssh_key.pub | cut -d' ' -f1-2)"
           else
-            echo "❌ SSH Keys Secret NOT found in template rendering"
-            echo "This indicates the template conditions are not being met in GitHub Actions"
+            echo "❌ SSH key verification FAILED - Our private key does NOT match any key in pod's authorized_keys"
+            echo "Our derived public key:"
+            echo "$DERIVED_PUBLIC_KEY"
+            echo "Pod's authorized_keys:"
+            cat /tmp/pod_authorized_keys
+            exit 1
           fi
           
-          echo "=== SSH Authentication Test Pod Check ==="
-          if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
-            echo "✅ SSH Authentication Test Pod found in template rendering"
-            echo "SSH Auth Test Pod metadata:"
-            grep -A 10 "name:.*ssh-auth-test" /tmp/full-template-render.yaml | head -15
-          else
-            echo "❌ SSH Authentication Test Pod NOT found in template rendering"
-          fi
-          
-          echo "=== Values Debug Output ==="
-          echo "Debugging template conditions..."
-          helm template test-${{ matrix.config.name }} helm/ssh-workspace \
-            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
-            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
-            --set image.pullPolicy=Never \
-            --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
-            --set ssh.testKeys.enabled=true \
-            --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
-            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
-            --set security.level=${{ matrix.config.security_level }} \
-            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
-            --show-only templates/tests/test-ssh-keys-secret.yaml 2>&1 || echo "SSH Keys Secret template failed to render"
-          
-          echo "=== Template Condition Values Check ==="
-          echo "Checking values that control SSH test resource creation:"
-          echo "ssh.testKeys.enabled: should be true"
-          echo "tests.sshConnectivity.enabled: should be true"
-          echo "ssh.testKeys.keyPairs: should contain at least one key pair"
-          
-          echo "::endgroup::"
-
-      - name: SSH Authentication Diagnosis
-        run: |
-          echo "::group::SSH Authentication Comprehensive Diagnosis - ${{ matrix.config.name }}"
-          
-          # 1. Test Pod Status Check
-          echo "::group::Test Pod Status Analysis"
-          SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
-          echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
-          
-          if kubectl get pod "$SSH_AUTH_TEST_POD" >/dev/null 2>&1; then
-            echo "✅ SSH auth test pod exists"
-            kubectl get pod "$SSH_AUTH_TEST_POD" -o wide
-            kubectl describe pod "$SSH_AUTH_TEST_POD"
-            
-            # Check pod status
-            POD_STATUS=$(kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.phase}')
-            echo "Pod status: $POD_STATUS"
-            
-            # Get container statuses
-            echo "Container statuses:"
-            kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.containerStatuses[*].state}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse container statuses"
-            
-          else
-            echo "❌ SSH auth test pod does not exist"
-            echo "Available test pods:"
-            kubectl get pods -l "helm.sh/hook=test" --show-labels
-          fi
-          echo "::endgroup::"
-          
-          # 2. SSH Keys Secret Validation
-          echo "::group::SSH Keys Secret Validation"
-          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
-          echo "Checking SSH keys secret: $SECRET_NAME"
-          
-          if kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
-            echo "✅ SSH keys secret exists"
-            kubectl describe secret "$SECRET_NAME"
-            
-            # Check secret keys
-            echo "Secret keys:"
-            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse secret keys"
-            
-            # Validate key content (first few chars)
-            echo "Private key (first 50 chars):"
-            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0}' | base64 -d | head -c 50 && echo "..."
-            echo "Public key:"
-            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0\.pub}' | base64 -d
-            
-          else
-            echo "❌ SSH keys secret does not exist"
-            echo "Available secrets:"
-            kubectl get secrets | grep test || echo "No test secrets found"
-          fi
-          echo "::endgroup::"
-          
-          # 3. SSH Workspace Pod Analysis
-          echo "::group::SSH Workspace Pod Analysis"
-          WORKSPACE_POD="test-${{ matrix.config.name }}-ssh-workspace"
-          echo "Checking SSH workspace pod pattern: $WORKSPACE_POD*"
-          
-          # Find workspace pod
-          WORKSPACE_PODS=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o name 2>/dev/null | grep -v test | head -1)
-          
-          if [ -n "$WORKSPACE_PODS" ]; then
-            POD_NAME=$(echo $WORKSPACE_PODS | sed 's|pod/||')
-            echo "✅ Found workspace pod: $POD_NAME"
-            kubectl get pod "$POD_NAME" -o wide
-            
-            # Check SSH daemon
-            echo "SSH daemon status:"
-            kubectl exec "$POD_NAME" -c ssh-workspace -- ps aux | grep sshd | grep -v grep || echo "No SSH daemon found"
-            
-            # Check SSH service port
-            echo "SSH service listening:"
-            kubectl exec "$POD_NAME" -c ssh-workspace -- netstat -tlnp | grep :2222 || echo "SSH not listening on port 2222"
-            
-            # Check authorized_keys
-            echo "Authorized keys status:"
-            kubectl exec "$POD_NAME" -c ssh-workspace -- ls -la /home/testuser/.ssh/ 2>/dev/null || echo "SSH directory not found"
-            kubectl exec "$POD_NAME" -c ssh-workspace -- cat /home/testuser/.ssh/authorized_keys 2>/dev/null | wc -l || echo "Authorized keys not readable"
-            
-          else
-            echo "❌ No running workspace pod found"
-            echo "All workspace pods:"
-            kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --show-labels
-          fi
-          echo "::endgroup::"
-          
-          # 4. Service and Network Analysis
-          echo "::group::Service and Network Analysis"
-          SERVICE_NAME="test-${{ matrix.config.name }}-ssh-workspace"
-          echo "Checking SSH service: $SERVICE_NAME"
-          
-          if kubectl get service "$SERVICE_NAME" >/dev/null 2>&1; then
-            echo "✅ SSH service exists"
-            kubectl get service "$SERVICE_NAME" -o wide
-            kubectl describe service "$SERVICE_NAME"
-            
-            # Check endpoints
-            echo "Service endpoints:"
-            kubectl get endpoints "$SERVICE_NAME" -o yaml
-            
-          else
-            echo "❌ SSH service does not exist"
-            echo "Available services:"
-            kubectl get services | grep test || echo "No test services found"
-          fi
-          echo "::endgroup::"
-          
-          # 5. Direct Network Test
-          echo "::group::Direct Network Connectivity Test"
-          if [ -n "$WORKSPACE_PODS" ]; then
-            POD_NAME=$(echo $WORKSPACE_PODS | sed 's|pod/||')
-            SERVICE_FQDN="test-${{ matrix.config.name }}-ssh-workspace.default.svc.cluster.local"
-            
-            echo "Testing network connectivity from auth test environment:"
-            # Create a temporary test pod to check connectivity
-            cat <<EOF | kubectl apply -f -
-          apiVersion: v1
-          kind: Pod
-          metadata:
-            name: network-test-${{ matrix.config.name }}
-            labels:
-              test: network-connectivity
-          spec:
-            restartPolicy: Never
-            containers:
-            - name: network-test
-              image: alpine:3.18
-              command: ["sleep", "300"]
-          EOF
-            
-            # Wait for pod to be ready
-            kubectl wait --for=condition=ready pod/network-test-${{ matrix.config.name }} --timeout=60s || echo "Network test pod not ready"
-            
-            if kubectl get pod network-test-${{ matrix.config.name }} >/dev/null 2>&1; then
-              echo "Network test pod ready, testing connectivity:"
-              
-              # Install tools
-              kubectl exec network-test-${{ matrix.config.name }} -- apk add --no-cache netcat-openbsd openssh-client || echo "Failed to install tools"
-              
-              # Test DNS resolution
-              echo "DNS resolution test:"
-              kubectl exec network-test-${{ matrix.config.name }} -- nslookup "$SERVICE_FQDN" || echo "DNS resolution failed"
-              
-              # Test TCP connection
-              echo "TCP connection test:"
-              kubectl exec network-test-${{ matrix.config.name }} -- nc -zv "$SERVICE_FQDN" 2222 || echo "TCP connection failed"
-              
-              # Test SSH banner
-              echo "SSH banner test:"
-              kubectl exec network-test-${{ matrix.config.name }} -- timeout 5 sh -c "echo '' | nc '$SERVICE_FQDN' 2222" || echo "SSH banner test failed"
-              
-              # Cleanup
-              kubectl delete pod network-test-${{ matrix.config.name }} --ignore-not-found=true
-            fi
-          fi
-          echo "::endgroup::"
-          
-          echo "::endgroup::"
+          # Cleanup
+          rm -f /tmp/pod_authorized_keys
 
       - name: Run Helm Tests
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
 
-      - name: Debug SSH Authentication Files
-        run: |
-          echo "::group::SSH Authentication Debugging - ${{ matrix.config.name }}"
-          
-          echo "::group::Finding Workspace Pod"
-          kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }}
-          
-          # Get deployment pod (not test pods) - test pods have helm.sh/hook annotation
-          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[?(@.metadata.annotations.helm\.sh/hook=="")].metadata.name}' || true)
-          
-          # Fallback: try without field selector and filter test pods by annotation
-          if [ -z "$POD_NAME" ]; then
-            POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o jsonpath='{.items[?(@.metadata.annotations.helm\.sh/hook=="")].metadata.name}' || true)
-          fi
-          
-          # Final fallback: get first pod and filter manually
-          if [ -z "$POD_NAME" ]; then
-            ALL_PODS=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} -o jsonpath='{.items[*].metadata.name}')
-            for pod in $ALL_PODS; do
-              HOOK_ANNOTATION=$(kubectl get pod "$pod" -o jsonpath='{.metadata.annotations.helm\.sh/hook}' 2>/dev/null || true)
-              if [ -z "$HOOK_ANNOTATION" ]; then
-                POD_NAME="$pod"
-                break
-              fi
-            done
-          fi
-          
-          echo "Debugging pod: $POD_NAME"
-          echo "::endgroup::"
-          
-          if [ -z "$POD_NAME" ]; then
-            echo "::error::Could not find workspace pod"
-            kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
-            exit 0  # Continue with test, but skip this debugging step
-          fi
-          
-          echo "::group::SSH Files Analysis"
-          kubectl exec "$POD_NAME" -- /bin/sh -c '
-            echo "::group::Home Directory Analysis"
-            ls -la /home/testuser/
-            echo "::endgroup::"
-            
-            echo "::group::SSH Directory Analysis"
-            if [ -d "/home/testuser/.ssh" ]; then
-              ls -la /home/testuser/.ssh/
-              echo "::endgroup::"
-              
-              echo "::group::Authorized Keys Content Check"
-              if [ -f "/home/testuser/.ssh/authorized_keys" ]; then
-                echo "authorized_keys file exists"
-                wc -l /home/testuser/.ssh/authorized_keys
-                echo "First line of authorized_keys:"
-                head -1 /home/testuser/.ssh/authorized_keys
-              else
-                echo "authorized_keys file not found"
-              fi
-              echo "::endgroup::"
-            else
-              echo ".ssh directory not found"
-              echo "::endgroup::"
-            fi
-            
-            echo "::group::SSH Daemon Configuration"
-            echo "SSH daemon process:"
-            ps aux | grep sshd | grep -v grep || echo "No sshd process found"
-            echo "::endgroup::"
-            
-            echo "::group::SSH Host Keys"
-            ls -la /etc/ssh/ssh_host_*
-            echo "::endgroup::"
-            
-            echo "::group::System Permission Analysis"
-            echo "Process user info:"
-            id
-            echo "File ownership analysis:"
-            stat -c "Home: %U:%G (%a)" /home/testuser 2>/dev/null || echo "Cannot stat home directory"
-            stat -c ".ssh: %U:%G (%a)" /home/testuser/.ssh 2>/dev/null || echo "Cannot stat .ssh directory"  
-            stat -c "authorized_keys: %U:%G (%a)" /home/testuser/.ssh/authorized_keys 2>/dev/null || echo "Cannot stat authorized_keys"
-            echo "::endgroup::"
-          ' || echo "Failed to execute SSH debugging commands"
-          echo "::endgroup::"
-          echo "::endgroup::"
-
-      - name: SSH Connectivity Test (External)
-        run: |
-          echo "::group::External SSH Connectivity Test - ${{ matrix.config.name }}"
-          
-          echo "::group::Pod Readiness Check"
-          echo "Waiting for pod to be ready..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
-          echo "::endgroup::"
-          
-          echo "::group::Service Configuration"
-          SERVICE_PORT=$(kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
-          echo "Service port: $SERVICE_PORT"
-          echo "::endgroup::"
-          
-          echo "::group::Port Forward Setup"
-          echo "Setting up port forward..."
-          kubectl port-forward service/test-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
-          PORT_FORWARD_PID=$!
-          sleep 10
-          echo "::endgroup::"
-          
-          echo "::group::SSH Connection Test"
-          echo "Testing external SSH connection..."
-          ssh -i $TEST_SSH_PRIVATE_KEY_PATH \
-              -o StrictHostKeyChecking=no \
-              -o UserKnownHostsFile=/dev/null \
-              -o ConnectTimeout=10 \
-              -o BatchMode=yes \
-              testuser@localhost -p 2222 \
-              'echo "External SSH connection successful! Configuration: ${{ matrix.config.name }}"' || {
-            echo "❌ External SSH connection failed!"
-            
-            echo "::group::Connection Failure Debugging"
-            echo "Network connectivity test:"
-            nc -zv localhost 2222 || echo "Port 2222 not accessible"
-            
-            echo "Service status:"
-            kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o wide
-            echo "::endgroup::"
-            
-            # Kill port forward and exit
-            kill $PORT_FORWARD_PID 2>/dev/null || true
-            exit 1
-          }
-          echo "::endgroup::"
-          
-          echo "::group::Cleanup"
-          # Cleanup
-          kill $PORT_FORWARD_PID 2>/dev/null || true
-          echo "✓ External SSH connectivity test completed successfully!"
-          echo "::endgroup::"
-          echo "::endgroup::"
-
-      - name: Check deployment status
+      - name: Validate SSH Key Pair in Test Secret
         if: always()
         run: |
-          echo "=== Final Helm Status ==="
-          helm status test-${{ matrix.config.name }} || echo "Helm release not found"
+          echo "=== Validating SSH key pair in test secret ==="
+          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
           
-          echo "=== Getting all resources ==="
-          kubectl get all -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o wide
+          # Check if secret exists
+          if ! kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
+            echo "❌ Test SSH keys secret not found: $SECRET_NAME"
+            echo "Available secrets:"
+            kubectl get secrets | grep test || echo "No test secrets found"
+            return
+          fi
           
-          echo "=== Describing pods ==="
-          kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }}
+          echo "✓ Test SSH keys secret exists: $SECRET_NAME"
           
-          echo "=== Pod Logs ==="
-          for pod in $(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null); do
-            echo "[POD] $pod"
-            
-            echo "[INIT-CONTAINER:ssh-setup]"
-            kubectl logs $pod -c ssh-setup --tail=30 2>/dev/null || echo "[NO-LOGS]"
-            
-            echo "[MAIN-CONTAINER:ssh-workspace]"
-            kubectl logs $pod -c ssh-workspace --tail=30 2>/dev/null || echo "[NO-LOGS]"
-            
-            echo "[PREVIOUS:ssh-workspace]"
-            kubectl logs $pod -c ssh-workspace --previous=true --tail=30 2>/dev/null || echo "[NO-PREVIOUS-LOGS]"
-          done
+          # Extract SSH keys from secret
+          echo "🔍 Extracting SSH keys from secret..."
+          SECRET_PRIVATE_KEY=$(kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0}' 2>/dev/null || echo "")
+          SECRET_PUBLIC_KEY=$(kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0\.pub}' 2>/dev/null || echo "")
           
-          echo "=== Test Pod Logs (All Test Pods) ==="
-          for test_pod in $(kubectl get pods -l "helm.sh/hook=test" -o name 2>/dev/null); do
-            echo "[TEST-POD] $test_pod"
-            pod_status=$(kubectl get $test_pod -o jsonpath='{.status.phase}')
-            echo "[STATUS] $pod_status"
-            
-            # Get all containers in the test pod
-            containers=$(kubectl get $test_pod -o jsonpath='{.spec.containers[*].name}')
-            for container in $containers; do
-              echo "[CONTAINER:$container]"
-              kubectl logs $test_pod -c $container --tail=100 2>/dev/null || echo "[NO-LOGS-FOR-$container]"
+          # Check if both keys exist
+          if [ -z "$SECRET_PRIVATE_KEY" ] || [ -z "$SECRET_PUBLIC_KEY" ]; then
+            echo "❌ SSH keys not found in secret"
+            echo "Private key present: $([ -n "$SECRET_PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
+            echo "Public key present: $([ -n "$SECRET_PUBLIC_KEY" ] && echo 'yes' || echo 'no')"
+            return
+          fi
+          
+          echo "✓ Both private and public keys found in secret"
+          
+          # Decode private key
+          echo "🔍 Decoding and validating SSH key pair..."
+          if ! echo "$SECRET_PRIVATE_KEY" | base64 -d > /tmp/secret-private-key 2>/dev/null; then
+            echo "❌ Failed to decode private key from secret"
+            return
+          fi
+          
+          echo "✓ Private key decoded successfully"
+          chmod 600 /tmp/secret-private-key
+          
+          echo "::group::🔍 Decoded Private Key Content"
+          cat /tmp/secret-private-key
+          echo ""
+          echo "::endgroup::"
+          echo -n "Private key file info: "
+          ls -la /tmp/secret-private-key
+          echo -n "File type detection: "
+          file /tmp/secret-private-key
+          
+          # Decode public key
+          if ! echo "$SECRET_PUBLIC_KEY" | base64 -d > /tmp/secret-public-key 2>/dev/null; then
+            echo "❌ Failed to decode public key from secret"
+            rm -f /tmp/secret-private-key
+            return
+          fi
+          
+          echo "✓ Public key decoded successfully"
+          
+          echo "::group::🔍 Decoded Public Key Content"
+          cat /tmp/secret-public-key
+          echo ""
+          echo "::endgroup::"
+          echo -n "Public key file info: "
+          ls -la /tmp/secret-public-key
+          echo -n "File type detection: "
+          file /tmp/secret-public-key
+          
+          # Generate public key from private key for comparison
+          if ! ssh-keygen -y -f /tmp/secret-private-key > /tmp/derived-public-key 2>/dev/null; then
+            echo "❌ Failed to derive public key from secret's private key - Invalid format"
+            rm -f /tmp/secret-private-key /tmp/secret-public-key
+            return
+          fi
+          
+          echo "✓ Successfully derived public key from private key"
+          
+          # Compare with our test public key
+          if [ "$(cat /tmp/derived-public-key)" = "$TEST_SSH_PUBLIC_KEY" ]; then
+            echo "✅ SSH key pair validation PASSED - Secret keys match workflow test keys"
+            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/secret-private-key 2>/dev/null | cut -d' ' -f1-2)"
+          else
+            echo "❌ SSH key pair validation FAILED - Secret keys do NOT match workflow test keys"
+            echo "Expected: $TEST_SSH_PUBLIC_KEY"
+            echo "Secret contains: $(cat /tmp/derived-public-key)"
+          fi
+          
+          # Cleanup temporary files
+          rm -f /tmp/secret-private-key /tmp/secret-public-key /tmp/derived-public-key
+
+      - name: Collect Test Pod Logs
+        if: always()
+        run: |
+          echo "=== Collecting logs from test pods ==="
+          TEST_PODS=$(kubectl get pods -l "app.kubernetes.io/component=test,app.kubernetes.io/instance=test-${{ matrix.config.name }}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+          
+          if [ -z "$TEST_PODS" ]; then
+            echo "No test pods found to collect logs from"
+            echo "Available pods:"
+            kubectl get pods -l "app.kubernetes.io/instance=test-${{ matrix.config.name }}" 2>/dev/null || echo "No pods found for this release"
+          else
+            for POD in $TEST_PODS; do
+              echo "::group::📋 Logs for pod: $POD"
+              kubectl logs "$POD" --all-containers=true --prefix=true || echo "Failed to get logs for $POD"
+              echo "::endgroup::"
             done
-            echo "--- End of $test_pod ---"
-          done
-          
-          echo "=== SSH Authentication Test Pod Specific Analysis ==="
-          SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
-          echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
-          
-          if kubectl get pod "$SSH_AUTH_TEST_POD" >/dev/null 2>&1; then
-            echo "SSH auth test pod exists, getting detailed analysis..."
-            kubectl describe pod "$SSH_AUTH_TEST_POD"
-            
-            echo "Getting SSH auth test pod logs..."
-            kubectl logs "$SSH_AUTH_TEST_POD" -c ssh-auth-validation --tail=200 2>/dev/null || {
-              echo "Cannot get ssh-auth-validation container logs, trying all containers..."
-              containers=$(kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.spec.containers[*].name}')
-              for container in $containers; do
-                echo "[SSH-AUTH-CONTAINER:$container]"
-                kubectl logs "$SSH_AUTH_TEST_POD" -c "$container" --tail=100 2>/dev/null || echo "[NO-LOGS-FOR-$container]"
-              done
-            }
-          else
-            echo "SSH auth test pod does not exist"
           fi
-          
-          echo "=== Failed Test Pod Specific Logs ==="
-          # Try to get logs for the specific permission test pod with more details
-          PERMISSION_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-permission-test"
-          echo "Attempting to get logs from: $PERMISSION_TEST_POD"
-          
-          # Check if the pod exists
-          if kubectl get pod "$PERMISSION_TEST_POD" >/dev/null 2>&1; then
-            echo "Permission test pod exists, getting logs..."
-            kubectl logs "$PERMISSION_TEST_POD" -c permission-validation --tail=200 2>/dev/null || {
-              echo "Cannot get container logs, checking pod status..."
-              kubectl describe pod "$PERMISSION_TEST_POD" | tail -20
-            }
-          else
-            echo "Permission test pod does not exist, checking all test pods..."
-            kubectl get pods | grep test || echo "No test pods found"
-          fi
-          
-          if [ -z "$(kubectl get pods -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o name 2>/dev/null)" ]; then
-            echo "[NO-PODS-FOUND]"
-          fi
-          
-          echo "=== All Events ==="
-          kubectl get events --sort-by='.lastTimestamp' | grep test-${{ matrix.config.name }} || echo "No test-${{ matrix.config.name }} events found"
-          
-          echo "=== All Recent Events ==="
-          kubectl get events --sort-by='.lastTimestamp' | tail -20
-          
-          echo "=== Deployment troubleshooting ==="
-          kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml || echo "Deployment not found"
-          
-          echo "=== ReplicaSet troubleshooting ==="
-          kubectl get rs -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o yaml || echo "ReplicaSet not found"
+          echo "✓ Test pod logs collection completed"
+
+      - name: Cleanup Test Pods
+        if: always()
+        run: |
+          echo "=== Cleaning up test pods ==="
+          kubectl delete pods -l "helm.sh/hook=test" --ignore-not-found=true
+          echo "✓ Test pods cleanup completed"
 
       - name: Cleanup
         if: always()
@@ -765,27 +435,8 @@ jobs:
     needs: [prepare, test]
     if: always()
     steps:
-      - name: List artifacts before cleanup
-        run: |
-          echo "=== Cleaning up workflow artifacts ==="
-          echo "The following artifacts will be deleted to save storage:"
-          echo "  - ssh-workspace-image (Docker image)"
-          echo "  - ssh-test-keys (SSH key pair)"
-
       - name: Delete Docker image artifact
         uses: geekyeggo/delete-artifact@v5
         with:
           name: ssh-workspace-image
           failOnError: false
-
-      - name: Delete SSH test keys artifact
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: ssh-test-keys
-          failOnError: false
-
-      - name: Cleanup completion
-        run: |
-          echo "✅ Artifact cleanup completed successfully"
-          echo "Storage space has been freed for future workflow runs"
-

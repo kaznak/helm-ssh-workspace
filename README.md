@@ -572,6 +572,170 @@ helm install workspace ./ssh-workspace \
 
 This debug mode is designed to help diagnose permission issues in development environments where chmod operations might fail due to filesystem limitations or missing capabilities.
 
+### Helm Test Execution
+
+SSH Workspace includes comprehensive automated tests that validate deployment integrity and SSH functionality using `helm test`.
+
+#### Test Overview
+
+The test suite consists of 6 test components that validate different aspects of the SSH workspace:
+
+| Test Component | Purpose | Hook Weight | Description |
+|----------------|---------|-------------|-------------|
+| **RBAC Resources** | Test permissions setup | -2 | Creates ServiceAccount, Role, and RoleBinding for test execution |
+| **SSH Keys Secret** | Test key storage | -15 | Stores test SSH key pairs for authentication testing |
+| **Resource Validation** | Infrastructure check | -1 | Validates all required Kubernetes resources are deployed correctly |
+| **SSH Internal Validation** | Security verification | 5 | Validates SSH configuration, file permissions, and security settings |
+| **SSH Authentication** | Connection testing | 10 | Tests SSH connectivity and key-based authentication |
+| **Workspace Functionality** | Feature validation | 15 | Tests user workspace features, file operations, and development tools |
+
+#### Test Execution Methods
+
+##### Basic Test Execution
+```bash
+# Deploy and run tests
+helm install workspace ./helm/ssh-workspace \
+  --set user.name="developer" \
+  --set ssh.publicKeys[0]="ssh-ed25519 AAAAC3... user@example.com" \
+  --set ssh.testKeys.enabled=true \
+  --set tests.sshConnectivity.enabled=true
+
+# Execute tests
+helm test workspace --timeout=300s
+```
+
+##### Test with Specific Configuration
+```bash
+# Test with different security levels
+helm test workspace \
+  --set security.level=high \
+  --set persistence.enabled=true \
+  --timeout=600s
+```
+
+##### Viewing Test Results
+```bash
+# Check test status
+helm test workspace --logs
+
+# View specific test pod logs
+kubectl logs workspace-ssh-workspace-ssh-auth-test
+kubectl logs workspace-ssh-workspace-resource-test
+kubectl logs workspace-ssh-workspace-workspace-test
+```
+
+#### Test Components Details
+
+##### 1. Resource Validation Test (`resource-validation-test.yaml`)
+- **Purpose**: Validates all Kubernetes resources are properly deployed
+- **Checks**: ConfigMap, Secret, Deployment, Service, PVC (if enabled), Monitoring Service (if enabled)
+- **Requirements**: Basic kubectl access permissions
+
+##### 2. SSH Internal Validation Test (`ssh-internal-validation-test.yaml`)
+- **Purpose**: Validates SSH security configuration and file permissions
+- **Checks**: Permission strategy, file ownership, SSH directory permissions, security failures
+- **Security Focus**: SetGID bit validation, authorized_keys permissions (600), SSH directory permissions (700)
+
+##### 3. SSH Authentication Test (`ssh-authentication-test.yaml`)
+- **Purpose**: Tests SSH connectivity and authentication
+- **Checks**: TCP connection, SSH protocol response, key-based authentication
+- **Requirements**: Test SSH keys must be enabled (`ssh.testKeys.enabled=true`)
+
+##### 4. User Workspace Functionality Test (`user-workspace-functionality-test.yaml`)
+- **Purpose**: Validates user workspace features and development environment
+- **Checks**: Shell environment, file operations, directory operations, development tools, persistence, network connectivity (optional)
+- **Features Tested**: Basic commands, file creation/deletion, development tool availability
+
+##### 5. SSH Keys Secret (`test-ssh-keys-secret.yaml`)
+- **Purpose**: Provides test SSH key pairs for authentication testing
+- **Security**: Keys are automatically generated during test execution and cleaned up afterward
+- **Data**: Contains both public and private keys for test authentication
+
+##### 6. RBAC Resources (`rbac.yaml`)
+- **Purpose**: Test execution permissions
+- **Components**: ServiceAccount, Role, RoleBinding
+- **Permissions**: Pod access, Secret/ConfigMap reading, Service discovery
+
+#### Test Resource Management
+
+##### Test Pod Lifecycle
+```yaml
+# Test pods use hook-delete-policy: before-hook-creation
+# - Pods persist after test completion (success or failure)
+# - Allows debugging of test failures
+# - Manual cleanup required
+```
+
+##### Manual Test Cleanup
+```bash
+# Clean up test pods only (preserves main workspace)
+kubectl delete pods -l "helm.sh/hook=test"
+
+# Verify cleanup
+kubectl get pods -l "helm.sh/hook=test"
+```
+
+##### Automatic Cleanup in CI/CD
+Test cleanup is automatically handled in CI/CD pipelines:
+```yaml
+# Cleanup step in GitHub Actions
+- name: Cleanup Test Pods
+  if: always()
+  run: |
+    kubectl delete pods -l "helm.sh/hook=test" --ignore-not-found=true
+```
+
+#### Troubleshooting Test Failures
+
+##### Common Test Failure Scenarios
+
+**SSH Authentication Test Failures:**
+```bash
+# Check SSH service status
+kubectl describe pod workspace-ssh-workspace
+
+# Verify SSH keys configuration
+kubectl get secret workspace-ssh-workspace-ssh-keys -o yaml
+
+# Check test key configuration
+kubectl get secret workspace-ssh-workspace-test-ssh-keys -o yaml
+```
+
+**Resource Validation Failures:**
+```bash
+# Check missing resources
+kubectl get all -l app.kubernetes.io/instance=workspace
+
+# Verify ConfigMap and Secret creation
+kubectl get configmap,secret -l app.kubernetes.io/instance=workspace
+```
+
+**Permission Issues:**
+```bash
+# Check Init Container logs
+kubectl logs workspace-ssh-workspace -c ssh-setup
+
+# Verify security context
+kubectl get pod workspace-ssh-workspace -o yaml | grep -A 10 securityContext
+```
+
+##### Test Configuration Requirements
+
+For successful test execution, ensure:
+
+1. **Test Keys Enabled**: `ssh.testKeys.enabled=true`
+2. **SSH Connectivity Tests**: `tests.sshConnectivity.enabled=true`
+3. **RBAC Permissions**: `tests.rbac.create=true` (default)
+4. **Resource Limits**: Sufficient cluster resources for test pods
+5. **Network Policies**: Allow pod-to-pod communication if NetworkPolicies are in use
+
+#### Security Considerations
+
+- **Test SSH Keys**: Generated automatically, stored temporarily, cleaned up after tests
+- **Test Isolation**: Each test matrix configuration uses separate namespaces/releases
+- **Permission Validation**: Tests verify security settings without compromising workspace security
+- **Cleanup**: Test resources are cleaned up to prevent resource accumulation
+
 ### Operational Configuration
 
 #### Node Placement and Scheduling
@@ -745,6 +909,46 @@ tests:
 - **Labels**: app.kubernetes.io/* standard labels
 - **Required Parameters**: SSH public key, username
 - **Values Design**: All optional except deployment-time decisions (default values provided)
+
+### Known Issues
+
+#### SSH Private Key Format with `--set` Parameter
+
+**⚠️ CRITICAL: SSH private keys cannot be passed via `--set` parameter**
+
+When using SSH private keys with the `--set` parameter, the `$(cat private_key_file)` command substitution removes trailing newlines, which breaks the SSH private key format and causes authentication failures.
+
+**Problem:**
+```bash
+# This WILL FAIL - newlines are removed
+helm install workspace ./ssh-workspace \
+  --set "ssh.testKeys.keyPairs[0].privateKey=$(cat private_key_file)"
+
+# Error: Invalid SSH private key format
+```
+
+**Solution: Use values.yaml file instead**
+```bash
+# Create values.yaml with proper formatting
+cat > values.yaml << EOF
+ssh:
+  testKeys:
+    keyPairs:
+      - privateKey: |
+$(sed 's/^/          /' private_key_file)
+EOF
+
+# Install using values file
+helm install workspace ./ssh-workspace -f values.yaml
+```
+
+**Root Cause:**
+- SSH private keys require trailing newlines after `-----END OPENSSH PRIVATE KEY-----`
+- Command substitution `$(cat file)` removes these essential newlines
+- The `sed` command with proper indentation preserves the original formatting
+- YAML literal block scalars (`|`) maintain all whitespace and newlines
+
+**Recommendation:** Always use values.yaml files for SSH private keys in production deployments.
 
 ## Security Monitoring
 

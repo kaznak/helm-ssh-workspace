@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y \
     && mkdir -p /var/run/sshd \
     && rm -f /etc/ssh/ssh_host_*_key* \
     && rm -f /etc/ssh/ssh_host_*_key.pub \
-    && find / -name "ssh_host_*_key*" -delete 2>/dev/null || true
+    && (find / -name "ssh_host_*_key*" -delete 2>/dev/null || true)
 
 # SSH設定
 RUN mkdir -p /etc/ssh/sshd_config.d
