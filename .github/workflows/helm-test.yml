@@ -70,6 +70,7 @@ jobs:
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
             --set ssh.testKeys.enabled=true \
+            --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --debug
@@ -201,6 +202,7 @@ jobs:
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
             --set ssh.testKeys.enabled=true \
+            --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
@@ -220,6 +222,7 @@ jobs:
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
             --set ssh.testKeys.enabled=true \
+            --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
             --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
