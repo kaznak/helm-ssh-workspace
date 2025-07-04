@@ -331,13 +331,6 @@ jobs:
           fi
           echo "::endgroup::"
           
-          
-          echo "::group::Template Condition Values Check"
-          echo "Checking values that control SSH test resource creation:"
-          echo "ssh.testKeys.enabled: should be true"
-          echo "tests.sshConnectivity.enabled: should be true"
-          echo "ssh.testKeys.keyPairs: should contain at least one key pair"
-          echo "::endgroup::"
 
       - name: SSH Authentication Diagnosis
         run: |
