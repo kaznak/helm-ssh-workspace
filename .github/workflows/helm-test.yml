@@ -265,8 +265,7 @@ jobs:
 
       - name: Pre-Test Template Rendering Verification
         run: |
-          echo "::group::GitHub Actions Template Rendering Verification - ${{ matrix.config.name }}"
-          
+          echo "::group::Helm Template Rendering Test"
           echo "=== Helm Template Rendering Test ==="
           echo "Using the same values as the actual installation..."
           
@@ -285,7 +284,9 @@ jobs:
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
             --debug > /tmp/full-template-render.yaml
+          echo "::endgroup::"
           
+          echo "::group::SSH Keys Secret Template Check"
           echo "=== SSH Keys Secret Template Check ==="
           if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
             echo "✅ SSH Keys Secret found in template rendering"
@@ -295,7 +296,9 @@ jobs:
             echo "❌ SSH Keys Secret NOT found in template rendering"
             echo "This indicates the template conditions are not being met in GitHub Actions"
           fi
+          echo "::endgroup::"
           
+          echo "::group::SSH Authentication Test Pod Check"
           echo "=== SSH Authentication Test Pod Check ==="
           if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
             echo "✅ SSH Authentication Test Pod found in template rendering"
@@ -304,7 +307,9 @@ jobs:
           else
             echo "❌ SSH Authentication Test Pod NOT found in template rendering"
           fi
+          echo "::endgroup::"
           
+          echo "::group::Values Debug Output"
           echo "=== Values Debug Output ==="
           echo "Debugging template conditions..."
           helm template test-${{ matrix.config.name }} helm/ssh-workspace \
@@ -321,13 +326,14 @@ jobs:
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
             --show-only templates/tests/test-ssh-keys-secret.yaml 2>&1 || echo "SSH Keys Secret template failed to render"
+          echo "::endgroup::"
           
+          echo "::group::Template Condition Values Check"
           echo "=== Template Condition Values Check ==="
           echo "Checking values that control SSH test resource creation:"
           echo "ssh.testKeys.enabled: should be true"
           echo "tests.sshConnectivity.enabled: should be true"
           echo "ssh.testKeys.keyPairs: should contain at least one key pair"
-          
           echo "::endgroup::"
 
       - name: SSH Authentication Diagnosis
