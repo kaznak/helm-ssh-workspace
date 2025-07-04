@@ -110,12 +110,32 @@ jobs:
     needs: prepare
     strategy:
       matrix:
-        # Debug configuration - testing only one setup to simplify log analysis
+        # Full test matrix - all configuration combinations
         config:
-          - name: "debug-std-emptydir"
+          - name: "explicit-std-emptydir"
             permission_strategy: "explicit"
             security_level: "standard" 
             persistence_enabled: "false"
+          - name: "explicit-std-persistent"
+            permission_strategy: "explicit"
+            security_level: "standard"
+            persistence_enabled: "true"
+          - name: "explicit-high-emptydir"
+            permission_strategy: "explicit"
+            security_level: "high"
+            persistence_enabled: "false"
+          - name: "explicit-high-persistent"
+            permission_strategy: "explicit"
+            security_level: "high"
+            persistence_enabled: "true"
+          - name: "explicit-basic-emptydir"
+            permission_strategy: "explicit"
+            security_level: "basic"
+            persistence_enabled: "false"
+          - name: "explicit-basic-persistent"
+            permission_strategy: "explicit"
+            security_level: "basic"
+            persistence_enabled: "true"
           
       fail-fast: false
     steps:

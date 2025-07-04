@@ -21,62 +21,81 @@ spec:
     - /bin/sh
     - -c
     - |
-      # Remove set -e to prevent early exit and capture all debug info
-      echo "=== SSH Connectivity Test Debug Information ==="
-      echo "Start time: $(date)"
-      echo "Pod hostname: $(hostname)"
-      echo "Pod IP: $(hostname -i 2>/dev/null || echo 'IP_NOT_AVAILABLE')"
+      set -e  # Exit on any command failure (but with proper error handling)
       
-      echo "=== Environment Analysis ==="
-      echo "Current user: $(id)"
-      echo "Working directory: $(pwd)"
-      echo "Available disk space:"
-      df -h || echo "df command failed"
+      echo "=== SSH Connectivity Test Started ==="
+      echo "Timestamp: $(date)"
+      echo "Pod: $(hostname)"
       
-      echo "=== Network Interface Analysis ==="
-      ip addr show || echo "ip command not available"
-      ifconfig -a 2>/dev/null || echo "ifconfig not available"
-      
-      echo "=== DNS and Service Resolution ==="
-      nslookup {{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local 2>/dev/null || echo "nslookup failed"
-      
-      echo "=== Volume Mount Analysis ==="
-      echo "Checking mounted volumes:"
-      mount | grep test-ssh-keys || echo "test-ssh-keys volume not mounted"
-      ls -la /test-ssh-keys/ 2>/dev/null || echo "Cannot access /test-ssh-keys directory"
-      
-      echo "=== ServiceAccount Analysis ==="
-      echo "ServiceAccount token location:"
-      ls -la /var/run/secrets/kubernetes.io/serviceaccount/ 2>/dev/null || echo "ServiceAccount token not found"
-      
-      echo "=== Secret Content Analysis ==="
-      if [ -d /test-ssh-keys ]; then
-        echo "test-ssh-keys directory exists"
-        ls -la /test-ssh-keys/
-        echo "Checking for test-key-0:"
-        [ -f /test-ssh-keys/test-key-0 ] && echo "test-key-0 exists" || echo "test-key-0 NOT found"
-      else
-        echo "test-ssh-keys directory does NOT exist"
+      # Validate required tools with detailed error messages
+      echo "Installing required packages..."
+      if ! apk add --no-cache openssh-client netcat-openbsd; then
+        echo "ERROR: Failed to install required packages"
+        echo "Available packages:"
+        apk search openssh || true
+        exit 1
       fi
       
-      echo "=== Package Installation Test ==="
-      echo "Attempting package installation..."
-      apk add --no-cache openssh-client netcat-openbsd 2>&1 || echo "Package installation failed"
+      # Validate volume mount with detailed error messages
+      echo "Validating test SSH keys..."
+      if [ ! -d /test-ssh-keys ]; then
+        echo "ERROR: test-ssh-keys volume not mounted"
+        echo "Volume mounts:"
+        mount | grep test || echo "No test volumes found"
+        exit 1
+      fi
       
-      echo "=== Service Connectivity Test ==="
+      if [ ! -f /test-ssh-keys/test-key-0 ]; then
+        echo "ERROR: test-key-0 not found"
+        echo "Available files in /test-ssh-keys:"
+        ls -la /test-ssh-keys/ || echo "Cannot list files"
+        exit 1
+      fi
+      
+      # Validate network connectivity with detailed error messages
       SERVICE_FQDN="{{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
-      echo "Testing connectivity to: $SERVICE_FQDN"
-      nc -z "$SERVICE_FQDN" {{ .Values.service.port }} 2>&1 && echo "TCP connection successful" || echo "TCP connection failed"
+      echo "Testing connectivity to service: $SERVICE_FQDN:{{ .Values.service.port }}"
       
-      echo "=== Debug Summary ==="
-      echo "Pod started successfully and reached end of debug script"
-      echo "End time: $(date)"
+      if ! nc -z "$SERVICE_FQDN" {{ .Values.service.port }}; then
+        echo "ERROR: Cannot connect to SSH service"
+        echo "Service resolution test:"
+        nslookup "$SERVICE_FQDN" || echo "DNS resolution failed"
+        echo "Network interfaces:"
+        ip addr show || echo "ip command not available"
+        exit 1
+      fi
       
-      # Instead of failing, sleep to keep pod alive for log collection
-      echo "Sleeping for 30 seconds to allow log collection..."
-      sleep 30
+      # Perform SSH key-based authentication test
+      echo "Testing SSH key-based authentication..."
+      chmod 600 /test-ssh-keys/test-key-0
       
-      echo "=== END OF DEBUG SESSION ==="
+      # Attempt SSH connection with the test key
+      if ssh -i /test-ssh-keys/test-key-0 \
+          -o StrictHostKeyChecking=no \
+          -o UserKnownHostsFile=/dev/null \
+          -o ConnectTimeout=10 \
+          -o BatchMode=yes \
+          -o PasswordAuthentication=no \
+          testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+          'echo "SSH authentication successful"'; then
+        echo "✅ SSH connectivity test PASSED"
+      else
+        echo "ERROR: SSH authentication failed"
+        echo "SSH debug information:"
+        ssh -i /test-ssh-keys/test-key-0 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=10 \
+            -o BatchMode=yes \
+            -o PasswordAuthentication=no \
+            -v \
+            testuser@"$SERVICE_FQDN" -p {{ .Values.service.port }} \
+            'echo test' 2>&1 | head -20 || true
+        exit 1
+      fi
+      
+      echo "=== SSH Connectivity Test Completed Successfully ==="
+      echo "Timestamp: $(date)"
       
     volumeMounts:
     - name: test-ssh-keys
