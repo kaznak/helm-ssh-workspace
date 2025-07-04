@@ -605,14 +605,37 @@ helm test workspace --timeout=300s
 ```
 
 ##### Test with Specific Configuration
+
+**⚠️ Important: `helm test` cannot specify new values.yaml files**
+
+The `helm test` command uses the configuration from the installed release and cannot accept new values.yaml files or --set parameters during test execution.
+
 ```bash
-# Test with different security levels
+# INCORRECT: This will fail - helm test does not accept --set parameters
 helm test workspace \
   --set security.level=high \
   --set persistence.enabled=true \
   --timeout=600s
 ```
 
+**To test with different configurations, you must upgrade the release first:**
+
+```bash
+# Method 1: Upgrade with new values file
+helm upgrade workspace ./helm/ssh-workspace -f test-values.yaml
+helm test workspace --timeout=600s
+
+# Method 2: Upgrade with specific settings
+helm upgrade workspace ./helm/ssh-workspace \
+  --set security.level=high \
+  --set persistence.enabled=true
+helm test workspace --timeout=600s
+
+# Method 3: Create a separate test release
+helm install test-workspace ./helm/ssh-workspace -f test-values.yaml
+helm test test-workspace --timeout=600s
+helm delete test-workspace  # Clean up after testing
+```
 ##### Viewing Test Results
 ```bash
 # Check test status
