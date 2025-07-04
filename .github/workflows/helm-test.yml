@@ -231,6 +231,16 @@ jobs:
           ssh-keygen -l -f /tmp/test_ssh_key.pub
           echo "::endgroup::"
           
+          echo "::group::SSH Authentication Test Pod Check"
+          if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
+            echo "✅ SSH Authentication Test Pod found in template rendering"
+            echo "SSH Auth Test Pod metadata:"
+            grep -A 10 "name:.*ssh-auth-test" /tmp/full-template-render.yaml | head -15
+          else
+            echo "❌ SSH Authentication Test Pod NOT found in template rendering"
+          fi
+          echo "::endgroup::"
+          
           echo "::group::SSH Keys Secret Template Check"
           if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
             echo "✅ SSH Keys Secret found in template rendering"
@@ -312,16 +322,6 @@ jobs:
             # Show template structure for debugging
             echo "Template structure around ssh-keys:"
             grep -A 30 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -35
-          fi
-          echo "::endgroup::"
-          
-          echo "::group::SSH Authentication Test Pod Check"
-          if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
-            echo "✅ SSH Authentication Test Pod found in template rendering"
-            echo "SSH Auth Test Pod metadata:"
-            grep -A 10 "name:.*ssh-auth-test" /tmp/full-template-render.yaml | head -15
-          else
-            echo "❌ SSH Authentication Test Pod NOT found in template rendering"
           fi
           echo "::endgroup::"
 
