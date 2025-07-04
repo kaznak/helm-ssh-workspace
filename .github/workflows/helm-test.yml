@@ -221,40 +221,8 @@ jobs:
           kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
           echo "::endgroup::"
 
-      - name: Debug SSH Authentication Test Templates
+      - name: Pre-Test Template Rendering Verification
         run: |
-          echo "::group::SSH Authentication Test Template Analysis"
-          
-          # Check if the SSH auth test template uses correct user name
-          echo "Checking SSH auth test template for user name references..."
-          grep -n "testuser" helm/ssh-workspace/templates/tests/ssh-authentication-test.yaml || echo "No hardcoded testuser found"
-          
-          echo "Checking for template variable usage..."
-          grep -n "Values.user.name" helm/ssh-workspace/templates/tests/ssh-authentication-test.yaml || echo "No template variables found"
-          
-          echo "::endgroup::"
-          
-          echo "::group::Template Rendering Test"
-          # Render the template to see what gets generated
-          helm template test helm/ssh-workspace \
-            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
-            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
-            --set image.pullPolicy=Never \
-            --set user.name="testuser" \
-            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
-            --set ssh.testKeys.enabled=true \
-            --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
-            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
-            --set security.level=${{ matrix.config.security_level }} \
-            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
-            --show-only templates/tests/ssh-authentication-test.yaml > /tmp/ssh-auth-test-rendered.yaml
-          
-          echo "Rendered SSH auth test template:"
-          cat /tmp/ssh-auth-test-rendered.yaml
-          echo "::endgroup::"
-          
           echo "::group::SSH Key Validation"
           echo "SSH test keys validation:"
           echo "Private key file: $TEST_SSH_PRIVATE_KEY_PATH"
@@ -262,9 +230,6 @@ jobs:
           echo "Public key: $TEST_SSH_PUBLIC_KEY"
           ssh-keygen -l -f /tmp/test_ssh_key.pub
           echo "::endgroup::"
-
-      - name: Pre-Test Template Rendering Verification
-        run: |
           
           echo "::group::SSH Keys Secret Template Check"
           if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
