@@ -295,7 +295,6 @@ jobs:
             echo "❌ SSH Authentication Test Pod NOT found in template rendering"
           fi
           echo "::endgroup::"
-          
 
       - name: SSH Authentication Diagnosis
         run: |
@@ -323,7 +322,6 @@ jobs:
           fi
           echo "::endgroup::"
           
-          # 2. SSH Keys Secret Validation
           echo "::group::SSH Keys Secret Validation"
           SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
           echo "Checking SSH keys secret: $SECRET_NAME"
@@ -349,7 +347,6 @@ jobs:
           fi
           echo "::endgroup::"
           
-          # 3. SSH Workspace Pod Analysis
           echo "::group::SSH Workspace Pod Analysis"
           WORKSPACE_POD="test-${{ matrix.config.name }}-ssh-workspace"
           echo "Checking SSH workspace pod pattern: $WORKSPACE_POD*"
@@ -382,7 +379,6 @@ jobs:
           fi
           echo "::endgroup::"
           
-          # 4. Service and Network Analysis
           echo "::group::Service and Network Analysis"
           SERVICE_NAME="test-${{ matrix.config.name }}-ssh-workspace"
           echo "Checking SSH service: $SERVICE_NAME"
@@ -403,7 +399,6 @@ jobs:
           fi
           echo "::endgroup::"
           
-          # 5. Direct Network Test
           echo "::group::Direct Network Connectivity Test"
           if [ -n "$WORKSPACE_PODS" ]; then
             POD_NAME=$(echo $WORKSPACE_PODS | sed 's|pod/||')
