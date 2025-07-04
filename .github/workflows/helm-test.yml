@@ -137,6 +137,21 @@ jobs:
           echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
           
           echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
+          
+          echo "🔍 Verifying SSH key pair consistency..."
+          # Generate public key from private key to verify they match
+          DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
+          ORIGINAL_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)
+          
+          if [ "$DERIVED_PUBLIC_KEY" = "$ORIGINAL_PUBLIC_KEY" ]; then
+            echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
+            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/test_ssh_key.pub | cut -d' ' -f1-2)"
+          else
+            echo "❌ SSH key pair validation FAILED - Generated keys do NOT match"
+            echo "Original public key: $ORIGINAL_PUBLIC_KEY"
+            echo "Derived public key: $DERIVED_PUBLIC_KEY"
+            exit 1
+          fi
 
       - name: Install Helm
         uses: azure/setup-helm@v4
