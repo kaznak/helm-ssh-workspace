@@ -277,10 +277,12 @@ jobs:
         if: always()
         run: |
           echo "=== Collecting logs from test pods ==="
-          TEST_PODS=$(kubectl get pods -l "helm.sh/hook=test" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+          TEST_PODS=$(kubectl get pods -l "app.kubernetes.io/component=test,app.kubernetes.io/instance=test-${{ matrix.config.name }}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
           
           if [ -z "$TEST_PODS" ]; then
             echo "No test pods found to collect logs from"
+            echo "Available pods:"
+            kubectl get pods -l "app.kubernetes.io/instance=test-${{ matrix.config.name }}" 2>/dev/null || echo "No pods found for this release"
           else
             for POD in $TEST_PODS; do
               echo "::group::📋 Logs for pod: $POD"
