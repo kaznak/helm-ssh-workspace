@@ -754,21 +754,8 @@ jobs:
     needs: [prepare, test]
     if: always()
     steps:
-      - name: List artifacts before cleanup
-        run: |
-          echo "=== Cleaning up workflow artifacts ==="
-          echo "The following artifacts will be deleted to save storage:"
-          echo "  - ssh-workspace-image (Docker image)"
-
       - name: Delete Docker image artifact
         uses: geekyeggo/delete-artifact@v5
         with:
           name: ssh-workspace-image
           failOnError: false
-
-
-      - name: Cleanup completion
-        run: |
-          echo "✅ Artifact cleanup completed successfully"
-          echo "Storage space has been freed for future workflow runs"
-
