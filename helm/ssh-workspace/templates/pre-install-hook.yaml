@@ -1,7 +1,7 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "ssh-workspace.fullname" . }}-pre-install-validation
+  name: {{ include "ssh-workspace.fullname" . }}-pre-install
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ssh-workspace.labels" . | nindent 4 }}
@@ -17,7 +17,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/name: {{ include "ssh-workspace.name" . }}
         app.kubernetes.io/component: validation
     spec:
       restartPolicy: Never
