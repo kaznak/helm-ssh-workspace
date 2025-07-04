@@ -285,6 +285,73 @@ jobs:
           ssh-keygen -l -f /tmp/test_ssh_key.pub
           echo "::endgroup::"
 
+      - name: Pre-Test Template Rendering Verification
+        run: |
+          echo "::group::GitHub Actions Template Rendering Verification - ${{ matrix.config.name }}"
+          
+          echo "=== Helm Template Rendering Test ==="
+          echo "Using the same values as the actual installation..."
+          
+          # Render templates with exact same parameters as installation
+          helm template test-${{ matrix.config.name }} helm/ssh-workspace \
+            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
+            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
+            --set image.pullPolicy=Never \
+            --set user.name="testuser" \
+            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set ssh.testKeys.enabled=true \
+            --set tests.sshConnectivity.enabled=true \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
+            --set security.level=${{ matrix.config.security_level }} \
+            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            --debug > /tmp/full-template-render.yaml
+          
+          echo "=== SSH Keys Secret Template Check ==="
+          if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
+            echo "✅ SSH Keys Secret found in template rendering"
+            echo "SSH Keys Secret content:"
+            grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -25
+          else
+            echo "❌ SSH Keys Secret NOT found in template rendering"
+            echo "This indicates the template conditions are not being met in GitHub Actions"
+          fi
+          
+          echo "=== SSH Authentication Test Pod Check ==="
+          if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
+            echo "✅ SSH Authentication Test Pod found in template rendering"
+            echo "SSH Auth Test Pod metadata:"
+            grep -A 10 "name:.*ssh-auth-test" /tmp/full-template-render.yaml | head -15
+          else
+            echo "❌ SSH Authentication Test Pod NOT found in template rendering"
+          fi
+          
+          echo "=== Values Debug Output ==="
+          echo "Debugging template conditions..."
+          helm template test-${{ matrix.config.name }} helm/ssh-workspace \
+            --set image.repository=${{ env.TEST_IMAGE_NAME }} \
+            --set image.tag=${{ env.TEST_IMAGE_TAG }} \
+            --set image.pullPolicy=Never \
+            --set user.name="testuser" \
+            --set "ssh.publicKeys[0]=$TEST_SSH_PUBLIC_KEY" \
+            --set ssh.testKeys.enabled=true \
+            --set tests.sshConnectivity.enabled=true \
+            --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
+            --set security.level=${{ matrix.config.security_level }} \
+            --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
+            --show-only templates/tests/test-ssh-keys-secret.yaml 2>&1 || echo "SSH Keys Secret template failed to render"
+          
+          echo "=== Template Condition Values Check ==="
+          echo "Checking values that control SSH test resource creation:"
+          echo "ssh.testKeys.enabled: should be true"
+          echo "tests.sshConnectivity.enabled: should be true"
+          echo "ssh.testKeys.keyPairs: should contain at least one key pair"
+          
+          echo "::endgroup::"
+
       - name: SSH Authentication Diagnosis
         run: |
           echo "::group::SSH Authentication Comprehensive Diagnosis - ${{ matrix.config.name }}"
