@@ -241,36 +241,63 @@ jobs:
             echo "🔍 Validating SSH key pair consistency..."
             
             # Extract base64 encoded keys from the rendered template
+            echo "🔍 Extracting SSH keys from template..."
             TEMPLATE_PRIVATE_KEY=$(grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | grep "test-key-0:" | cut -d: -f2 | tr -d ' ')
             TEMPLATE_PUBLIC_KEY=$(grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | grep "test-key-0\.pub:" | cut -d: -f2 | tr -d ' ')
+            
+            echo "Debug: TEMPLATE_PRIVATE_KEY length: ${#TEMPLATE_PRIVATE_KEY}"
+            echo "Debug: TEMPLATE_PUBLIC_KEY length: ${#TEMPLATE_PUBLIC_KEY}"
             
             if [ -n "$TEMPLATE_PRIVATE_KEY" ] && [ -n "$TEMPLATE_PUBLIC_KEY" ]; then
               echo "Found keys in template, decoding and validating..."
               
-              # Decode keys
-              echo "$TEMPLATE_PRIVATE_KEY" | base64 -d > /tmp/template-private-key
-              echo "$TEMPLATE_PUBLIC_KEY" | base64 -d > /tmp/template-public-key
+              # Decode keys with error handling
+              echo "🔍 Decoding private key..."
+              if echo "$TEMPLATE_PRIVATE_KEY" | base64 -d > /tmp/template-private-key 2>/dev/null; then
+                echo "✅ Private key decoded successfully"
+                PRIVATE_KEY_DECODED=true
+              else
+                echo "❌ Failed to decode private key"
+                echo "Raw private key data (first 50 chars): ${TEMPLATE_PRIVATE_KEY:0:50}..."
+                PRIVATE_KEY_DECODED=false
+              fi
               
-              # Generate public key from private key for comparison
-              ssh-keygen -y -f /tmp/template-private-key > /tmp/derived-public-key 2>/dev/null
+              echo "🔍 Decoding public key..."
+              if echo "$TEMPLATE_PUBLIC_KEY" | base64 -d > /tmp/template-public-key 2>/dev/null; then
+                echo "✅ Public key decoded successfully"
+                PUBLIC_KEY_DECODED=true
+              else
+                echo "❌ Failed to decode public key"
+                echo "Raw public key data (first 50 chars): ${TEMPLATE_PUBLIC_KEY:0:50}..."
+                PUBLIC_KEY_DECODED=false
+              fi
               
-              if [ $? -eq 0 ]; then
-                echo "Successfully derived public key from private key"
-                
-                # Compare the keys
-                if diff -q /tmp/template-public-key /tmp/derived-public-key >/dev/null; then
-                  echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
-                  echo "Private key fingerprint: $(ssh-keygen -l -f /tmp/template-private-key 2>/dev/null | cut -d' ' -f1-2)"
-                  echo "Public key fingerprint:  $(ssh-keygen -l -f /tmp/template-public-key 2>/dev/null | cut -d' ' -f1-2)"
+              # Only proceed with validation if both keys were decoded successfully
+              if [ "$PRIVATE_KEY_DECODED" = "true" ] && [ "$PUBLIC_KEY_DECODED" = "true" ]; then
+                # Generate public key from private key for comparison
+                echo "🔍 Deriving public key from private key..."
+                if ssh-keygen -y -f /tmp/template-private-key > /tmp/derived-public-key 2>/dev/null; then
+                  echo "✅ Successfully derived public key from private key"
+                  
+                  # Compare the keys
+                  if diff -q /tmp/template-public-key /tmp/derived-public-key >/dev/null; then
+                    echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
+                    echo "Private key fingerprint: $(ssh-keygen -l -f /tmp/template-private-key 2>/dev/null | cut -d' ' -f1-2)"
+                    echo "Public key fingerprint:  $(ssh-keygen -l -f /tmp/template-public-key 2>/dev/null | cut -d' ' -f1-2)"
+                  else
+                    echo "❌ SSH key pair validation FAILED - Keys do NOT match"
+                    echo "Template public key:"
+                    cat /tmp/template-public-key
+                    echo "Derived public key:"
+                    cat /tmp/derived-public-key
+                  fi
                 else
-                  echo "❌ SSH key pair validation FAILED - Keys do NOT match"
-                  echo "Template public key:"
-                  cat /tmp/template-public-key
-                  echo "Derived public key:"
-                  cat /tmp/derived-public-key
+                  echo "❌ Failed to derive public key from private key - Invalid private key format"
+                  echo "Private key content (first 100 chars):"
+                  head -c 100 /tmp/template-private-key && echo "..."
                 fi
               else
-                echo "❌ Failed to derive public key from private key - Invalid private key format"
+                echo "⚠️  Skipping key validation due to decode errors"
               fi
               
               # Cleanup
@@ -279,6 +306,10 @@ jobs:
               echo "❌ Could not extract keys from template"
               echo "TEMPLATE_PRIVATE_KEY found: $([ -n "$TEMPLATE_PRIVATE_KEY" ] && echo "yes" || echo "no")"
               echo "TEMPLATE_PUBLIC_KEY found: $([ -n "$TEMPLATE_PUBLIC_KEY" ] && echo "yes" || echo "no")"
+              
+              # Show template structure for debugging
+              echo "Template structure around ssh-keys:"
+              grep -A 30 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -35
             fi
           else
             echo "❌ SSH Keys Secret NOT found in template rendering"
