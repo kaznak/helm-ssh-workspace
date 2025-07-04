@@ -169,8 +169,24 @@ jobs:
           echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
           echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
           
-          echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
-          
+          echo "::group::🔍 Generated Public Key"
+          cat /tmp/test_ssh_key.pub
+          echo ""
+          echo "::endgroup::"
+          echo -n "Public key file info: "
+          ls -la /tmp/test_ssh_key.pub
+          echo -n "File type detection: "
+          file /tmp/test_ssh_key.pub
+
+          echo "::group::🔍 Generated Private Key"
+          cat /tmp/test_ssh_key
+          echo ""
+          echo "::endgroup::"
+          echo -n "Private key file info: "
+          ls -la /tmp/test_ssh_key
+          echo -n "File type detection: "
+          file /tmp/test_ssh_key
+
           echo "🔍 Verifying SSH key pair consistency..."
           # Generate public key from private key to verify they match
           DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
@@ -338,6 +354,8 @@ jobs:
           echo "::endgroup::"
           echo -n "Public key file info: "
           ls -la /tmp/secret-public-key
+          echo -n "File type detection: "
+          file /tmp/secret-public-key
           
           # Generate public key from private key for comparison
           if ! ssh-keygen -y -f /tmp/secret-private-key > /tmp/derived-public-key 2>/dev/null; then
