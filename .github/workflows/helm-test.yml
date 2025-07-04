@@ -123,36 +123,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate SSH test key pair
-        run: |
-          echo "=== Generating SSH test key pair ==="
-          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
-          
-          # Set proper permissions
-          chmod 600 /tmp/test_ssh_key
-          chmod 644 /tmp/test_ssh_key.pub
-          
-          # Export keys for use in subsequent steps
-          echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
-          echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
-          
-          echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
-          
-          echo "🔍 Verifying SSH key pair consistency..."
-          # Generate public key from private key to verify they match
-          DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
-          ORIGINAL_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)
-          
-          if [ "$DERIVED_PUBLIC_KEY" = "$ORIGINAL_PUBLIC_KEY" ]; then
-            echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
-            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/test_ssh_key.pub | cut -d' ' -f1-2)"
-          else
-            echo "❌ SSH key pair validation FAILED - Generated keys do NOT match"
-            echo "Original public key: $ORIGINAL_PUBLIC_KEY"
-            echo "Derived public key: $DERIVED_PUBLIC_KEY"
-            exit 1
-          fi
-
       - name: Install Helm
         uses: azure/setup-helm@v4
         with:
@@ -185,6 +155,36 @@ jobs:
         run: |
           # Load the test image into kind cluster for Helm chart testing
           kind load docker-image ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} --name test-cluster-${{ matrix.config.name }} -v 3
+
+      - name: Generate SSH test key pair
+        run: |
+          echo "=== Generating SSH test key pair ==="
+          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
+          
+          # Set proper permissions
+          chmod 600 /tmp/test_ssh_key
+          chmod 644 /tmp/test_ssh_key.pub
+          
+          # Export keys for use in subsequent steps
+          echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
+          echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
+          
+          echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
+          
+          echo "🔍 Verifying SSH key pair consistency..."
+          # Generate public key from private key to verify they match
+          DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
+          ORIGINAL_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)
+          
+          if [ "$DERIVED_PUBLIC_KEY" = "$ORIGINAL_PUBLIC_KEY" ]; then
+            echo "✅ SSH key pair validation PASSED - Keys are a matching pair"
+            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/test_ssh_key.pub | cut -d' ' -f1-2)"
+          else
+            echo "❌ SSH key pair validation FAILED - Generated keys do NOT match"
+            echo "Original public key: $ORIGINAL_PUBLIC_KEY"
+            echo "Derived public key: $DERIVED_PUBLIC_KEY"
+            exit 1
+          fi
 
       - name: Validate Helm Chart Templates with Kubernetes
         run: |
@@ -227,7 +227,7 @@ jobs:
             --debug
           echo "✓ Helm chart installation completed"
 
-      - name: Debug Deployment Configuration
+      - name: DEBUG Debug Deployment Configuration
         run: |
           echo "::group::Deployment Readiness Probe Configuration"
           echo "Checking readiness probe configuration..."
@@ -242,7 +242,7 @@ jobs:
           kubectl describe pod -l app.kubernetes.io/instance=test-${{ matrix.config.name }} | grep -A 10 -B 5 "Readiness\|Ready\|port"
           echo "::endgroup::"
 
-      - name: Pre-Test Template Rendering Verification
+      - name: DEBUG Pre-Test Template Rendering Verification
         run: |
           echo "::group::SSH Key Validation"
           echo "SSH test keys validation:"
@@ -352,7 +352,7 @@ jobs:
           fi
           echo "::endgroup::"
 
-      - name: SSH Authentication Diagnosis
+      - name: DEBUG SSH Authentication Diagnosis
         run: |
           echo "::group::SSH Workspace Pod Analysis"
           WORKSPACE_POD="test-${{ matrix.config.name }}-ssh-workspace"
@@ -459,7 +459,7 @@ jobs:
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
 
-      - name: SSH Authentication Diagnosis
+      - name: DEBUG SSH Authentication Diagnosis
         if: always()
         run: |
           echo "::group::Test Pod Status Analysis"
@@ -511,7 +511,7 @@ jobs:
           fi
           echo "::endgroup::"
 
-      - name: Debug SSH Authentication Files
+      - name: DEBUG Debug SSH Authentication Files
         if: always()
         run: |
           echo "::group::SSH Authentication Debugging - ${{ matrix.config.name }}"
@@ -595,7 +595,7 @@ jobs:
           echo "::endgroup::"
           echo "::endgroup::"
 
-      - name: SSH Connectivity Test (External)
+      - name: DEBUG SSH Connectivity Test (External)
         if: always()
         run: |
           echo "::group::External SSH Connectivity Test - ${{ matrix.config.name }}"
@@ -649,7 +649,7 @@ jobs:
           echo "::endgroup::"
           echo "::endgroup::"
 
-      - name: Check deployment status
+      - name: DEBUG Check deployment status
         if: always()
         run: |
           echo "=== Final Helm Status ==="
