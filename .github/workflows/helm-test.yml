@@ -728,6 +728,13 @@ jobs:
           echo "=== ReplicaSet troubleshooting ==="
           kubectl get rs -l app.kubernetes.io/instance=test-${{ matrix.config.name }} -o yaml || echo "ReplicaSet not found"
 
+      - name: Cleanup Test Pods
+        if: always()
+        run: |
+          echo "=== Cleaning up test pods ==="
+          kubectl delete pods -l "helm.sh/hook=test" --ignore-not-found=true
+          echo "✓ Test pods cleanup completed"
+
       - name: Cleanup
         if: always()
         run: |
