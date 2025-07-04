@@ -298,55 +298,6 @@ jobs:
 
       - name: SSH Authentication Diagnosis
         run: |
-          echo "::group::Test Pod Status Analysis"
-          SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
-          echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
-          
-          if kubectl get pod "$SSH_AUTH_TEST_POD" >/dev/null 2>&1; then
-            echo "✅ SSH auth test pod exists"
-            kubectl get pod "$SSH_AUTH_TEST_POD" -o wide
-            kubectl describe pod "$SSH_AUTH_TEST_POD"
-            
-            # Check pod status
-            POD_STATUS=$(kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.phase}')
-            echo "Pod status: $POD_STATUS"
-            
-            # Get container statuses
-            echo "Container statuses:"
-            kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.containerStatuses[*].state}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse container statuses"
-            
-          else
-            echo "❌ SSH auth test pod does not exist"
-            echo "Available test pods:"
-            kubectl get pods -l "helm.sh/hook=test" --show-labels
-          fi
-          echo "::endgroup::"
-          
-          echo "::group::SSH Keys Secret Validation"
-          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
-          echo "Checking SSH keys secret: $SECRET_NAME"
-          
-          if kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
-            echo "✅ SSH keys secret exists"
-            kubectl describe secret "$SECRET_NAME"
-            
-            # Check secret keys
-            echo "Secret keys:"
-            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse secret keys"
-            
-            # Validate key content (first few chars)
-            echo "Private key (first 50 chars):"
-            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0}' | base64 -d | head -c 50 && echo "..."
-            echo "Public key:"
-            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0\.pub}' | base64 -d
-            
-          else
-            echo "❌ SSH keys secret does not exist"
-            echo "Available secrets:"
-            kubectl get secrets | grep test || echo "No test secrets found"
-          fi
-          echo "::endgroup::"
-          
           echo "::group::SSH Workspace Pod Analysis"
           WORKSPACE_POD="test-${{ matrix.config.name }}-ssh-workspace"
           echo "Checking SSH workspace pod pattern: $WORKSPACE_POD*"
@@ -451,6 +402,58 @@ jobs:
       - name: Run Helm Tests
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
+
+      - name: SSH Authentication Diagnosis
+        if: always()
+        run: |
+          echo "::group::Test Pod Status Analysis"
+          SSH_AUTH_TEST_POD="test-${{ matrix.config.name }}-ssh-workspace-ssh-auth-test"
+          echo "Checking SSH auth test pod: $SSH_AUTH_TEST_POD"
+          
+          if kubectl get pod "$SSH_AUTH_TEST_POD" >/dev/null 2>&1; then
+            echo "✅ SSH auth test pod exists"
+            kubectl get pod "$SSH_AUTH_TEST_POD" -o wide
+            kubectl describe pod "$SSH_AUTH_TEST_POD"
+            
+            # Check pod status
+            POD_STATUS=$(kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.phase}')
+            echo "Pod status: $POD_STATUS"
+            
+            # Get container statuses
+            echo "Container statuses:"
+            kubectl get pod "$SSH_AUTH_TEST_POD" -o jsonpath='{.status.containerStatuses[*].state}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse container statuses"
+            
+          else
+            echo "❌ SSH auth test pod does not exist"
+            echo "Available test pods:"
+            kubectl get pods -l "helm.sh/hook=test" --show-labels
+          fi
+          echo "::endgroup::"
+          
+          echo "::group::SSH Keys Secret Validation"
+          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
+          echo "Checking SSH keys secret: $SECRET_NAME"
+          
+          if kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
+            echo "✅ SSH keys secret exists"
+            kubectl describe secret "$SECRET_NAME"
+            
+            # Check secret keys
+            echo "Secret keys:"
+            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data}' | jq -r 'keys[]' 2>/dev/null || echo "Cannot parse secret keys"
+            
+            # Validate key content (first few chars)
+            echo "Private key (first 50 chars):"
+            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0}' | base64 -d | head -c 50 && echo "..."
+            echo "Public key:"
+            kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0\.pub}' | base64 -d
+            
+          else
+            echo "❌ SSH keys secret does not exist"
+            echo "Available secrets:"
+            kubectl get secrets | grep test || echo "No test secrets found"
+          fi
+          echo "::endgroup::"
 
       - name: Debug SSH Authentication Files
         if: always()
