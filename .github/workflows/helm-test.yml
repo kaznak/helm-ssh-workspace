@@ -37,18 +37,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Generate SSH test key pair
+      - name: Generate SSH test key pair for linting
         run: |
-          echo "=== Generating SSH test key pair ==="
+          echo "=== Generating SSH test key pair for linting ==="
           ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
           
-          # Export keys for use in subsequent steps
+          # Export keys for use in linting steps
           echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
           echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
-          
-          # Create base64 encoded private key for Helm values
-          TEST_SSH_PRIVATE_KEY_B64=$(base64 -w0 /tmp/test_ssh_key)
-          echo "TEST_SSH_PRIVATE_KEY_B64=$TEST_SSH_PRIVATE_KEY_B64" >> $GITHUB_ENV
           
           echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
 
@@ -95,14 +91,6 @@ jobs:
           path: /tmp/ssh-workspace-image.tar
           retention-days: 1
 
-      - name: Upload SSH test keys artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ssh-test-keys
-          path: |
-            /tmp/test_ssh_key
-            /tmp/test_ssh_key.pub
-          retention-days: 1
 
   test:
     name: Test (${{ matrix.config.name }})
@@ -142,15 +130,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Download SSH test keys artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: ssh-test-keys
-          path: /tmp
-
-      - name: Setup SSH test keys
+      - name: Generate SSH test key pair
         run: |
-          echo "=== Setting up SSH test keys from artifact ==="
+          echo "=== Generating SSH test key pair ==="
+          ssh-keygen -t ed25519 -f /tmp/test_ssh_key -N "" -C "ci-test@example.com"
+          
+          # Set proper permissions
           chmod 600 /tmp/test_ssh_key
           chmod 644 /tmp/test_ssh_key.pub
           
@@ -158,7 +143,7 @@ jobs:
           echo "TEST_SSH_PUBLIC_KEY=$(cat /tmp/test_ssh_key.pub)" >> $GITHUB_ENV
           echo "TEST_SSH_PRIVATE_KEY_PATH=/tmp/test_ssh_key" >> $GITHUB_ENV
           
-          echo "Using SSH public key: $(cat /tmp/test_ssh_key.pub)"
+          echo "Generated SSH public key: $(cat /tmp/test_ssh_key.pub)"
 
       - name: Install Helm
         uses: azure/setup-helm@v4
@@ -770,7 +755,6 @@ jobs:
           echo "=== Cleaning up workflow artifacts ==="
           echo "The following artifacts will be deleted to save storage:"
           echo "  - ssh-workspace-image (Docker image)"
-          echo "  - ssh-test-keys (SSH key pair)"
 
       - name: Delete Docker image artifact
         uses: geekyeggo/delete-artifact@v5
@@ -778,11 +762,6 @@ jobs:
           name: ssh-workspace-image
           failOnError: false
 
-      - name: Delete SSH test keys artifact
-        uses: geekyeggo/delete-artifact@v5
-        with:
-          name: ssh-test-keys
-          failOnError: false
 
       - name: Cleanup completion
         run: |
