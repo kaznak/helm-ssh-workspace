@@ -233,6 +233,48 @@ jobs:
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --timeout=120s
           echo "✅ Pod is ready"
 
+      - name: Verify SSH Keys in Pod
+        run: |
+          echo "🔍 Verifying SSH keys configuration in pod..."
+          
+          # Get the pod name
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+          
+          if [ -z "$POD_NAME" ]; then
+            echo "❌ No running SSH workspace pod found"
+            exit 1
+          fi
+          
+          echo "Using pod: $POD_NAME"
+          
+          # Get authorized_keys from pod
+          echo "Retrieving authorized_keys from pod..."
+          kubectl exec "$POD_NAME" -c ssh-workspace -- cat /home/testuser/.ssh/authorized_keys > /tmp/pod_authorized_keys
+          
+          # Show what we retrieved
+          echo "Retrieved authorized_keys content:"
+          cat /tmp/pod_authorized_keys
+          
+          # Extract public key from our private key for comparison
+          echo "🔍 Deriving public key from our test private key..."
+          DERIVED_PUBLIC_KEY=$(ssh-keygen -y -f /tmp/test_ssh_key)
+          
+          # Compare with authorized_keys
+          if grep -Fq "$DERIVED_PUBLIC_KEY" /tmp/pod_authorized_keys; then
+            echo "✅ SSH key verification PASSED - Our private key matches public key in pod's authorized_keys"
+            echo "Key fingerprint: $(ssh-keygen -l -f /tmp/test_ssh_key.pub | cut -d' ' -f1-2)"
+          else
+            echo "❌ SSH key verification FAILED - Our private key does NOT match any key in pod's authorized_keys"
+            echo "Our derived public key:"
+            echo "$DERIVED_PUBLIC_KEY"
+            echo "Pod's authorized_keys:"
+            cat /tmp/pod_authorized_keys
+            exit 1
+          fi
+          
+          # Cleanup
+          rm -f /tmp/pod_authorized_keys
+
       - name: DEBUG Debug Deployment Configuration
         run: |
           echo "::group::Deployment Readiness Probe Configuration"
