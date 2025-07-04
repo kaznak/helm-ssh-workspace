@@ -215,7 +215,8 @@ jobs:
       - name: Debug Deployment Configuration
         run: |
           echo "::group::Deployment Readiness Probe Configuration"
-          kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml | grep -A 10 -B 5 readinessProbe || echo "No readiness probe found"
+          echo "Checking readiness probe configuration..."
+          kubectl get deployment test-${{ matrix.config.name }}-ssh-workspace -o yaml | yq eval '.spec.template.spec.containers[].readinessProbe // "No readiness probe found"' -
           echo "::endgroup::"
           
           echo "::group::Pod Status Overview"
@@ -237,20 +238,22 @@ jobs:
           echo "::endgroup::"
           
           echo "::group::SSH Authentication Test Pod Check"
-          if grep -q "ssh-auth-test" /tmp/full-template-render.yaml; then
+          SSH_AUTH_TEST_PODS=$(yq eval 'select(.metadata.name | test("ssh-auth-test"))' /tmp/full-template-render.yaml 2>/dev/null)
+          if [ -n "$SSH_AUTH_TEST_PODS" ]; then
             echo "✅ SSH Authentication Test Pod found in template rendering"
             echo "SSH Auth Test Pod metadata:"
-            grep -A 10 "name:.*ssh-auth-test" /tmp/full-template-render.yaml | head -15
+            yq eval 'select(.metadata.name | test("ssh-auth-test")) | {"kind": .kind, "name": .metadata.name, "labels": .metadata.labels}' /tmp/full-template-render.yaml 2>/dev/null
           else
             echo "❌ SSH Authentication Test Pod NOT found in template rendering"
           fi
           echo "::endgroup::"
           
           echo "::group::SSH Keys Secret Template Check"
-          if grep -q "kind: Secret" /tmp/full-template-render.yaml && grep -q "test-ssh-keys" /tmp/full-template-render.yaml; then
+          SSH_KEYS_SECRET=$(yq eval 'select(.kind == "Secret" and (.metadata.name | test("test-ssh-keys")))' /tmp/full-template-render.yaml 2>/dev/null)
+          if [ -n "$SSH_KEYS_SECRET" ]; then
             echo "✅ SSH Keys Secret found in template rendering"
             echo "SSH Keys Secret content:"
-            grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -25
+            yq eval 'select(.kind == "Secret" and (.metadata.name | test("test-ssh-keys"))) | {"kind": .kind, "name": .metadata.name, "dataKeys": (.data | keys)}' /tmp/full-template-render.yaml 2>/dev/null
           else
             echo "❌ SSH Keys Secret NOT found in template rendering"
             echo "This indicates the template conditions are not being met in GitHub Actions"
