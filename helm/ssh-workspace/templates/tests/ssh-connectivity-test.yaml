@@ -52,18 +52,29 @@ spec:
         exit 1
       fi
       
-      # Validate network connectivity with detailed error messages
+      # Wait for SSH service to be ready
       SERVICE_FQDN="{{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
-      echo "Testing connectivity to service: $SERVICE_FQDN:{{ .Values.service.port }}"
+      echo "Waiting for SSH service to be ready: $SERVICE_FQDN:{{ .Values.service.port }}"
       
-      if ! nc -z "$SERVICE_FQDN" {{ .Values.service.port }}; then
-        echo "ERROR: Cannot connect to SSH service"
-        echo "Service resolution test:"
-        nslookup "$SERVICE_FQDN" || echo "DNS resolution failed"
-        echo "Network interfaces:"
-        ip addr show || echo "ip command not available"
-        exit 1
-      fi
+      # Wait up to 60 seconds for service to become available
+      for i in $(seq 1 60); do
+        if nc -z "$SERVICE_FQDN" {{ .Values.service.port }}; then
+          echo "SSH service is ready after ${i} seconds"
+          break
+        fi
+        if [ $i -eq 60 ]; then
+          echo "ERROR: SSH service not ready after 60 seconds"
+          echo "Service resolution test:"
+          nslookup "$SERVICE_FQDN" || echo "DNS resolution failed"
+          echo "Service endpoint status:"
+          echo "Full service name being tested: $SERVICE_FQDN"
+          echo "Network interfaces:"
+          ip addr show || echo "ip command not available"
+          exit 1
+        fi
+        echo "Waiting... (attempt $i/60)"
+        sleep 1
+      done
       
       # Perform SSH key-based authentication test
       echo "Testing SSH key-based authentication..."
