@@ -139,6 +139,39 @@ spec:
         exit 1
       fi
       
+      # Test file permission operations
+      echo "Testing file permission changes..."
+      
+      # Check current permissions
+      CURRENT_PERM=$(ssh_exec "stat -c %a ~/$TEST_FILE" 2>/dev/null)
+      echo "Current file permissions: $CURRENT_PERM"
+      
+      # Set to 644
+      if ssh_exec "chmod 644 ~/$TEST_FILE" 2>/dev/null; then
+        ACTUAL_PERM=$(ssh_exec "stat -c %a ~/$TEST_FILE" 2>/dev/null)
+        if [ "$ACTUAL_PERM" = "644" ]; then
+          echo "✅ chmod 644 successful"
+        else
+          echo "⚠️ WARNING: chmod 644 applied but got $ACTUAL_PERM"
+        fi
+      else
+        echo "❌ ERROR: Cannot change file permissions to 644"
+        exit 1
+      fi
+      
+      # Set to 600
+      if ssh_exec "chmod 600 ~/$TEST_FILE" 2>/dev/null; then
+        ACTUAL_PERM=$(ssh_exec "stat -c %a ~/$TEST_FILE" 2>/dev/null)
+        if [ "$ACTUAL_PERM" = "600" ]; then
+          echo "✅ chmod 600 successful"
+        else
+          echo "⚠️ WARNING: chmod 600 applied but got $ACTUAL_PERM"
+        fi
+      else
+        echo "❌ ERROR: Cannot change file permissions to 600"
+        exit 1
+      fi
+      
       # Delete file
       if ssh_exec "rm ~/$TEST_FILE" 2>/dev/null; then
         echo "✅ File deletion successful"
@@ -165,6 +198,52 @@ spec:
         echo "✅ Directory navigation successful"
       else
         echo "❌ ERROR: Cannot navigate directories"
+        exit 1
+      fi
+      
+      # Test directory permission operations
+      echo "Testing directory permission changes..."
+      
+      # Check current permissions
+      CURRENT_DIR_PERM=$(ssh_exec "stat -c %a ~/$TEST_DIR" 2>/dev/null)
+      echo "Current directory permissions: $CURRENT_DIR_PERM"
+      
+      # Set to 755
+      if ssh_exec "chmod 755 ~/$TEST_DIR" 2>/dev/null; then
+        ACTUAL_PERM=$(ssh_exec "stat -c %a ~/$TEST_DIR" 2>/dev/null)
+        if [ "$ACTUAL_PERM" = "755" ]; then
+          echo "✅ chmod 755 successful"
+        else
+          echo "⚠️ WARNING: chmod 755 applied but got $ACTUAL_PERM"
+        fi
+      else
+        echo "❌ ERROR: Cannot change directory permissions to 755"
+        exit 1
+      fi
+      
+      # Set to 700
+      if ssh_exec "chmod 700 ~/$TEST_DIR" 2>/dev/null; then
+        ACTUAL_PERM=$(ssh_exec "stat -c %a ~/$TEST_DIR" 2>/dev/null)
+        if [ "$ACTUAL_PERM" = "700" ]; then
+          echo "✅ chmod 700 successful"
+        else
+          echo "⚠️ WARNING: chmod 700 applied but got $ACTUAL_PERM"
+        fi
+      else
+        echo "❌ ERROR: Cannot change directory permissions to 700"
+        exit 1
+      fi
+      
+      # Set to 750
+      if ssh_exec "chmod 750 ~/$TEST_DIR" 2>/dev/null; then
+        ACTUAL_PERM=$(ssh_exec "stat -c %a ~/$TEST_DIR" 2>/dev/null)
+        if [ "$ACTUAL_PERM" = "750" ]; then
+          echo "✅ chmod 750 successful"
+        else
+          echo "⚠️ WARNING: chmod 750 applied but got $ACTUAL_PERM"
+        fi
+      else
+        echo "❌ ERROR: Cannot change directory permissions to 750"
         exit 1
       fi
       
