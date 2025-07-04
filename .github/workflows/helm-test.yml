@@ -227,12 +227,6 @@ jobs:
             --debug
           echo "✓ Helm chart installation completed"
 
-      - name: Wait for Pod Readiness
-        run: |
-          echo "Waiting for SSH workspace pod to be ready..."
-          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --timeout=120s
-          echo "✅ Pod is ready"
-
       - name: Verify SSH Keys in Pod
         run: |
           echo "🔍 Verifying SSH keys configuration in pod..."
