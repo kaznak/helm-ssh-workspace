@@ -273,6 +273,68 @@ jobs:
         run: |
           helm test test-${{ matrix.config.name }} --timeout=300s
 
+      - name: Validate SSH Key Pair in Test Secret
+        if: always()
+        run: |
+          echo "=== Validating SSH key pair in test secret ==="
+          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
+          
+          if kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
+            echo "✓ Test SSH keys secret exists: $SECRET_NAME"
+            
+            # Extract SSH keys from secret
+            echo "🔍 Extracting SSH keys from secret..."
+            SECRET_PRIVATE_KEY=$(kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0}' 2>/dev/null || echo "")
+            SECRET_PUBLIC_KEY=$(kubectl get secret "$SECRET_NAME" -o jsonpath='{.data.test-key-0\.pub}' 2>/dev/null || echo "")
+            
+            if [ -n "$SECRET_PRIVATE_KEY" ] && [ -n "$SECRET_PUBLIC_KEY" ]; then
+              echo "✓ Both private and public keys found in secret"
+              
+              # Decode and validate keys
+              echo "🔍 Decoding and validating SSH key pair..."
+              if echo "$SECRET_PRIVATE_KEY" | base64 -d > /tmp/secret-private-key 2>/dev/null; then
+                echo "✓ Private key decoded successfully"
+                chmod 600 /tmp/secret-private-key
+                
+                if echo "$SECRET_PUBLIC_KEY" | base64 -d > /tmp/secret-public-key 2>/dev/null; then
+                  echo "✓ Public key decoded successfully"
+                  
+                  # Generate public key from private key for comparison
+                  if ssh-keygen -y -f /tmp/secret-private-key > /tmp/derived-public-key 2>/dev/null; then
+                    echo "✓ Successfully derived public key from private key"
+                    
+                    # Compare with our test public key
+                    if [ "$(cat /tmp/derived-public-key)" = "$TEST_SSH_PUBLIC_KEY" ]; then
+                      echo "✅ SSH key pair validation PASSED - Secret keys match workflow test keys"
+                      echo "Key fingerprint: $(ssh-keygen -l -f /tmp/secret-private-key 2>/dev/null | cut -d' ' -f1-2)"
+                    else
+                      echo "❌ SSH key pair validation FAILED - Secret keys do NOT match workflow test keys"
+                      echo "Expected: $TEST_SSH_PUBLIC_KEY"
+                      echo "Secret contains: $(cat /tmp/derived-public-key)"
+                    fi
+                  else
+                    echo "❌ Failed to derive public key from secret's private key - Invalid format"
+                  fi
+                else
+                  echo "❌ Failed to decode public key from secret"
+                fi
+              else
+                echo "❌ Failed to decode private key from secret"
+              fi
+              
+              # Cleanup temporary files
+              rm -f /tmp/secret-private-key /tmp/secret-public-key /tmp/derived-public-key
+            else
+              echo "❌ SSH keys not found in secret"
+              echo "Private key present: $([ -n "$SECRET_PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
+              echo "Public key present: $([ -n "$SECRET_PUBLIC_KEY" ] && echo 'yes' || echo 'no')"
+            fi
+          else
+            echo "❌ Test SSH keys secret not found: $SECRET_NAME"
+            echo "Available secrets:"
+            kubectl get secrets | grep test || echo "No test secrets found"
+          fi
+
       - name: Collect Test Pod Logs
         if: always()
         run: |
