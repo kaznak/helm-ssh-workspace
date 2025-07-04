@@ -72,7 +72,7 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
             --debug
 
       - name: Set up Docker Buildx
@@ -200,7 +200,7 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
@@ -220,7 +220,7 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
@@ -267,7 +267,7 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
@@ -302,7 +302,7 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
@@ -338,7 +338,7 @@ jobs:
             --set ssh.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
             --set "ssh.testKeys.keyPairs[0].publicKey=$TEST_SSH_PUBLIC_KEY" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat $TEST_SSH_PRIVATE_KEY_PATH)" \
             --set security.permissionStrategy=${{ matrix.config.permission_strategy }} \
             --set security.level=${{ matrix.config.security_level }} \
             --set persistence.enabled=${{ matrix.config.persistence_enabled }} \
