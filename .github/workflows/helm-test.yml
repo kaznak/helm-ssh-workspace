@@ -143,6 +143,11 @@ jobs:
         with:
           version: '3.12.1'
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Download Docker image artifact
         uses: actions/download-artifact@v4
         with:
@@ -253,9 +258,10 @@ jobs:
           echo "::endgroup::"
           
           echo "::group::SSH Key Pair Validation"
-          echo "🔍 Extracting SSH keys from template..."
-          TEMPLATE_PRIVATE_KEY=$(grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | grep "test-key-0:" | cut -d: -f2 | tr -d ' ')
-          TEMPLATE_PUBLIC_KEY=$(grep -A 20 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | grep "test-key-0\.pub:" | cut -d: -f2 | tr -d ' ')
+          echo "🔍 Extracting SSH keys from template using yq..."
+          # Extract SSH keys from the specific Secret document containing test-ssh-keys
+          TEMPLATE_PRIVATE_KEY=$(yq eval 'select(.kind == "Secret" and (.metadata.name | test("test-ssh-keys"))) | .data."test-key-0"' /tmp/full-template-render.yaml 2>/dev/null || echo "")
+          TEMPLATE_PUBLIC_KEY=$(yq eval 'select(.kind == "Secret" and (.metadata.name | test("test-ssh-keys"))) | .data."test-key-0.pub"' /tmp/full-template-render.yaml 2>/dev/null || echo "")
           
           echo "Debug: TEMPLATE_PRIVATE_KEY length: ${#TEMPLATE_PRIVATE_KEY}"
           echo "Debug: TEMPLATE_PUBLIC_KEY length: ${#TEMPLATE_PUBLIC_KEY}"
@@ -319,9 +325,12 @@ jobs:
             echo "TEMPLATE_PRIVATE_KEY found: $([ -n "$TEMPLATE_PRIVATE_KEY" ] && echo "yes" || echo "no")"
             echo "TEMPLATE_PUBLIC_KEY found: $([ -n "$TEMPLATE_PUBLIC_KEY" ] && echo "yes" || echo "no")"
             
-            # Show template structure for debugging
-            echo "Template structure around ssh-keys:"
-            grep -A 30 "name:.*test-ssh-keys" /tmp/full-template-render.yaml | head -35
+            # Show template structure for debugging using yq
+            echo "Available SSH keys secrets in template:"
+            yq eval 'select(.kind == "Secret" and (.metadata.name | test("ssh-keys"))) | .metadata.name' /tmp/full-template-render.yaml 2>/dev/null || echo "No SSH keys secrets found"
+            
+            echo "SSH keys secret data structure:"
+            yq eval 'select(.kind == "Secret" and (.metadata.name | test("test-ssh-keys"))) | .data | keys' /tmp/full-template-render.yaml 2>/dev/null || echo "No test-ssh-keys secret found"
           fi
           echo "::endgroup::"
 
