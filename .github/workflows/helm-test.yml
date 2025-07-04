@@ -498,6 +498,7 @@ jobs:
           helm test test-${{ matrix.config.name }} --timeout=300s
 
       - name: Debug SSH Authentication Files
+        if: always()
         run: |
           echo "::group::SSH Authentication Debugging - ${{ matrix.config.name }}"
           
@@ -581,6 +582,7 @@ jobs:
           echo "::endgroup::"
 
       - name: SSH Connectivity Test (External)
+        if: always()
         run: |
           echo "::group::External SSH Connectivity Test - ${{ matrix.config.name }}"
           
