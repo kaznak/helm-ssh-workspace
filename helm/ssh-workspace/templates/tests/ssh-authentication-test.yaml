@@ -116,11 +116,13 @@ spec:
       
       # Perform SSH key-based authentication test
       echo "=== SSH Authentication Test ==="
-      chmod 600 /test-ssh-keys/test-key-0
+      # Copy SSH key to writable location since volume is read-only
+      cp /test-ssh-keys/test-key-0 /tmp/test-key-0
+      chmod 600 /tmp/test-key-0
       
       # First attempt: normal connection
       echo "Attempting SSH connection..."
-      if ssh -i /test-ssh-keys/test-key-0 \
+      if ssh -i /tmp/test-key-0 \
           -o StrictHostKeyChecking=no \
           -o UserKnownHostsFile=/dev/null \
           -o ConnectTimeout=10 \
@@ -134,7 +136,7 @@ spec:
         
         echo "=== Detailed SSH Debug Information ==="
         echo "Full SSH debug output:"
-        ssh -i /test-ssh-keys/test-key-0 \
+        ssh -i /tmp/test-key-0 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -o ConnectTimeout=10 \
@@ -153,7 +155,7 @@ spec:
         
         # Test 1: Try with verbose output to see what's happening
         echo "Test 1 - Connection attempt with full verbose:"
-        timeout 15 ssh -i /test-ssh-keys/test-key-0 \
+        timeout 15 ssh -i /tmp/test-key-0 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -o ConnectTimeout=5 \
