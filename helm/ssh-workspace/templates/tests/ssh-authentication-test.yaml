@@ -112,7 +112,7 @@ spec:
       echo "=== Remote SSH Configuration Diagnosis ==="
       # Test if we can reach the SSH service and get version
       echo "Testing SSH service banner:"
-      timeout 5 nc "$SERVICE_FQDN" {{ .Values.service.port }} <<< "" | head -1 || echo "No SSH banner received"
+      echo "" | timeout 5 nc "$SERVICE_FQDN" {{ .Values.service.port }} | head -1 || echo "No SSH banner received"
       
       # Perform SSH key-based authentication test
       echo "=== SSH Authentication Test ==="
