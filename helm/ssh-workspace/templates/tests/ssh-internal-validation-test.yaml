@@ -1,7 +1,8 @@
+{{- if .Values.tests.sshValidation.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
-  name: {{ include "ssh-workspace.fullname" . }}-permission-test
+  name: {{ include "ssh-workspace.fullname" . }}-ssh-internal-validation-test
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ssh-workspace.labels" . | nindent 4 }}
@@ -14,7 +15,7 @@ spec:
   restartPolicy: Never
   serviceAccountName: {{ include "ssh-workspace.fullname" . }}-test
   containers:
-  - name: permission-validation
+  - name: ssh-internal-validation
     image: bitnami/kubectl:1.27
     command:
     - /bin/sh
@@ -24,7 +25,7 @@ spec:
       
       # kubectl is already available in this image
       
-      echo "=== Permission Strategy Validation ==="
+      echo "=== SSH Internal Validation Test Started ==="
       echo "Testing deployed configuration:"
       echo "  Strategy: explicit"
       echo "  Security Level: {{ .Values.security.level }}"
@@ -253,13 +254,13 @@ spec:
           echo "Raw output: $SECURITY_FAILURE_OUTPUT"
       fi
       
-      echo "=== Test Summary ==="
-      echo "✓ Permission strategy validation completed successfully"
+      echo "=== SSH Internal Validation Test Summary ==="
+      echo "✓ SSH internal validation completed successfully"
       echo "Strategy: explicit"
       echo "Home permissions: $HOME_PERMS"
       echo "SetGID bit: $SETGID_BIT"
       echo "✓ Security validation completed"
-      echo "All validation checks passed!"
+      echo "All SSH internal validation checks passed!"
     
     resources:
       limits:
@@ -268,3 +269,4 @@ spec:
       requests:
         cpu: 100m
         memory: 64Mi
+{{- end }}

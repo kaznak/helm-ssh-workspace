@@ -1,0 +1,299 @@
+{{- if and .Values.tests.workspaceFunctionality.enabled .Values.ssh.testKeys.enabled }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-user-workspace-functionality-test
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+    app.kubernetes.io/component: test
+  annotations:
+    "helm.sh/hook": test
+    "helm.sh/hook-weight": "15"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  serviceAccountName: {{ include "ssh-workspace.fullname" . }}-test
+  containers:
+  - name: user-workspace-functionality-test
+    image: alpine:3.18
+    command:
+    - /bin/sh
+    - -c
+    - |
+      set -e
+      
+      echo "=== User Workspace Functionality Test Started ==="
+      echo "Timestamp: $(date)"
+      echo "Pod: $(hostname)"
+      
+      # Install required packages
+      echo "Installing required packages..."
+      if ! apk add --no-cache openssh-client netcat-openbsd; then
+        echo "ERROR: Failed to install required packages"
+        exit 1
+      fi
+      
+      # Validate test SSH keys
+      echo "Validating test SSH keys..."
+      if [ ! -f /test-ssh-keys/test-key-0 ]; then
+        echo "ERROR: test-key-0 not found"
+        exit 1
+      fi
+      
+      # Set up SSH connection details
+      SERVICE_FQDN="{{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local"
+      SSH_USER="testuser"
+      SSH_PORT="{{ .Values.service.port }}"
+      
+      # Wait for SSH service to be ready
+      echo "Waiting for SSH service to be ready..."
+      for i in $(seq 1 60); do
+        if nc -z "$SERVICE_FQDN" $SSH_PORT; then
+          echo "SSH service is ready after ${i} seconds"
+          break
+        fi
+        if [ $i -eq 60 ]; then
+          echo "ERROR: SSH service not ready after 60 seconds"
+          exit 1
+        fi
+        sleep 1
+      done
+      
+      # Set up SSH key permissions
+      chmod 600 /test-ssh-keys/test-key-0
+      
+      # SSH connection helper function
+      ssh_exec() {
+        ssh -i /test-ssh-keys/test-key-0 \
+            -o StrictHostKeyChecking=no \
+            -o UserKnownHostsFile=/dev/null \
+            -o ConnectTimeout=10 \
+            -o BatchMode=yes \
+            -o PasswordAuthentication=no \
+            "$SSH_USER@$SERVICE_FQDN" -p $SSH_PORT \
+            "$@"
+      }
+      
+      # Phase 1: Basic Shell Environment Test
+      echo "=== Phase 1: Basic Shell Environment Test ==="
+      
+      echo "Testing shell availability..."
+      if ! ssh_exec 'echo "Shell test successful"' 2>/dev/null; then
+        echo "❌ ERROR: Cannot establish SSH connection for workspace testing"
+        echo "Note: SSH authentication must be working before workspace functionality can be tested"
+        exit 1
+      fi
+      echo "✅ Shell environment accessible"
+      
+      # Test basic commands
+      echo "Testing basic commands..."
+      BASIC_COMMANDS="whoami id pwd hostname date"
+      for cmd in $BASIC_COMMANDS; do
+        if ssh_exec "command -v $cmd > /dev/null && $cmd" 2>/dev/null | grep -q .; then
+          echo "✅ Command '$cmd' available and working"
+        else
+          echo "❌ Command '$cmd' not available or not working"
+          exit 1
+        fi
+      done
+      
+      # Phase 2: File System Operations Test
+      echo "=== Phase 2: File System Operations Test ==="
+      
+      echo "Testing home directory access..."
+      HOME_DIR=$(ssh_exec 'echo $HOME' 2>/dev/null)
+      if [ -z "$HOME_DIR" ]; then
+        echo "❌ ERROR: Cannot determine home directory"
+        exit 1
+      fi
+      echo "✅ Home directory: $HOME_DIR"
+      
+      echo "Testing file operations..."
+      TEST_FILE="workspace_test_$(date +%s).txt"
+      TEST_CONTENT="Workspace functionality test - $(date)"
+      
+      # Create file
+      if ssh_exec "echo '$TEST_CONTENT' > ~/$TEST_FILE" 2>/dev/null; then
+        echo "✅ File creation successful"
+      else
+        echo "❌ ERROR: Cannot create files in home directory"
+        exit 1
+      fi
+      
+      # Read file
+      if ssh_exec "cat ~/$TEST_FILE" 2>/dev/null | grep -q "Workspace functionality test"; then
+        echo "✅ File reading successful"
+      else
+        echo "❌ ERROR: Cannot read files from home directory"
+        exit 1
+      fi
+      
+      # List files
+      if ssh_exec "ls -la ~/" 2>/dev/null | grep -q "$TEST_FILE"; then
+        echo "✅ File listing successful"
+      else
+        echo "❌ ERROR: Cannot list files in home directory"
+        exit 1
+      fi
+      
+      # Delete file
+      if ssh_exec "rm ~/$TEST_FILE" 2>/dev/null; then
+        echo "✅ File deletion successful"
+      else
+        echo "❌ ERROR: Cannot delete files in home directory"
+        exit 1
+      fi
+      
+      # Phase 3: Directory Operations Test
+      echo "=== Phase 3: Directory Operations Test ==="
+      
+      TEST_DIR="workspace_test_dir_$(date +%s)"
+      
+      # Create directory
+      if ssh_exec "mkdir ~/$TEST_DIR" 2>/dev/null; then
+        echo "✅ Directory creation successful"
+      else
+        echo "❌ ERROR: Cannot create directories in home directory"
+        exit 1
+      fi
+      
+      # Change directory
+      if ssh_exec "cd ~/$TEST_DIR && pwd" 2>/dev/null | grep -q "$TEST_DIR"; then
+        echo "✅ Directory navigation successful"
+      else
+        echo "❌ ERROR: Cannot navigate directories"
+        exit 1
+      fi
+      
+      # Remove directory
+      if ssh_exec "rmdir ~/$TEST_DIR" 2>/dev/null; then
+        echo "✅ Directory removal successful"
+      else
+        echo "❌ ERROR: Cannot remove directories"
+        exit 1
+      fi
+      
+      # Phase 4: Development Environment Test
+      echo "=== Phase 4: Development Environment Test ==="
+      
+      echo "Testing common development tools..."
+      DEV_TOOLS="git vim nano curl wget"
+      AVAILABLE_TOOLS=""
+      MISSING_TOOLS=""
+      
+      for tool in $DEV_TOOLS; do
+        if ssh_exec "command -v $tool > /dev/null" 2>/dev/null; then
+          AVAILABLE_TOOLS="$AVAILABLE_TOOLS $tool"
+          echo "✅ Development tool '$tool' available"
+        else
+          MISSING_TOOLS="$MISSING_TOOLS $tool"
+          echo "ℹ️  Development tool '$tool' not available"
+        fi
+      done
+      
+      if [ -n "$AVAILABLE_TOOLS" ]; then
+        echo "✅ Available development tools:$AVAILABLE_TOOLS"
+      fi
+      
+      if [ -n "$MISSING_TOOLS" ]; then
+        echo "ℹ️  Missing development tools:$MISSING_TOOLS"
+        echo "ℹ️  Note: Missing tools may be acceptable depending on workspace configuration"
+      fi
+      
+      # Phase 5: Persistence Test
+      echo "=== Phase 5: Persistence Test ==="
+      
+      echo "Testing data persistence..."
+      PERSIST_FILE=".workspace_persistence_test"
+      PERSIST_CONTENT="persistence_test_$(date +%s)"
+      
+      # Create persistence test file
+      if ssh_exec "echo '$PERSIST_CONTENT' > ~/$PERSIST_FILE" 2>/dev/null; then
+        echo "✅ Persistence test file created"
+      else
+        echo "❌ ERROR: Cannot create persistence test file"
+        exit 1
+      fi
+      
+      # Verify file exists and has correct content
+      if ssh_exec "cat ~/$PERSIST_FILE" 2>/dev/null | grep -q "$PERSIST_CONTENT"; then
+        echo "✅ Persistence test file verified"
+      else
+        echo "❌ ERROR: Persistence test file verification failed"
+        exit 1
+      fi
+      
+      # Clean up persistence test file
+      ssh_exec "rm ~/$PERSIST_FILE" 2>/dev/null || true
+      
+      # Phase 6: Network Connectivity Test (if enabled)
+      {{- if .Values.tests.workspaceFunctionality.networkTest.enabled }}
+      echo "=== Phase 6: Network Connectivity Test ==="
+      
+      echo "Testing external network connectivity..."
+      if ssh_exec "ping -c 1 8.8.8.8 > /dev/null 2>&1" 2>/dev/null; then
+        echo "✅ External network connectivity available"
+      else
+        echo "ℹ️  External network connectivity not available or restricted"
+        echo "ℹ️  Note: This may be expected in restricted environments"
+      fi
+      {{- end }}
+      
+      # Phase 7: User Permissions Test
+      echo "=== Phase 7: User Permissions Test ==="
+      
+      echo "Testing user permissions..."
+      USER_ID=$(ssh_exec 'id -u' 2>/dev/null)
+      GROUP_ID=$(ssh_exec 'id -g' 2>/dev/null)
+      
+      if [ "$USER_ID" -ne 0 ]; then
+        echo "✅ Running as non-root user (UID: $USER_ID, GID: $GROUP_ID)"
+      else
+        echo "⚠️  WARNING: Running as root user"
+        echo "ℹ️  Note: This may be acceptable depending on security requirements"
+      fi
+      
+      {{- if .Values.user.sudo }}
+      echo "Testing sudo capabilities..."
+      if ssh_exec "sudo -n true" 2>/dev/null; then
+        echo "✅ Sudo capabilities available"
+      else
+        echo "ℹ️  Sudo capabilities not available or require password"
+      fi
+      {{- end }}
+      
+      # Test Summary
+      echo "=== User Workspace Functionality Test Summary ==="
+      echo "✅ Shell environment: Working"
+      echo "✅ Basic commands: Available"
+      echo "✅ File operations: Working"
+      echo "✅ Directory operations: Working"
+      echo "✅ Data persistence: Working"
+      echo "ℹ️  Development tools: $AVAILABLE_TOOLS"
+      {{- if .Values.user.sudo }}
+      echo "ℹ️  Sudo capabilities: Configured"
+      {{- end }}
+      
+      echo "=== User Workspace Functionality Test Completed Successfully ==="
+      echo "Timestamp: $(date)"
+      echo "✅ Workspace is ready for user development work"
+      
+    volumeMounts:
+    - name: test-ssh-keys
+      mountPath: /test-ssh-keys
+      readOnly: true
+    resources:
+      limits:
+        cpu: 300m
+        memory: 256Mi
+      requests:
+        cpu: 150m
+        memory: 128Mi
+  
+  volumes:
+  - name: test-ssh-keys
+    secret:
+      secretName: {{ include "ssh-workspace.fullname" . }}-test-ssh-keys
+      defaultMode: 0600
+{{- end }}

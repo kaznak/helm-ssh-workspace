@@ -109,6 +109,20 @@ tests:
   rbac:
     create: true  # Create ServiceAccount and RBAC for tests
   
+  # Resource validation test configuration
+  resourceValidation:
+    enabled: true  # Enable resource validation tests (basic infrastructure checks)
+  
+  # SSH internal validation test configuration  
+  sshValidation:
+    enabled: true  # Enable SSH internal validation tests (SSH server configuration and permissions)
+  
   # SSH connectivity test configuration
   sshConnectivity:
     enabled: false  # Enable SSH connectivity tests (requires ssh.testKeys.enabled: true)
+  
+  # User workspace functionality test configuration
+  workspaceFunctionality:
+    enabled: false  # Enable workspace functionality tests (requires ssh.testKeys.enabled: true)
+    networkTest:
+      enabled: false  # Enable external network connectivity tests
