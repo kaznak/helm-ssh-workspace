@@ -35,7 +35,7 @@ SyslogFacility AUTH
 LogLevel INFO
 
 # その他セキュリティ設定
-StrictModes yes
+# StrictModes is configured via Helm values (ssh.strictModes)
 IgnoreRhosts yes
 HostbasedAuthentication no
 PermitEmptyPasswords no
