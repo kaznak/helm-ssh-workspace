@@ -388,7 +388,13 @@ jobs:
         run: |
           RELEASE_NAME="test-ssh-workspace"
           echo "=== Validating SSH key pair in test secret ==="
-          SECRET_NAME="$RELEASE_NAME-ssh-workspace-test-ssh-keys"
+          
+          # Set correct secret name based on test key method
+          if [ "${{ matrix.test_key_method }}" = "existingSecret" ]; then
+            SECRET_NAME="test-ssh-keys-external"
+          else
+            SECRET_NAME="$RELEASE_NAME-ssh-workspace-test-ssh-keys"
+          fi
           
           # Check if secret exists
           if ! kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
