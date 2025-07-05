@@ -519,8 +519,9 @@ tmux -V
 ### Testing Configuration
 
 #### SSH Test Keys
-For automated testing and CI/CD pipelines, you can configure dedicated test SSH keys:
+For automated testing and CI/CD pipelines, you can configure dedicated test SSH keys using two methods:
 
+##### Method 1: Direct Key Pairs (values.yaml)
 ```yaml
 ssh:
   testKeys:
@@ -534,11 +535,48 @@ ssh:
           -----END OPENSSH PRIVATE KEY-----
 ```
 
+##### Method 2: Existing Secret Reference (Recommended for Production)
+```yaml
+ssh:
+  testKeys:
+    enabled: true
+    existingSecret: "my-test-ssh-keys"  # Reference to pre-created Secret
+    # keyPairs is ignored when existingSecret is specified
+```
+
+**Security Considerations:**
+
+| Method | Security | Use Case | Considerations |
+|--------|----------|----------|---------------|
+| **Direct Key Pairs** | Lower | Development/CI | Private keys stored in Helm release metadata |
+| **Existing Secret** | Higher | Production | Keys managed separately from Helm deployment |
+
 **Security Notes:**
 - Test keys are stored in Kubernetes Secrets with `helm.sh/hook-delete-policy: hook-succeeded`
 - Secrets are **automatically deleted** after test completion
 - Test keys are **only present during test execution** (typically 2-3 minutes)
 - Private keys are never exposed in logs or persistent storage
+
+**Existing Secret Format:**
+When using `existingSecret`, the Secret must contain the following keys:
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-test-ssh-keys
+type: Opaque
+data:
+  public-key-0: <base64-encoded-public-key>
+  private-key-0: <base64-encoded-private-key>
+  # Additional key pairs can be added with incremental numbers
+  # public-key-1, private-key-1, etc.
+```
+
+**Implementation Benefits:**
+- **Flexibility**: Choose between direct configuration or external Secret management
+- **Security**: Separate sensitive data from Helm release configuration
+- **CI/CD Integration**: Both methods support automated testing workflows
+- **Backward Compatibility**: Existing keyPairs configurations continue to work
 
 #### Test RBAC Configuration
 ```yaml
