@@ -79,6 +79,7 @@ useradd -u "$SSH_USER_UID" -g "$SSH_USER_GID" -s "$SSH_USER_SHELL" -M "$SSH_USER
 # Ensure home directory exists and has correct ownership
 # (This handles both empty and pre-existing volumes)
 mkdir -p "/home/$SSH_USER"
+chown "$SSH_USER:$SSH_USER" "/home/$SSH_USER"
 echo "✓ Home directory prepared for $SSH_USER"
 
 # Handle additional groups

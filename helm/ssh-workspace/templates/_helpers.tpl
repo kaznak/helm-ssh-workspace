@@ -127,6 +127,7 @@ Pod Security Context - Always uses explicit permission management strategy
 runAsUser: 0  # SSH daemon requires root privileges
 runAsGroup: 0
 runAsNonRoot: false
+fsGroup: 0  # Explicitly set fsGroup to prevent automatic group ownership changes
 {{- with .Values.security.podSecurityContext }}
 {{ toYaml . }}
 {{- end }}
