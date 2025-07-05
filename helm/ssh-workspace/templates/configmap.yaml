@@ -16,8 +16,8 @@ data:
 {{- range .Values.ssh.publicKeys }}
     {{ . }}
 {{- end }}
-{{- if .Values.ssh.testKeys.enabled }}
-{{- range .Values.ssh.testKeys.keyPairs }}
+{{- if .Values.tests.testKeys.enabled }}
+{{- range .Values.tests.testKeys.keyPairs }}
     {{ .publicKey }}
 {{- end }}
 {{- end }}
