@@ -21,6 +21,7 @@ ssh:
   # Example:
   # - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h user@example.com"
   port: 2222  # SSH port
+  strictModes: true  # SSH StrictModes setting (true for strict permission checks, false for relaxed)
   config: {}  # Additional SSH configuration
 
 # Persistence configuration

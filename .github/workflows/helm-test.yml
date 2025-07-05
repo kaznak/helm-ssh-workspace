@@ -86,7 +86,7 @@ jobs:
 
 
   test:
-    name: Test (${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }})
+    name: Test (${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}-${{ matrix.ssh_strict_modes }})
     runs-on: ubuntu-latest
     needs: prepare
     strategy:
@@ -95,12 +95,20 @@ jobs:
         security_level: ["basic", "standard", "high"]
         persistence_enabled: ["false", "true"]
         test_key_method: ["keyPairs", "existingSecret"]
+        ssh_strict_modes: ["true", "false"]
         exclude:
           # Limit existingSecret tests to reduce CI time
           - security_level: "high"
             test_key_method: "existingSecret"
           - persistence_enabled: "true"
             test_key_method: "existingSecret"
+          # Limit strict modes tests to reduce CI time - test with basic security and keyPairs only
+          - security_level: "standard"
+            ssh_strict_modes: "true"
+          - security_level: "high"
+            ssh_strict_modes: "true"
+          - test_key_method: "existingSecret"
+            ssh_strict_modes: "true"
           
       fail-fast: false
     steps:
@@ -217,6 +225,7 @@ jobs:
           ssh:
             publicKeys:
               - $TEST_SSH_PUBLIC_KEY
+            strictModes: ${{ matrix.ssh_strict_modes }}
           tests:
             testKeys:
               enabled: true
@@ -244,6 +253,7 @@ jobs:
           ssh:
             publicKeys:
               - $TEST_SSH_PUBLIC_KEY
+            strictModes: ${{ matrix.ssh_strict_modes }}
           tests:
             testKeys:
               enabled: true

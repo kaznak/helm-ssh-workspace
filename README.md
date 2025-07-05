@@ -202,6 +202,7 @@ helm install workspace ./helm/ssh-workspace \
 | Item | Setting | Notes |
 |------|---------|-------|
 | Authentication | Public key only | PasswordAuthentication no |
+| Permission checks | Configurable | StrictModes (default: true) |
 | Log output | Standard output | sshd -D -e option |
 | Host key management | Secret | Auto-generated on first boot |
 | Connection attempts | Up to 3 times | MaxAuthTries 3 |
@@ -444,6 +445,53 @@ persistence:
 - The `subPath` can be empty (mount entire PVC) or specify a subdirectory path
 - Subdirectories are created automatically if they don't exist
 - All file operations within mounted directories work normally without limitations
+
+#### ReadWriteMany Volumes and Permission Considerations
+
+When using **ReadWriteMany (RWX)** access modes for shared storage scenarios, you may encounter SSH connection issues due to SetGID bit permissions. This is a common issue with shared storage systems like NFS, EFS, or GlusterFS.
+
+##### Problem Description
+- **ReadWriteMany volumes** automatically set the SetGID bit (02000) on directories to ensure consistent group ownership
+- **SSH StrictModes** (enabled by default) rejects connections when home directories have group write permissions with SetGID bit
+- This results in SSH connection failures with errors like "Connection closed by remote host"
+
+##### Solution: Configure SSH StrictModes
+
+You can disable SSH StrictModes to work with ReadWriteMany volumes:
+
+```yaml
+ssh:
+  strictModes: false  # Disable strict permission checks for RWX compatibility
+```
+
+##### Configuration Examples
+
+**For ReadWriteMany Environments:**
+```yaml
+persistence:
+  enabled: true
+  existingClaim: "shared-workspace-storage"
+  accessModes:
+    - ReadWriteMany  # Shared storage for multiple pods
+ssh:
+  strictModes: false  # Required for RWX volumes to prevent SSH failures
+```
+
+**For Single-User Environments (Recommended):**
+```yaml
+persistence:
+  enabled: true
+  size: 10Gi
+  accessModes:
+    - ReadWriteOnce  # Single-pod access, no SetGID issues
+ssh:
+  strictModes: true   # Default: strict security (recommended)
+```
+
+##### Security Considerations
+- **StrictModes: true** (default) - Maximum security, requires proper file permissions
+- **StrictModes: false** - Relaxed permissions, suitable for shared storage environments
+- In single-user container environments, disabling StrictModes has minimal security impact
 
 ### Development Environment Setup
 
