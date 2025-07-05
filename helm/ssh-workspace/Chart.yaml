@@ -2,8 +2,8 @@ apiVersion: v2
 name: ssh-workspace
 description: SSH accessible workspace environment
 type: application
-version: 0.5.2
-appVersion: "0.5.2"
+version: 0.5.3
+appVersion: "0.5.3"
 
 keywords:
   - ssh
@@ -25,11 +25,11 @@ annotations:
   artifacthub.io/prerelease: "false"
   artifacthub.io/containsSecurityUpdates: "false"
   artifacthub.io/changes: |
-    - kind: added
-      description: Make cluster domain configurable in post-install hook
+    - kind: fixed
+      description: Fix home directory ownership in SSH connections
   artifacthub.io/images: |
     - name: ssh-workspace
-      image: ghcr.io/kaznak/ssh-workspace:0.5.2
+      image: ghcr.io/kaznak/ssh-workspace:0.5.3
   artifacthub.io/links: |
     - name: Chart Source
       url: https://github.com/kaznak/helm-ssh-workspace/tree/main/helm/ssh-workspace
