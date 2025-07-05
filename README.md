@@ -572,6 +572,23 @@ data:
   # public-key-1, private-key-1, etc.
 ```
 
+**Configuration Priority:**
+When both methods are configured simultaneously, **`existingSecret` takes priority**:
+
+```yaml
+ssh:
+  testKeys:
+    enabled: true
+    keyPairs:           # ← This will be IGNORED
+      - publicKey: "ssh-ed25519 AAA..."
+        privateKey: "-----BEGIN..."
+    existingSecret: "my-secret"  # ← This takes priority
+```
+
+- If `existingSecret` is specified (non-empty), `keyPairs` is completely ignored
+- If `existingSecret` is empty, `keyPairs` is used for Secret generation
+- No automatic merging occurs between the two methods
+
 **Implementation Benefits:**
 - **Flexibility**: Choose between direct configuration or external Secret management
 - **Security**: Separate sensitive data from Helm release configuration
