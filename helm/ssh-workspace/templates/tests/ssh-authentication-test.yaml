@@ -1,4 +1,4 @@
-{{- if and .Values.tests.sshConnectivity.enabled .Values.ssh.testKeys.enabled }}
+{{- if and .Values.tests.sshConnectivity.enabled .Values.tests.testKeys.enabled }}
 apiVersion: v1
 kind: Pod
 metadata:
@@ -202,6 +202,6 @@ spec:
   volumes:
   - name: test-ssh-keys
     secret:
-      secretName: {{ if .Values.ssh.testKeys.existingSecret }}{{ .Values.ssh.testKeys.existingSecret }}{{ else }}{{ include "ssh-workspace.fullname" . }}-test-ssh-keys{{ end }}
+      secretName: {{ if .Values.tests.testKeys.existingSecret }}{{ .Values.tests.testKeys.existingSecret }}{{ else }}{{ include "ssh-workspace.fullname" . }}-test-ssh-keys{{ end }}
       defaultMode: 0600
 {{- end }}

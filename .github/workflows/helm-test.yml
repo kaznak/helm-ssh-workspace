@@ -58,10 +58,10 @@ jobs:
           helm lint helm/ssh-workspace \
             --set user.name="testuser" \
             --set "ssh.publicKeys[0]=$(cat /tmp/test_ssh_key.pub)" \
-            --set ssh.testKeys.enabled=true \
+            --set tests.testKeys.enabled=true \
             --set tests.sshConnectivity.enabled=true \
-            --set "ssh.testKeys.keyPairs[0].publicKey=$(cat /tmp/test_ssh_key.pub)" \
-            --set "ssh.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
+            --set "tests.testKeys.keyPairs[0].publicKey=$(cat /tmp/test_ssh_key.pub)" \
+            --set "tests.testKeys.keyPairs[0].privateKey=$(cat /tmp/test_ssh_key)" \
             --debug
 
       - name: Set up Docker Buildx
@@ -217,10 +217,10 @@ jobs:
           ssh:
             publicKeys:
               - $TEST_SSH_PUBLIC_KEY
+          tests:
             testKeys:
               enabled: true
               existingSecret: test-ssh-keys-external
-          tests:
             sshConnectivity:
               enabled: true
             workspaceFunctionality:
@@ -244,13 +244,13 @@ jobs:
           ssh:
             publicKeys:
               - $TEST_SSH_PUBLIC_KEY
+          tests:
             testKeys:
               enabled: true
               keyPairs:
                 - publicKey: $TEST_SSH_PUBLIC_KEY
                   privateKey: |
           $(sed 's/^/          /' $TEST_SSH_PRIVATE_KEY_PATH)
-          tests:
             sshConnectivity:
               enabled: true
             workspaceFunctionality:

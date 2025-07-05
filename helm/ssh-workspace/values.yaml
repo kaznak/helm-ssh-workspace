@@ -22,30 +22,6 @@ ssh:
   # - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHs5e0OWn1ybIZdO1l1S0Z1w4h4h4h4h4h4h4h4h4h4h user@example.com"
   port: 2222  # SSH port
   config: {}  # Additional SSH configuration
-  
-  # Test SSH keys for automated testing (optional)
-  # These keys are added in addition to the main publicKeys for testing purposes
-  testKeys:
-    enabled: false
-    # Method 1: Direct key pairs - both public and private keys needed for testing
-    keyPairs: []
-    # Example:
-    # keyPairs:
-    #   - publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrShAQgt+9ZuPDQ1L2KrSwKxL8BEcqhytt7X3ZLZxai test-key@helm-test"
-    #     privateKey: |
-    #       -----BEGIN OPENSSH PRIVATE KEY-----
-    #       b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
-    #       rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
-    #       -----END OPENSSH PRIVATE KEY-----
-    # Method 2: Existing Secret reference (recommended for production)
-    existingSecret: ""  # Name of existing Secret containing test SSH keys
-    # When existingSecret is specified, keyPairs is ignored
-    # Expected Secret format:
-    # data:
-    #   public-key-0: <base64-encoded-public-key>
-    #   private-key-0: <base64-encoded-private-key>
-    #   public-key-1: <base64-encoded-public-key>  # Additional key pairs
-    #   private-key-1: <base64-encoded-private-key>
 
 # Persistence configuration
 persistence:
@@ -126,12 +102,36 @@ tests:
   sshValidation:
     enabled: true  # Enable SSH internal validation tests (SSH server configuration and permissions)
   
+  # Test SSH keys for automated testing (optional)
+  # These keys are added in addition to the main publicKeys for testing purposes
+  testKeys:
+    enabled: false
+    # Method 1: Direct key pairs - both public and private keys needed for testing
+    keyPairs: []
+    # Example:
+    # keyPairs:
+    #   - publicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGrShAQgt+9ZuPDQ1L2KrSwKxL8BEcqhytt7X3ZLZxai test-key@helm-test"
+    #     privateKey: |
+    #       -----BEGIN OPENSSH PRIVATE KEY-----
+    #       b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
+    #       rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
+    #       -----END OPENSSH PRIVATE KEY-----
+    # Method 2: Existing Secret reference (recommended for production)
+    existingSecret: ""  # Name of existing Secret containing test SSH keys
+    # When existingSecret is specified, keyPairs is ignored
+    # Expected Secret format:
+    # data:
+    #   public-key-0: <base64-encoded-public-key>
+    #   private-key-0: <base64-encoded-private-key>
+    #   public-key-1: <base64-encoded-public-key>  # Additional key pairs
+    #   private-key-1: <base64-encoded-private-key>
+  
   # SSH connectivity test configuration
   sshConnectivity:
-    enabled: false  # Enable SSH connectivity tests (requires ssh.testKeys.enabled: true)
+    enabled: false  # Enable SSH connectivity tests (requires tests.testKeys.enabled: true)
   
   # User workspace functionality test configuration
   workspaceFunctionality:
-    enabled: false  # Enable workspace functionality tests (requires ssh.testKeys.enabled: true)
+    enabled: false  # Enable workspace functionality tests (requires tests.testKeys.enabled: true)
     networkTest:
       enabled: false  # Enable external network connectivity tests
