@@ -282,7 +282,7 @@ jobs:
       - name: Install Helm Chart
         run: |
           RELEASE_NAME="test-ssh-workspace"
-          echo "=== Installing Helm Chart: $RELEASE_NAME ==="
+          echo "=== Installing Helm Chart ==="
           helm install "$RELEASE_NAME" helm/ssh-workspace \
             -f /tmp/test-values.yaml \
             --timeout=300s \
@@ -337,7 +337,7 @@ jobs:
         if: always()
         run: |
           RELEASE_NAME="test-ssh-workspace"
-          echo "=== External SSH Connectivity Test - $RELEASE_NAME ==="
+          echo "=== External SSH Connectivity Test ==="
           
           echo "🔍 Waiting for pod to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
@@ -358,7 +358,7 @@ jobs:
               -o ConnectTimeout=10 \
               -o BatchMode=yes \
               testuser@localhost -p 2222 \
-              "echo \"External SSH connection successful! Configuration: $RELEASE_NAME\"" || {
+              'echo "External SSH connection successful!"' || {
             echo "❌ External SSH connection failed!"
             
             echo "🔍 Running connection failure debugging..."
@@ -511,7 +511,7 @@ jobs:
           
           helm uninstall "$RELEASE_NAME" --debug || true
           echo "=== Final cluster state ==="
-          kubectl get all -A | grep "$RELEASE_NAME" || echo "No remaining $RELEASE_NAME resources"
+          kubectl get all -A | grep "$RELEASE_NAME" || echo "No remaining test resources"
 
   cleanup:
     name: Cleanup Artifacts
