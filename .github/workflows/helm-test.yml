@@ -340,11 +340,11 @@ jobs:
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
           
           echo "🔍 Getting service configuration..."
-          SERVICE_PORT=$(kubectl get service "$RELEASE_NAME-ssh-workspace" -o jsonpath='{.spec.ports[0].port}')
+          SERVICE_PORT=$(kubectl get service "$RELEASE_NAME" -o jsonpath='{.spec.ports[0].port}')
           echo "Service port: $SERVICE_PORT"
           
           echo "🔍 Setting up port forward..."
-          kubectl port-forward service/"$RELEASE_NAME-ssh-workspace" 2222:$SERVICE_PORT &
+          kubectl port-forward service/"$RELEASE_NAME" 2222:$SERVICE_PORT &
           PORT_FORWARD_PID=$!
           sleep 10
           
@@ -363,7 +363,7 @@ jobs:
             nc -zv localhost 2222 || echo "Port 2222 not accessible"
             
             echo "Service status:"
-            kubectl get service "$RELEASE_NAME-ssh-workspace" -o wide
+            kubectl get service "$RELEASE_NAME" -o wide
             
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
