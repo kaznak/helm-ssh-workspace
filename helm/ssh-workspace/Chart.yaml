@@ -2,8 +2,8 @@ apiVersion: v2
 name: ssh-workspace
 description: SSH accessible workspace environment
 type: application
-version: 0.4.0
-appVersion: "0.4.0"
+version: 0.5.0
+appVersion: "0.5.0"
 
 keywords:
   - ssh
@@ -37,7 +37,7 @@ annotations:
       description: Test suite reliability and debugging capabilities
   artifacthub.io/images: |
     - name: ssh-workspace
-      image: ghcr.io/kaznak/ssh-workspace:0.4.0
+      image: ghcr.io/kaznak/ssh-workspace:0.5.0
   artifacthub.io/links: |
     - name: Chart Source
       url: https://github.com/kaznak/helm-ssh-workspace/tree/main/helm/ssh-workspace
