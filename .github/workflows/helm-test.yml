@@ -86,37 +86,22 @@ jobs:
 
 
   test:
-    name: Test (${{ matrix.config.name }})
+    name: Test (${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }})
     runs-on: ubuntu-latest
     needs: prepare
     strategy:
       matrix:
-        # Full test matrix - all configuration combinations
-        config:
-          - name: "explicit-std-emptydir"
-            permission_strategy: "explicit"
-            security_level: "standard" 
-            persistence_enabled: "false"
-          - name: "explicit-std-persistent"
-            permission_strategy: "explicit"
-            security_level: "standard"
-            persistence_enabled: "true"
-          - name: "explicit-high-emptydir"
-            permission_strategy: "explicit"
-            security_level: "high"
-            persistence_enabled: "false"
-          - name: "explicit-high-persistent"
-            permission_strategy: "explicit"
-            security_level: "high"
-            persistence_enabled: "true"
-          - name: "explicit-basic-emptydir"
-            permission_strategy: "explicit"
-            security_level: "basic"
-            persistence_enabled: "false"
-          - name: "explicit-basic-persistent"
-            permission_strategy: "explicit"
-            security_level: "basic"
-            persistence_enabled: "true"
+        # Auto-generate test matrix from parameter combinations
+        permission_strategy: ["explicit"]
+        security_level: ["basic", "standard", "high"]
+        persistence_enabled: ["false", "true"]
+        test_key_method: ["keyPairs", "existingSecret"]
+        exclude:
+          # Limit existingSecret tests to reduce CI time
+          - security_level: "high"
+            test_key_method: "existingSecret"
+          - persistence_enabled: "true"
+            test_key_method: "existingSecret"
           
       fail-fast: false
     steps:
@@ -148,13 +133,13 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@v1.8.0
         with:
-          cluster_name: test-cluster-${{ matrix.config.name }}
+          cluster_name: test-cluster-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}
           kubectl_version: v1.27.3
 
       - name: Load test image into kind cluster
         run: |
           # Load the test image into kind cluster for Helm chart testing
-          kind load docker-image ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} --name test-cluster-${{ matrix.config.name }} -v 3
+          kind load docker-image ${{ env.TEST_IMAGE_NAME }}:${{ env.TEST_IMAGE_TAG }} --name test-cluster-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }} -v 3
 
       - name: Generate SSH test key pair
         run: |
@@ -202,10 +187,56 @@ jobs:
             exit 1
           fi
 
+      - name: Create Existing Secret for Test Keys
+        if: matrix.test_key_method == 'existingSecret'
+        run: |
+          echo "=== Creating existing test SSH keys secret ==="
+          
+          # Create the secret with the test SSH key pair
+          kubectl create secret generic test-ssh-keys-external \
+            --from-file=private-key-0=/tmp/test_ssh_key \
+            --from-file=public-key-0=/tmp/test_ssh_key.pub
+          
+          echo "✅ External test SSH keys secret created: test-ssh-keys-external"
+          
+          # Verify the secret was created correctly
+          kubectl get secret test-ssh-keys-external -o yaml
+
       - name: Create Test Values File
         run: |
           echo "::group::📄 Generated values.yaml"
-          cat << EOF  | tee /tmp/test-values.yaml 
+          
+          if [ "${{ matrix.test_key_method }}" = "existingSecret" ]; then
+            # Configuration for existingSecret method
+            cat << EOF  | tee /tmp/test-values.yaml 
+          image:
+            repository: ${{ env.TEST_IMAGE_NAME }}
+            tag: ${{ env.TEST_IMAGE_TAG }}
+            pullPolicy: Never
+          user:
+            name: testuser
+          ssh:
+            publicKeys:
+              - $TEST_SSH_PUBLIC_KEY
+            testKeys:
+              enabled: true
+              existingSecret: test-ssh-keys-external
+          tests:
+            sshConnectivity:
+              enabled: true
+            workspaceFunctionality:
+              enabled: true
+              networkTest:
+                enabled: true
+          security:
+            permissionStrategy: ${{ matrix.permission_strategy }}
+            level: ${{ matrix.security_level }}
+          persistence:
+            enabled: ${{ matrix.persistence_enabled }}
+          EOF
+          else
+            # Configuration for keyPairs method
+            cat << EOF  | tee /tmp/test-values.yaml 
           image:
             repository: ${{ env.TEST_IMAGE_NAME }}
             tag: ${{ env.TEST_IMAGE_TAG }}
@@ -229,13 +260,15 @@ jobs:
               networkTest:
                 enabled: true
           security:
-            permissionStrategy: ${{ matrix.config.permission_strategy }}
-            level: ${{ matrix.config.security_level }}
+            permissionStrategy: ${{ matrix.permission_strategy }}
+            level: ${{ matrix.security_level }}
           persistence:
-            enabled: ${{ matrix.config.persistence_enabled }}
+            enabled: ${{ matrix.persistence_enabled }}
           EOF
+          fi
+          
           echo "::endgroup::"
-          echo "✓ Test values file created"
+          echo "✓ Test values file created for method: ${{ matrix.test_key_method }}"
 
       - name: Validate Helm Chart Templates with Kubernetes
         run: |
@@ -248,8 +281,9 @@ jobs:
 
       - name: Install Helm Chart
         run: |
-          echo "=== Installing Helm Chart: ${{ matrix.config.name }} ==="
-          helm install test-${{ matrix.config.name }} helm/ssh-workspace \
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
+          echo "=== Installing Helm Chart: $RELEASE_NAME ==="
+          helm install "$RELEASE_NAME" helm/ssh-workspace \
             -f /tmp/test-values.yaml \
             --timeout=300s \
             --wait \
@@ -259,9 +293,10 @@ jobs:
       - name: Verify SSH Keys in Service Pod
         run: |
           echo "🔍 Verifying SSH keys configuration in pod..."
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
           
           # Get the pod name
-          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=test-${{ matrix.config.name }} --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
+          POD_NAME=$(kubectl get pods -l app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance="$RELEASE_NAME" --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}')
           
           if [ -z "$POD_NAME" ]; then
             echo "❌ No running SSH workspace pod found"
@@ -301,17 +336,18 @@ jobs:
       - name: SSH Connectivity Test (External)
         if: always()
         run: |
-          echo "=== External SSH Connectivity Test - ${{ matrix.config.name }} ==="
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
+          echo "=== External SSH Connectivity Test - $RELEASE_NAME ==="
           
           echo "🔍 Waiting for pod to be ready..."
           kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=120s
           
           echo "🔍 Getting service configuration..."
-          SERVICE_PORT=$(kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o jsonpath='{.spec.ports[0].port}')
+          SERVICE_PORT=$(kubectl get service "$RELEASE_NAME-ssh-workspace" -o jsonpath='{.spec.ports[0].port}')
           echo "Service port: $SERVICE_PORT"
           
           echo "🔍 Setting up port forward..."
-          kubectl port-forward service/test-${{ matrix.config.name }}-ssh-workspace 2222:$SERVICE_PORT &
+          kubectl port-forward service/"$RELEASE_NAME-ssh-workspace" 2222:$SERVICE_PORT &
           PORT_FORWARD_PID=$!
           sleep 10
           
@@ -322,7 +358,7 @@ jobs:
               -o ConnectTimeout=10 \
               -o BatchMode=yes \
               testuser@localhost -p 2222 \
-              'echo "External SSH connection successful! Configuration: ${{ matrix.config.name }}"' || {
+              "echo \"External SSH connection successful! Configuration: $RELEASE_NAME\"" || {
             echo "❌ External SSH connection failed!"
             
             echo "🔍 Running connection failure debugging..."
@@ -330,7 +366,7 @@ jobs:
             nc -zv localhost 2222 || echo "Port 2222 not accessible"
             
             echo "Service status:"
-            kubectl get service test-${{ matrix.config.name }}-ssh-workspace -o wide
+            kubectl get service "$RELEASE_NAME-ssh-workspace" -o wide
             
             # Kill port forward and exit
             kill $PORT_FORWARD_PID 2>/dev/null || true
@@ -344,13 +380,15 @@ jobs:
 
       - name: Run Helm Tests
         run: |
-          helm test test-${{ matrix.config.name }} --timeout=300s
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
+          helm test "$RELEASE_NAME" --timeout=300s
 
       - name: Validate SSH Key Pair in Test Secret
         if: always()
         run: |
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
           echo "=== Validating SSH key pair in test secret ==="
-          SECRET_NAME="test-${{ matrix.config.name }}-ssh-workspace-test-ssh-keys"
+          SECRET_NAME="$RELEASE_NAME-ssh-workspace-test-ssh-keys"
           
           # Check if secret exists
           if ! kubectl get secret "$SECRET_NAME" >/dev/null 2>&1; then
@@ -439,13 +477,14 @@ jobs:
       - name: Collect Test Pod Logs
         if: always()
         run: |
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
           echo "=== Collecting logs from test pods ==="
-          TEST_PODS=$(kubectl get pods -l "app.kubernetes.io/component=test,app.kubernetes.io/instance=test-${{ matrix.config.name }}" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+          TEST_PODS=$(kubectl get pods -l "app.kubernetes.io/component=test,app.kubernetes.io/instance=$RELEASE_NAME" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
           
           if [ -z "$TEST_PODS" ]; then
             echo "No test pods found to collect logs from"
             echo "Available pods:"
-            kubectl get pods -l "app.kubernetes.io/instance=test-${{ matrix.config.name }}" 2>/dev/null || echo "No pods found for this release"
+            kubectl get pods -l "app.kubernetes.io/instance=$RELEASE_NAME" 2>/dev/null || echo "No pods found for this release"
           else
             for POD in $TEST_PODS; do
               echo "::group::📋 Logs for pod: $POD"
@@ -465,13 +504,14 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
+          RELEASE_NAME="test-${{ matrix.permission_strategy }}-${{ matrix.security_level }}-${{ matrix.persistence_enabled }}-${{ matrix.test_key_method }}"
           echo "=== Cleaning up ==="
           # Clean up SSH test keys
           rm -f $TEST_SSH_PRIVATE_KEY_PATH $TEST_SSH_PRIVATE_KEY_PATH.pub 2>/dev/null || true
           
-          helm uninstall test-${{ matrix.config.name }} --debug || true
+          helm uninstall "$RELEASE_NAME" --debug || true
           echo "=== Final cluster state ==="
-          kubectl get all -A | grep test-${{ matrix.config.name }} || echo "No remaining test-${{ matrix.config.name }} resources"
+          kubectl get all -A | grep "$RELEASE_NAME" || echo "No remaining $RELEASE_NAME resources"
 
   cleanup:
     name: Cleanup Artifacts
