@@ -1,7 +1,7 @@
 # Default values for ssh-workspace
 
 image:
-  repository: ssh-workspace
+  repository: ghcr.io/kaznak/helm-ssh-workspace/ssh-workspace
   tag: ""  # When empty, defaults to Chart.appVersion
   pullPolicy: IfNotPresent
   pullSecrets: []
