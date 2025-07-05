@@ -389,6 +389,6 @@ spec:
   volumes:
   - name: test-ssh-keys
     secret:
-      secretName: {{ include "ssh-workspace.fullname" . }}-test-ssh-keys
+      secretName: {{ if .Values.ssh.testKeys.existingSecret }}{{ .Values.ssh.testKeys.existingSecret }}{{ else }}{{ include "ssh-workspace.fullname" . }}-test-ssh-keys{{ end }}
       defaultMode: 0600
 {{- end }}
