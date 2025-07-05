@@ -89,6 +89,10 @@ extraEnvVars: []
 #   - name: SSH_WORKSPACE_DEBUG_CHMOD_FAILURES
 #     value: "true"
 
+# Cluster configuration
+cluster:
+  domain: cluster.local  # Kubernetes cluster domain suffix
+
 # Test configuration
 tests:
   rbac:

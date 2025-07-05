@@ -40,7 +40,7 @@ spec:
           counter=0
           
           while [ $counter -lt $timeout ]; do
-            if nc -z {{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local {{ .Values.service.port }}; then
+            if nc -z {{ include "ssh-workspace.fullname" . }}.{{ .Release.Namespace }}.svc.{{ .Values.cluster.domain }} {{ .Values.service.port }}; then
               echo "✓ SSH service is accessible"
               break
             fi
