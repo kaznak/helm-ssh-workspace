@@ -36,8 +36,8 @@ spec:
       
       # Validate test SSH keys
       echo "Validating test SSH keys..."
-      if [ ! -f /test-ssh-keys/test-key-0 ]; then
-        echo "ERROR: test-key-0 not found"
+      if [ ! -f /test-ssh-keys/private-key-0 ]; then
+        echo "ERROR: private-key-0 not found"
         exit 1
       fi
       
@@ -62,12 +62,12 @@ spec:
       
       # Note: SSH key permissions are managed by Kubernetes Secret volume
       echo "📋 SSH key file info:"
-      ls -la /test-ssh-keys/test-key-0
+      ls -la /test-ssh-keys/private-key-0
       echo "   Note: Secret volume permissions are controlled by Kubernetes"
       
       # SSH connection helper function
       ssh_exec() {
-        ssh -i /test-ssh-keys/test-key-0 \
+        ssh -i /test-ssh-keys/private-key-0 \
             -o StrictHostKeyChecking=no \
             -o UserKnownHostsFile=/dev/null \
             -o ConnectTimeout=10 \
@@ -389,6 +389,6 @@ spec:
   volumes:
   - name: test-ssh-keys
     secret:
-      secretName: {{ include "ssh-workspace.fullname" . }}-test-ssh-keys
+      secretName: {{ if .Values.ssh.testKeys.existingSecret }}{{ .Values.ssh.testKeys.existingSecret }}{{ else }}{{ include "ssh-workspace.fullname" . }}-test-ssh-keys{{ end }}
       defaultMode: 0600
 {{- end }}

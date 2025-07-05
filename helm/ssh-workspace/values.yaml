@@ -27,7 +27,7 @@ ssh:
   # These keys are added in addition to the main publicKeys for testing purposes
   testKeys:
     enabled: false
-    # Test key pairs - both public and private keys needed for testing
+    # Method 1: Direct key pairs - both public and private keys needed for testing
     keyPairs: []
     # Example:
     # keyPairs:
@@ -37,6 +37,15 @@ ssh:
     #       b3BlbnNzaC1QlkeXktZZlnBUKmhp4AAAAC1lZQI5NTE5AAAAIGrShAQgt+9ZuPDQ1L2K
     #       rSwKxL8BEcqhytt7X3ZLZxaiAAAAFHRlc3Qta2V5QGhlbG0tdGVzdA==
     #       -----END OPENSSH PRIVATE KEY-----
+    # Method 2: Existing Secret reference (recommended for production)
+    existingSecret: ""  # Name of existing Secret containing test SSH keys
+    # When existingSecret is specified, keyPairs is ignored
+    # Expected Secret format:
+    # data:
+    #   public-key-0: <base64-encoded-public-key>
+    #   private-key-0: <base64-encoded-private-key>
+    #   public-key-1: <base64-encoded-public-key>  # Additional key pairs
+    #   private-key-1: <base64-encoded-private-key>
 
 # Persistence configuration
 persistence:

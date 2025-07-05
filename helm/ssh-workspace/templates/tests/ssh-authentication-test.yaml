@@ -45,8 +45,8 @@ spec:
         exit 1
       fi
       
-      if [ ! -f /test-ssh-keys/test-key-0 ]; then
-        echo "ERROR: test-key-0 not found"
+      if [ ! -f /test-ssh-keys/private-key-0 ]; then
+        echo "ERROR: private-key-0 not found"
         echo "Available files in /test-ssh-keys:"
         ls -la /test-ssh-keys/ || echo "Cannot list files"
         exit 1
@@ -103,11 +103,11 @@ spec:
       # Phase 3: SSH Key Authentication Test
       echo "=== Phase 3: SSH Key Authentication Test ==="
       echo "Test SSH key fingerprint:"
-      ssh-keygen -l -f /test-ssh-keys/test-key-0 || echo "Failed to get private key fingerprint"
-      ssh-keygen -l -f /test-ssh-keys/test-key-0.pub || echo "Failed to get public key fingerprint"
+      ssh-keygen -l -f /test-ssh-keys/private-key-0 || echo "Failed to get private key fingerprint"
+      ssh-keygen -l -f /test-ssh-keys/public-key-0 || echo "Failed to get public key fingerprint"
       
       echo "Test SSH key content (first 50 chars):"
-      head -c 50 /test-ssh-keys/test-key-0.pub && echo "..."
+      head -c 50 /test-ssh-keys/public-key-0 && echo "..."
       
       echo "=== Remote SSH Configuration Diagnosis ==="
       # Test if we can reach the SSH service and get version
@@ -117,7 +117,7 @@ spec:
       # Perform SSH key-based authentication test
       echo "=== SSH Authentication Test ==="
       # Copy SSH key to writable location since volume is read-only
-      cp /test-ssh-keys/test-key-0 /tmp/test-key-0
+      cp /test-ssh-keys/private-key-0 /tmp/test-key-0
       chmod 600 /tmp/test-key-0
       
       # First attempt: normal connection
@@ -176,10 +176,10 @@ spec:
         
         echo "=== Key Format and Compatibility Check ==="
         echo "Key type analysis:"
-        file /test-ssh-keys/test-key-0 /test-ssh-keys/test-key-0.pub || true
+        file /test-ssh-keys/private-key-0 /test-ssh-keys/public-key-0 || true
         
         echo "Public key format validation:"
-        ssh-keygen -l -f /test-ssh-keys/test-key-0.pub | cut -d' ' -f1-2 || echo "Invalid key format"
+        ssh-keygen -l -f /test-ssh-keys/public-key-0 | cut -d' ' -f1-2 || echo "Invalid key format"
         
         exit 1
       fi
@@ -202,6 +202,6 @@ spec:
   volumes:
   - name: test-ssh-keys
     secret:
-      secretName: {{ include "ssh-workspace.fullname" . }}-test-ssh-keys
+      secretName: {{ if .Values.ssh.testKeys.existingSecret }}{{ .Values.ssh.testKeys.existingSecret }}{{ else }}{{ include "ssh-workspace.fullname" . }}-test-ssh-keys{{ end }}
       defaultMode: 0600
 {{- end }}
