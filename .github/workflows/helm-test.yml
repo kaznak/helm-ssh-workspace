@@ -357,7 +357,7 @@ jobs:
             echo "❌ Test SSH keys secret not found: $SECRET_NAME"
             echo "Available secrets:"
             kubectl get secrets | grep test || echo "No test secrets found"
-            exit 0
+            exit 1
           fi
           
           echo "✓ Test SSH keys secret exists: $SECRET_NAME"
@@ -372,7 +372,7 @@ jobs:
             echo "❌ SSH keys not found in secret"
             echo "Private key present: $([ -n "$SECRET_PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
             echo "Public key present: $([ -n "$SECRET_PUBLIC_KEY" ] && echo 'yes' || echo 'no')"
-            exit 0
+            exit 1
           fi
           
           echo "✓ Both private and public keys found in secret"
@@ -381,7 +381,7 @@ jobs:
           echo "🔍 Decoding and validating SSH key pair..."
           if ! echo "$SECRET_PRIVATE_KEY" | base64 -d > /tmp/secret-private-key 2>/dev/null; then
             echo "❌ Failed to decode private key from secret"
-            exit 0
+            exit 1
           fi
           
           echo "✓ Private key decoded successfully"
@@ -400,7 +400,7 @@ jobs:
           if ! echo "$SECRET_PUBLIC_KEY" | base64 -d > /tmp/secret-public-key 2>/dev/null; then
             echo "❌ Failed to decode public key from secret"
             rm -f /tmp/secret-private-key
-            exit 0
+            exit 1
           fi
           
           echo "✓ Public key decoded successfully"
@@ -418,7 +418,7 @@ jobs:
           if ! ssh-keygen -y -f /tmp/secret-private-key > /tmp/derived-public-key 2>/dev/null; then
             echo "❌ Failed to derive public key from secret's private key - Invalid format"
             rm -f /tmp/secret-private-key /tmp/secret-public-key
-            exit 0
+            exit 1
           fi
           
           echo "✓ Successfully derived public key from private key"
