@@ -390,7 +390,7 @@ jobs:
           if [ "${{ matrix.test_key_method }}" = "existingSecret" ]; then
             SECRET_NAME="test-ssh-keys-external"
           else
-            SECRET_NAME="$RELEASE_NAME-ssh-workspace-test-ssh-keys"
+            SECRET_NAME="$RELEASE_NAME-test-ssh-keys"
           fi
           
           # Check if secret exists
