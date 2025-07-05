@@ -92,7 +92,6 @@ jobs:
     strategy:
       matrix:
         # Auto-generate test matrix from parameter combinations
-        permission_strategy: ["explicit"]
         security_level: ["basic", "standard", "high"]
         persistence_enabled: ["false", "true"]
         test_key_method: ["keyPairs", "existingSecret"]
@@ -229,7 +228,6 @@ jobs:
               networkTest:
                 enabled: true
           security:
-            permissionStrategy: ${{ matrix.permission_strategy }}
             level: ${{ matrix.security_level }}
           persistence:
             enabled: ${{ matrix.persistence_enabled }}
@@ -260,7 +258,6 @@ jobs:
               networkTest:
                 enabled: true
           security:
-            permissionStrategy: ${{ matrix.permission_strategy }}
             level: ${{ matrix.security_level }}
           persistence:
             enabled: ${{ matrix.persistence_enabled }}
