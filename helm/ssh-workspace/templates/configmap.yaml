@@ -21,7 +21,7 @@ data:
 {{- end }}
 {{- end }}
 ---
-{{- if or .Values.ssh.config (not (eq .Values.ssh.strictModes nil)) }}
+{{- if or .Values.ssh.config (not (eq .Values.ssh.strictModes nil)) (not .Values.audit.enabled) }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -37,6 +37,10 @@ data:
   custom_config: |
 {{- if not (eq .Values.ssh.strictModes nil) }}
     StrictModes {{ if .Values.ssh.strictModes }}yes{{ else }}no{{ end }}
+{{- end }}
+{{- if not .Values.audit.enabled }}
+    # PAM設定 - audit無効時はPAMも無効化
+    UsePAM no
 {{- end }}
 {{- range $key, $value := .Values.ssh.config }}
     {{ $key }} {{ $value }}

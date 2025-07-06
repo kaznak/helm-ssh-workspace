@@ -43,7 +43,7 @@ IgnoreRhosts yes
 HostbasedAuthentication no
 PermitEmptyPasswords no
 ChallengeResponseAuthentication no
-UsePAM no
+UsePAM yes
 PrintMotd no
 PrintLastLog yes
 UseDNS no
