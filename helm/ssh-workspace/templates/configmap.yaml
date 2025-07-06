@@ -6,11 +6,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ssh-workspace.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
   annotations:
-    helm.sh/resource-policy: keep
-    {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
 data:
   authorized_keys: |
 {{- range .Values.ssh.publicKeys }}
@@ -30,11 +29,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ssh-workspace.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
   annotations:
-    helm.sh/resource-policy: keep
-    {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
 data:
   custom_config: |
 {{- if not (eq .Values.ssh.strictModes nil) }}
