@@ -21,6 +21,10 @@ ClientAliveInterval 300
 ClientAliveCountMax 3
 TCPKeepAlive yes
 
+# TTY設定
+UsePTY yes
+PermitTTY yes
+
 # X11転送
 X11Forwarding yes
 X11DisplayOffset 10
