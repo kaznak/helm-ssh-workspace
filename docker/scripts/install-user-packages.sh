@@ -79,7 +79,8 @@ install_homebrew_packages() {
         htop \
         tree \
         tmux \
-        screen
+        screen \
+        netcat
     
     # Kubernetes tools
     log_info "Installing Kubernetes tools..."
