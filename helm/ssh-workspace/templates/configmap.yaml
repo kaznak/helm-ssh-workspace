@@ -52,11 +52,10 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     {{- include "ssh-workspace.labels" . | nindent 4 }}
+  {{- with .Values.annotations }}
   annotations:
-    helm.sh/resource-policy: keep
-    {{- with .Values.annotations }}
     {{- toYaml . | nindent 4 }}
-    {{- end }}
+  {{- end }}
 data:
   sshd: |
     # PAM configuration for the Secure Shell service
