@@ -66,3 +66,6 @@ __pycache__/
 *.bak
 *.backup
 *.orig
+
+# Miscellaneous
+/tmp
