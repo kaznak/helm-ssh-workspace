@@ -4,7 +4,7 @@ description: SSH accessible workspace environment
 type: application
 version: 0.6.0
 appVersion: "0.6.0"
-icon: https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/gnometerminal.svg
+icon: https://cdn.jsdelivr.net/npm/simple-icons@v9/icons/shell.svg
 
 keywords:
   - ssh
