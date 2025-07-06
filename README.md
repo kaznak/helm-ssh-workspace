@@ -235,6 +235,24 @@ helm install workspace ./helm/ssh-workspace \
 | Standard | Recommended | true | seccomp enabled |
 | High | Production | true | seccomp RuntimeDefault |
 
+### Audit Configuration
+
+The chart provides configurable Linux audit logging for SSH sessions:
+
+```yaml
+audit:
+  enabled: false  # Enable Linux audit logging for SSH sessions
+```
+
+**Important Notes:**
+- **Default: Disabled** - Audit logging is disabled by default to prevent issues in Kubernetes environments
+- **Kubernetes Limitation** - Most Kubernetes environments don't allow containers to write to the audit subsystem
+- **Error Symptoms** - When enabled in restrictive environments, you may see:
+  - `linux_audit_write_entry failed: Operation not permitted`
+  - SSH sessions immediately disconnecting after authentication
+- **When to Enable** - Only enable if your Kubernetes cluster specifically supports audit capabilities for containers
+- **Compliance** - Required for certain security compliance scenarios (SOX, PCI-DSS, etc.)
+
 ### Permission Management Strategy
 
 The chart uses explicit permission management for volume ownership:

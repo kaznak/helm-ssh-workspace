@@ -41,6 +41,10 @@ security:
   securityContext: {}  # Additional Container Security Context (overrides defaults)
   podSecurityContext: {}  # Additional Pod Security Context (added to defaults)
 
+# Audit configuration
+audit:
+  enabled: false  # Enable Linux audit logging for SSH sessions (may cause issues in Kubernetes)
+
 # Service configuration
 service:
   type: ClusterIP  # Service type: ClusterIP, NodePort, LoadBalancer

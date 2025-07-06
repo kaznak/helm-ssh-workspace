@@ -190,6 +190,10 @@ spec:
               subPath: custom_config
               readOnly: true
             {{- end }}
+            - name: pam-config
+              mountPath: /etc/pam.d/sshd
+              subPath: sshd
+              readOnly: true
           {{- with .Values.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
@@ -259,6 +263,9 @@ spec:
           configMap:
             name: {{ include "ssh-workspace.fullname" . }}-ssh-config
         {{- end }}
+        - name: pam-config
+          configMap:
+            name: {{ include "ssh-workspace.fullname" . }}-pam-config
         {{- if .Values.monitoring.enabled }}
         - name: ssh-exporter-config
           configMap:
