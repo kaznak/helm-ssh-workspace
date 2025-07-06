@@ -78,7 +78,7 @@ data:
 {{- if .Values.audit.enabled }}
     session    required     pam_loginuid.so
 {{- else }}
-    session    optional     pam_loginuid.so
+    # session    optional     pam_loginuid.so  # Disabled for Kubernetes compatibility
 {{- end }}
     
     # Create a new session keyring.
