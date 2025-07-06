@@ -43,7 +43,7 @@ IgnoreRhosts yes
 HostbasedAuthentication no
 PermitEmptyPasswords no
 ChallengeResponseAuthentication no
-UsePAM yes
+# UsePAM yes  # Configured via custom.conf
 PrintMotd no
 PrintLastLog yes
 UseDNS no
