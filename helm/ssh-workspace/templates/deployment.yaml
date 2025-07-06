@@ -146,6 +146,12 @@ spec:
             - name: SSH_USER_ADDITIONAL_GROUPS
               value: {{ .Values.user.additionalGroups | join "," | quote }}
             {{- end }}
+            {{- if not .Values.audit.enabled }}
+            - name: AUDIT_DISABLED
+              value: "1"
+            - name: SYSTEMD_LOG_TARGET
+              value: "null"
+            {{- end }}
             {{- with .Values.extraEnvVars }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
