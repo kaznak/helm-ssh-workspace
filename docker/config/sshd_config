@@ -22,7 +22,6 @@ ClientAliveCountMax 3
 TCPKeepAlive yes
 
 # TTY設定
-UsePTY yes
 PermitTTY yes
 
 # X11転送
