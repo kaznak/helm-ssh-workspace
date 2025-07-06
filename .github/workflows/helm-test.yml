@@ -487,10 +487,24 @@ jobs:
           # Cleanup temporary files
           rm -f /tmp/secret-private-key /tmp/secret-public-key /tmp/derived-public-key
 
-      - name: Collect Test Pod Logs
+      - name: Collect Pod Logs
         if: always()
         run: |
           RELEASE_NAME="test-ssh-workspace"
+          
+          echo "=== Collecting logs from service pods ==="
+          SERVICE_PODS=$(kubectl get pods -l "app.kubernetes.io/name=ssh-workspace,app.kubernetes.io/instance=$RELEASE_NAME" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
+          
+          if [ -z "$SERVICE_PODS" ]; then
+            echo "No service pods found to collect logs from"
+          else
+            for POD in $SERVICE_PODS; do
+              echo "::group::📋 Service Pod Logs: $POD"
+              kubectl logs "$POD" --all-containers=true --prefix=true || echo "Failed to get logs for $POD"
+              echo "::endgroup::"
+            done
+          fi
+          
           echo "=== Collecting logs from test pods ==="
           TEST_PODS=$(kubectl get pods -l "app.kubernetes.io/component=test,app.kubernetes.io/instance=$RELEASE_NAME" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo "")
           
@@ -500,12 +514,12 @@ jobs:
             kubectl get pods -l "app.kubernetes.io/instance=$RELEASE_NAME" 2>/dev/null || echo "No pods found for this release"
           else
             for POD in $TEST_PODS; do
-              echo "::group::📋 Logs for pod: $POD"
+              echo "::group::📋 Test Pod Logs: $POD"
               kubectl logs "$POD" --all-containers=true --prefix=true || echo "Failed to get logs for $POD"
               echo "::endgroup::"
             done
           fi
-          echo "✓ Test pod logs collection completed"
+          echo "✓ Pod logs collection completed"
 
       - name: Cleanup Test Pods
         if: always()
