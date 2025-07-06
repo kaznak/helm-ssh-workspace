@@ -21,7 +21,7 @@ data:
 {{- end }}
 {{- end }}
 ---
-{{- if or .Values.ssh.config (not (eq .Values.ssh.strictModes nil)) }}
+{{- if or .Values.ssh.config (not (eq .Values.ssh.strictModes nil)) true }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -38,6 +38,8 @@ data:
 {{- if not (eq .Values.ssh.strictModes nil) }}
     StrictModes {{ if .Values.ssh.strictModes }}yes{{ else }}no{{ end }}
 {{- end }}
+    # Set PS1 environment variable for interactive shells
+    SetEnv PS1="$ "
 {{- range $key, $value := .Values.ssh.config }}
     {{ $key }} {{ $value }}
 {{- end }}
