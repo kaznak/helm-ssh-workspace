@@ -78,8 +78,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ssh-workspace
+          cache-to: type=gha,mode=max,scope=ssh-workspace
 
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v1

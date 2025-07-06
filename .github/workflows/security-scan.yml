@@ -47,8 +47,8 @@ jobs:
           file: ./docker/Dockerfile
           load: true
           tags: ${{ env.IMAGE_NAME }}:scan
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ssh-workspace
+          cache-to: type=gha,mode=max,scope=ssh-workspace
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
