@@ -95,7 +95,7 @@ runAsNonRoot: false  # SSH daemon must run as root
 readOnlyRootFilesystem: true  # Enhanced security: no write access to root filesystem
 {{- end }}
 {{- if not .Values.user.sudo }}
-allowPrivilegeEscalation: false  # Restricted when sudo not required
+allowPrivilegeEscalation: true  # Required for SSH session management (TTY/PTY operations)
 {{- end }}
 capabilities:
   drop:
