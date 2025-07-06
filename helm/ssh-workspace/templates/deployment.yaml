@@ -190,7 +190,7 @@ spec:
             - name: var-empty
               mountPath: /var/empty
             {{- end }}
-            {{- if or .Values.ssh.config (not (eq .Values.ssh.strictModes nil)) (not .Values.audit.enabled) }}
+            {{- if .Values.ssh.config }}
             - name: ssh-config
               mountPath: /etc/ssh/sshd_config.d/custom.conf
               subPath: custom_config
@@ -264,7 +264,7 @@ spec:
           emptyDir:
             sizeLimit: 1Mi
         {{- end }}
-        {{- if or .Values.ssh.config (not (eq .Values.ssh.strictModes nil)) (not .Values.audit.enabled) }}
+        {{- if .Values.ssh.config }}
         - name: ssh-config
           configMap:
             name: {{ include "ssh-workspace.fullname" . }}-ssh-config
