@@ -2,7 +2,7 @@
 
 ## 概要
 
-README.ja.mdの要求・要件を満たすDropbear SSH ワークスペースHelmチャートの実装設計。
+[README.ja.md](../README.ja.md)の[要求・要件](../README.ja.md#要求要件)を満たすDropbear SSH ワークスペースHelmチャートの実装設計。
 
 ## 全体アーキテクチャ
 
