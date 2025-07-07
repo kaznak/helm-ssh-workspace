@@ -11,5 +11,4 @@
 
 以下のファイル間には暗黙の依存関係があるため注意すること。
 
-- README.ja.md is depended on by
-  - TODO.md
+現在暗黙の依存関係はありません。
