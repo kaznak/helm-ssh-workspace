@@ -4,7 +4,7 @@
 
 README.ja.mdの要求・要件を満たすDropbear SSH ワークスペースHelmチャートの実装設計。
 
-## 1. 全体アーキテクチャ
+## 全体アーキテクチャ
 
 ### コンポーネント構成
 
@@ -15,11 +15,11 @@ README.ja.mdの要求・要件を満たすDropbear SSH ワークスペースHelm
 
 ### データフロー
 
-1. SSH鍵認証 → Dropbear SSH → シェルアクセス - [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH), [[P3R8-SHELL]](../README.ja.md#P3R8-SHELL)
-2. ポートフォワーディング（localhost限定） - [[X8D2-FORWARD]](../README.ja.md#X8D2-FORWARD), [[L9K6-LOCAL]](../README.ja.md#L9K6-LOCAL)
-3. 開発ツール via linuxbrew（ユーザランド） - [[Q2N5-TOOLS]](../README.ja.md#Q2N5-TOOLS), [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+- SSH鍵認証 → Dropbear SSH → シェルアクセス - [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH), [[P3R8-SHELL]](../README.ja.md#P3R8-SHELL)
+- ポートフォワーディング（localhost限定） - [[X8D2-FORWARD]](../README.ja.md#X8D2-FORWARD), [[L9K6-LOCAL]](../README.ja.md#L9K6-LOCAL)
+- 開発ツール via linuxbrew（ユーザランド） - [[Q2N5-TOOLS]](../README.ja.md#Q2N5-TOOLS), [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
 
-## 2. Docker イメージ設計
+## Docker イメージ設計
 
 ### ベースイメージ
 Ubuntu/Debian（linuxbrew対応） - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
@@ -35,7 +35,7 @@ Ubuntu/Debian（linuxbrew対応） - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
 - linuxbrew依存関係 - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
 - 基本開発ツール（git, curl, vim等） - [[Q2N5-TOOLS]](../README.ja.md#Q2N5-TOOLS)
 
-## 3. Kubernetes リソース設計
+## Kubernetes リソース設計
 
 ### Deployment - [[J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY)
 - replicas: 1（固定） - [[G9W8-FIXED]](../README.ja.md#G9W8-FIXED), [[J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY)
@@ -63,7 +63,7 @@ Ubuntu/Debian（linuxbrew対応） - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
 ### PVC（オプション）
 - ホームディレクトリ永続化用 - [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME), [[R7P4-STORAGE]](../README.ja.md#R7P4-STORAGE), [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST), [[C6B2-SUBDIR]](../README.ja.md#C6B2-SUBDIR)
 
-## 4. values.yaml 設定項目設計
+## values.yaml 設定項目設計
 
 ```yaml
 # イメージ設定
@@ -117,7 +117,7 @@ healthcheck:
     enabled: true
 ```
 
-## 5. セキュリティ実装方針
+## セキュリティ実装方針
 
 ### Pod Security Standards - [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
 - runAsNonRoot: true - [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
@@ -136,7 +136,7 @@ healthcheck:
 - PVC or Secret で永続化 - [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
 - release削除後も保持 - [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
 
-## 6. ログ・監視実装方針
+## ログ・監視実装方針
 
 ### 構造化ログ - [[K5G2-STRUCT]](../README.ja.md#K5G2-STRUCT)
 - JSON形式でログ出力 - [[K5G2-STRUCT]](../README.ja.md#K5G2-STRUCT)
@@ -153,7 +153,7 @@ healthcheck:
 - readinessProbe: SSH接続テスト - [[Q1P4-HEALTH]](../README.ja.md#Q1P4-HEALTH)
 - 定期的なプローブ実行 - [[Q1P4-HEALTH]](../README.ja.md#Q1P4-HEALTH)
 
-## 7. 実装優先度と段階
+## 実装優先度と段階
 
 ### Phase 1: 基本機能
 - Dropbear SSH + 開発環境コンテナ - [[P3R8-SHELL]](../README.ja.md#P3R8-SHELL), [[Q2N5-TOOLS]](../README.ja.md#Q2N5-TOOLS)
@@ -170,7 +170,7 @@ healthcheck:
 - ヘルスチェック実装 - [[Q1P4-HEALTH]](../README.ja.md#Q1P4-HEALTH)
 - 構造化ログ対応 - [[K5G2-STRUCT]](../README.ja.md#K5G2-STRUCT), [[F7C8-METRICS]](../README.ja.md#F7C8-METRICS)
 
-## 8. 要求・要件マッピング
+## 要求・要件マッピング
 
 ### 機能要件
 - [[P3R8-SHELL]](../README.ja.md#P3R8-SHELL) シングルユーザSSHアクセス → Dropbear SSH + 単一developerユーザ
