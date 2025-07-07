@@ -25,7 +25,7 @@ README.ja.mdの要求・要件を満たすDropbear SSH ワークスペースHelm
 Ubuntu/Debian（linuxbrew対応） - [[F01b1]](../README.ja.md#f01b1)
 
 ### コンテナ構成
-- **非特権ユーザ**: `developer` (uid=1000) - [[S01a]](../README.ja.md#s01a), [[F01a]](../README.ja.md#f01a)
+- **非特権ユーザ**: values.yamlで設定可能（デフォルト: `developer`, uid=1000, gid=1000） - [[S01a]](../README.ja.md#s01a), [[F01a]](../README.ja.md#f01a), [[F01e]](../README.ja.md#f01e)
 - **Dropbear SSH**: ユーザランドで動作、ポート2222 - [[N01a]](../README.ja.md#n01a), [[S01a]](../README.ja.md#s01a)
 - **開発ツール**: linuxbrew経由でインストール - [[F01b]](../README.ja.md#f01b), [[F01b1]](../README.ja.md#f01b1)
 - **エントリポイント**: SSH鍵設定 + Dropbear起動 - [[S01b]](../README.ja.md#s01b), [[S01c]](../README.ja.md#s01c)
@@ -71,6 +71,12 @@ image:
   repository: helm-ssh-workspace
   tag: latest
   pullPolicy: IfNotPresent
+
+# ユーザ設定 - [F01e](../README.ja.md#f01e)
+user:
+  name: developer  # [F01e1](../README.ja.md#f01e1)
+  uid: 1000  # [F01e2](../README.ja.md#f01e2)
+  gid: 1000  # [F01e3](../README.ja.md#f01e3)
 
 # SSH設定 - [N01a](../README.ja.md#n01a), [S01b](../README.ja.md#s01b)
 ssh:
@@ -177,6 +183,10 @@ healthcheck:
 - [[F01d2]](../README.ja.md#f01d2) StorageClass設定 → values.yaml設定
 - [[F01d3]](../README.ja.md#f01d3) PVC永続化 → PVC作成・再利用
 - [[F01d4]](../README.ja.md#f01d4) サブディレクトリマウント → PVC subPath設定
+- [[F01e]](../README.ja.md#f01e) ユーザ設定 → values.yaml設定
+- [[F01e1]](../README.ja.md#f01e1) ユーザ名設定 → values.yaml設定、デフォルトdeveloper
+- [[F01e2]](../README.ja.md#f01e2) UID設定 → values.yaml設定、デフォルト1000
+- [[F01e3]](../README.ja.md#f01e3) GID設定 → values.yaml設定、デフォルト1000
 
 ### リソース管理
 - [[R01a]](../README.ja.md#r01a) リソース制限設定 → values.yaml resources設定

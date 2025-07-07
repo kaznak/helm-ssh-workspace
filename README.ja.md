@@ -31,6 +31,10 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
     - <span id="f01d2">[F01d2]</span> PersistentVolume の場合、 StorageClass は values.yaml で設定可能
     - <span id="f01d3">[F01d3]</span> PersistentVolume の場合、ホームディレクトリは Helm release 削除後も残り、再利用可能
     - <span id="f01d4">[F01d4]</span> PersistentVolume の場合、サブディレクトリのマウントも可能
+  - <span id="f01e">[F01e]</span> ユーザ設定を values.yaml で指定可能
+    - <span id="f01e1">[F01e1]</span> ユーザ名を values.yaml で設定可能、デフォルトは developer
+    - <span id="f01e2">[F01e2]</span> UID を values.yaml で設定可能、デフォルトは 1000
+    - <span id="f01e3">[F01e3]</span> GID を values.yaml で設定可能、デフォルトは 1000
 - <span id="r01">[R01]</span> リソース管理
   - <span id="r01a">[R01a]</span> values.yaml で CPU、メモリ、ストレージのリソース制限を設定可能
 - <span id="n01">[N01]</span> ネットワーク・外部アクセス
