@@ -20,7 +20,18 @@ ssh workspace のライフサイクルは以下の通り。
 - Rollback: helm rollback フェーズ
 - Uninstall: helm uninstall フェーズ
 
-### 注意事項
+### 重要な設計事項
+
+#### Dropbear SSH の採用
+
+本プロジェクトでは OpenSSH ではなく Dropbear SSH を採用する。
+これは非特権環境での運用要件 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT) を満たすためである。
+
+Dropbear SSH の採用により以下の要件が容易に実現できる：
+- SSH 鍵認証のみの設定 [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH)
+- ポートフォワーディングのローカルホスト制限 [[L9K6-LOCAL]](../README.ja.md#L9K6-LOCAL)
+  - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
+  - 外部アクセスを許可する `-a` オプションを使用しないことが重要
 
 #### ユーザ設定と関連する処理
 
@@ -43,13 +54,6 @@ ssh workspace はライフサイクルの各段階でのテストを充実させ
 また、節、[Install フェーズでのユーザ設定](#install-フェーズでのユーザ設定)、で述べた理由のため、複雑な処理を実行する必要がある - [[Y4F1-USER]](../README.ja.md#Y4F1-USER), [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME), [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)。
 
 確実にこれらの処理を実行できるようにするため、成果物の Docker イメージにこれらの処理のためのスクリプトを含めて、 Docker により全ての処理を行えるようにする。
-
-#### ポートフォワーディングの制限
-
-SSH ポートフォワーディングは「ローカルホストのみ」に制限する必要がある - [[L9K6-LOCAL]](../README.ja.md#L9K6-LOCAL)。
-
-Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドするため、この要件は標準設定で満たされる。
-重要なのは外部アクセスを許可する `-a` オプションを使用しないことである。
 
 #### replicas固定とスケーリング無効
 
