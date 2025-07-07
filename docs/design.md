@@ -64,4 +64,70 @@ HPA等の自動スケーリング機能は明示的に無効化し、単一repli
 
 ## コンポーネントの詳細
 
+### Docker イメージ
+
+SSH workspace の実行環境を提供するコンテナイメージ。
+
+#### ベースイメージ
+- Ubuntu/Debian ベース - linuxbrew 対応のため [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+
+#### 含まれるコンポーネント
+- **Dropbear SSH サーバ** - 非特権実行可能な SSH サーバ [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
+- **基本開発ツール** - git, curl, vim 等の基本ツール [[Q2N5-TOOLS]](../README.ja.md#Q2N5-TOOLS)
+- **linuxbrew 環境** - ユーザランドでのパッケージ管理 [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+- **管理スクリプト群**
+  - 初期化スクリプト (init-container 用)
+  - エントリポイントスクリプト (SSH サーバ起動用)
+  - テストスクリプト (helm test 用)
+
+#### 設計上の考慮事項
+- 非特権ユーザでの実行を前提とした構成
+- values.yaml で指定されるユーザ設定は含まない (CI フェーズの制約)
+
+### Helm チャート
+
+Kubernetes リソースのデプロイとライフサイクル管理を提供。
+
+#### メインリソース
+- **Deployment** - SSH workspace Pod の管理 [[J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY)
+  - replicas: 1 固定 [[G9W8-FIXED]](../README.ja.md#G9W8-FIXED)
+  - securityContext: restricted policy 準拠 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
+- **Service** - SSH 接続用エンドポイント [[N4V9-SVC]](../README.ja.md#N4V9-SVC)
+  - type: ClusterIP (デフォルト) [[E4L7-CLUSTER]](../README.ja.md#E4L7-CLUSTER)
+  - port: 2222 [[B3Q8-PORT]](../README.ja.md#B3Q8-PORT)
+
+#### 設定リソース
+- **ConfigMap** - SSH サーバ設定、スクリプト等
+- **Secret** - SSH 認証鍵、ホストキー [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH), [[V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY)
+
+#### ストレージリソース (オプション)
+- **PersistentVolumeClaim** - ホームディレクトリ永続化用 [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
+  - emptyDir がデフォルト [[T1H8-EMPTY]](../README.ja.md#T1H8-EMPTY)
+
+#### 初期化リソース
+- **Init Container** - ユーザ設定、ホストキー生成等
+- **Pre-install Hook** - ホストキー永続化 [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+
+#### テストリソース
+- **Test Pod** - helm test 用検証スクリプト [[U9A4-TEST]](../README.ja.md#U9A4-TEST)
+
+### GitHub Actions ワークフロー
+
+CI/CD パイプラインとリリース管理を提供。
+
+#### ビルドワークフロー
+- Docker イメージのビルドとプッシュ
+- Helm チャートのパッケージング
+- 静的解析とセキュリティスキャン
+
+#### テストワークフロー
+- 全 Helm ライフサイクルのテスト実行
+- 複数 Kubernetes バージョンでの検証
+- values.yaml パターンテスト
+
+#### リリースワークフロー
+- セマンティックバージョニング
+- GitHub Releases での成果物公開
+- Helm リポジトリへの登録
+
 ## ライフサイクルの詳細
