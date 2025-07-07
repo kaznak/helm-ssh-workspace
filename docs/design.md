@@ -151,3 +151,40 @@ CI/CD パイプラインとリリース管理を提供。
 - Helm リポジトリへの登録
 
 ## ライフサイクルの詳細
+
+### CI フェーズ (GitHub Actions)
+
+#### ビルド処理
+#### テスト実行
+#### 成果物公開
+
+### Install フェーズ (helm install)
+
+#### Pre-install Hook
+#### Init Container
+#### メインコンテナ起動
+#### Post-install Hook
+
+### Test フェーズ (helm test)
+
+#### 接続テスト
+#### 機能テスト
+#### セキュリティテスト
+
+### Upgrade フェーズ (helm upgrade)
+
+#### Pre-upgrade Hook
+#### 更新処理
+#### Post-upgrade Hook
+
+### Rollback フェーズ (helm rollback)
+
+#### Pre-rollback Hook
+#### ロールバック処理
+#### Post-rollback Hook
+
+### Uninstall フェーズ (helm uninstall)
+
+#### Pre-delete Hook
+#### 削除処理
+#### リソース保持
