@@ -125,8 +125,8 @@ Kubernetes リソースのデプロイとライフサイクル管理を提供。
   - emptyDir がデフォルト [[T1H8-EMPTY]](../README.ja.md#T1H8-EMPTY)
 
 #### 初期化リソース
-- **Init Container** - ユーザ設定、ホストキー生成等
 - **Pre-install Hook** - ホストキー永続化 [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+- **Init Container** - ユーザ設定、環境初期化等
 
 #### テストリソース
 - **Test Pod** - helm test 用検証スクリプト [[U9A4-TEST]](../README.ja.md#U9A4-TEST)
