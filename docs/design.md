@@ -45,8 +45,28 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - ホームディレクトリ再利用時の既存設定確認 - [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)
   - ホームディレクトリのデータが既に存在する場合、ユーザ設定を上書きしないようにする。
 - linuxbrew の非特権環境での導入とパッケージ管理 - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
-- SSH ホストキーのユーザホームディレクトリへの配置 - [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
-  - 要件から SSH サーバはユーザランドで動作するため([[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT))、そのホストキーはユーザのホームディレクトリに保存することが第一の選択肢となる。
+
+#### SSH ホストキーについて
+
+SSH ホストキーの管理は本プロジェクトの重要な設計要素である - [[V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)。
+
+**保存方式の選択**:
+- **Secret 保存を採用** - PVC 保存と比較してセキュリティ上の利点がある
+  - readOnly マウントによる意図しない変更の防止
+  - defaultMode による確実なファイル権限設定 (0600)
+  - items による選択的マウントとファイル名変更
+  - tmpfs による実行時メモリ上での保護
+
+**生成タイミング**:
+- **Pre-install Hook で実行** - 条件付きでのホストキー生成
+- values.yaml での事前指定がない場合のみ生成
+- 一時的な権限 (Secret 作成) の時間的制限
+- hook-delete-policy による権限リソースの自動削除
+
+**アルゴリズムの選択**:
+- Ed25519: セキュリティと性能の観点から優先
+- RSA (4096bit): 古いクライアントとの互換性のため併用
+- dropbearkey コマンドによる生成
 
 #### 各種スクリプトについて
 
