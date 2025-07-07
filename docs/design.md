@@ -66,6 +66,7 @@ SSH ホストキーの管理は本プロジェクトの重要な設計要素で�
 - values.yaml での事前指定がない場合のみ生成
 - 一時的な権限 (Secret 作成) の時間的制限
 - hook-delete-policy による権限リソースの自動削除
+- Helmfile Preapply Hook での namespace アノテーション設定を実施していたら、Pod Security Standards のテストも同時に実行可能 
 
 **アルゴリズムの選択**:
 - Ed25519: セキュリティと性能の観点から優先
@@ -164,10 +165,16 @@ CI/CD パイプラインとリリース管理を提供。
 
 ### Install フェーズ (helm install)
 
+#### Helmfile Prepare Hook
+#### Helmfile Presync Hook
+#### Namespace 作成・設定 (Helmfile)
+#### Helmfile Preapply Hook
 #### Pre-install Hook
 #### Init Container
 #### メインコンテナ起動
 #### Post-install Hook
+#### Helmfile Postsync Hook
+#### Helmfile Cleanup Hook
 
 ### Test フェーズ (helm test)
 
@@ -177,21 +184,35 @@ CI/CD パイプラインとリリース管理を提供。
 
 ### Upgrade フェーズ (helm upgrade)
 
+#### Helmfile Prepare Hook
+#### Helmfile Presync Hook
+#### Helmfile Preapply Hook
 #### Pre-upgrade Hook
 #### 更新処理
 #### Post-upgrade Hook
+#### Helmfile Postsync Hook
+#### Helmfile Cleanup Hook
 
 ### Rollback フェーズ (helm rollback)
 
+#### Helmfile Prepare Hook
+#### Helmfile Presync Hook
+#### Helmfile Preapply Hook
 #### Pre-rollback Hook
 #### ロールバック処理
 #### Post-rollback Hook
+#### Helmfile Postsync Hook
+#### Helmfile Cleanup Hook
 
 ### Uninstall フェーズ (helm uninstall)
 
+#### Helmfile Prepare Hook
+#### Helmfile Presync Hook
 #### Pre-delete Hook
 #### 削除処理
 #### リソース保持
+#### Helmfile Postsync Hook
+#### Helmfile Cleanup Hook
 
 ## テストの詳細
 
