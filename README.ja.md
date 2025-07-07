@@ -30,6 +30,19 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
   - ホームディレクトリは他の Pod からもマウント可能
   - SSH ポートフォワーディングが可能であること
     - ただしローカルホストのみ
+- リソース管理
+  - values.yaml で CPU、メモリ、ストレージのリソース制限を設定可能
+- ネットワーク・外部アクセス
+  - SSH接続用のポートを values.yaml 設定可能。デフォルト2222（ユーザランド運用のため）。
+  - Service リソースから利用される想定。
+    - アドレス種別は values.yaml で設定可能。デフォルトでは ClusterIP 。
+  - 以下は外付けで運用する想定であり、Helm チャートでは提供しない。
+    - Ingress
+    - NetworkPolicy
+- ログ・監視
+  - 構造化されたログ出力
+  - 基本的な監視メトリクス提供（接続数、リソース使用量）
+  - ヘルスチェック機能（liveness/readiness probe）
 - セキュリティ
   - "pod-security.kubernetes.io/enforce=restricted" ポリシーで運用できること
   - 認証は SSH 鍵認証のみ
@@ -38,6 +51,9 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 - 運用
   - ダウンタイムを許容
   - 必要に応じて作成し、作業が終わったら削除する運用を想定
+  - 自動スケーリングは無効（replicas固定）
+- バックアップ・復旧
+  - 本プロジェクトではPV のレイヤでの機能であるとして提供しない
 - k8s デプロイ構成
   - deployment, replicas 1
   - service を提供、デフォルトで ClusterIP アドレスを提供
