@@ -205,6 +205,14 @@ CI/CD パイプラインとリリース管理を提供。
 #### configMap, Secret の内容確認
 内容の SSH サーバ設定や SSH 鍵が正しいことを確認
 
+#### Pod Security Standards 準拠確認
+- namespace に "pod-security.kubernetes.io/enforce=restricted" が設定されていることを確認
+- Pod の securityContext が restricted ポリシーに準拠していることを確認
+  - runAsNonRoot: true
+  - allowPrivilegeEscalation: false
+  - capabilities.drop: ["ALL"]
+  - seccompProfile.type: RuntimeDefault
+
 ### ネットワークテスト
 
 #### ネットワーク到達テスト
