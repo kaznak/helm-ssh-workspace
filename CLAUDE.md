@@ -11,4 +11,5 @@
 
 以下のファイル間には暗黙の依存関係があるため注意すること。
 
-現在暗黙の依存関係はありません。
+- README.md is depended on by
+  - docs/design.md
