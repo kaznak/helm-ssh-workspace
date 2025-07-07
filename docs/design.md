@@ -22,14 +22,22 @@ ssh workspace のライフサイクルは以下の通り。
 
 ### 注意事項
 
-#### Install フェーズでのユーザ設定
+#### ユーザ設定と関連する処理
 
 ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに合わせた設定を行う - [[Y4F1-USER]](../README.ja.md#Y4F1-USER), [[G8W5-USERNAME]](../README.ja.md#G8W5-USERNAME), [[Z2S7-UID]](../README.ja.md#Z2S7-UID), [[A9T3-GID]](../README.ja.md#A9T3-GID)。
 そのため CI フェーズではユーザの設定を行うことは出来ない。
-Install フェーズでユーザの追加、ホームディレクトリのセットアップなどを行う必要がある - [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME)。
 
-この時ホームディレクトリを再利用するケースがあり、ホームディレクトリの内容を確認した上でユーザ設定を行う必要がある - [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)。
-また、要件から SSH サーバはユーザランドで動作するため、そのホストキーはユーザのホームディレクトリに保存することが第一の選択肢となる - [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)。
+したがって Install フェーズで以下の処理を行う必要がある：
+
+- ユーザの追加とホームディレクトリのセットアップ - [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
+- linuxbrew の非特権環境での導入とパッケージ管理 - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+
+また Install フェーズでの関連する処理として以下がある：
+
+- ホームディレクトリ再利用時の既存設定確認 - [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)
+  - ホームディレクトリのデータが既に存在する場合、ユーザ設定を上書きしないようにする。
+- SSH ホストキーのユーザホームディレクトリへの配置 - [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+  - 要件から SSH サーバはユーザランドで動作するため([[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT))、そのホストキーはユーザのホームディレクトリに保存することが第一の選択肢となる。
 
 #### 各種スクリプトについて
 
