@@ -32,6 +32,10 @@ Dropbear SSH の採用により以下の要件が容易に実現できる：
 - ポートフォワーディングのローカルホスト制限 [[L9K6-LOCAL]](../README.ja.md#L9K6-LOCAL)
   - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
   - 外部アクセスを許可する `-a` オプションを使用しないことが重要
+- Pod Security Standards の restricted ポリシー完全対応 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
+  - 非特権ポート（2222）使用により root 権限不要
+  - ケーパビリティ不要でユーザランド完全実行
+  - runAsNonRoot、allowPrivilegeEscalation=false 等の制約に対応
 
 #### ユーザ設定と関連する処理
 
