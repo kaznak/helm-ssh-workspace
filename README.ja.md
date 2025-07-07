@@ -24,16 +24,17 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
   - シングルユーザ SSH シェルアクセス可能な開発ワークスペースを提供
   - 様々な開発ツールを提供
     - linuxbrew でインストール可能なものはユーザランドで linuxbrew を利用してインストール（非特権環境での利用）
-  - ホームディレクトリを PersistentVolume で永続化
-  - ホームディレクトリは helm release を削除後にも残り、再利用可能
-  - ホームディレクトリはサブディレクトリのマウントも可能
-  - ホームディレクトリは他の Pod からもマウント可能
   - SSH ポートフォワーディングが可能であること
     - ただしローカルホストのみ
+  - ホームディレクトリは emptyDir と PersistentVolume が values.yaml で選択可能
+    - デフォルトでは emptyDir
+    - PersistentVolume の場合、 StorageClass は values.yaml で設定可能
+    - PersistentVolume の場合、ホームディレクトリは Helm release 削除後も残り、再利用可能
+    - PersistentVolume の場合、サブディレクトリのマウントも可能
 - リソース管理
   - values.yaml で CPU、メモリ、ストレージのリソース制限を設定可能
 - ネットワーク・外部アクセス
-  - SSH接続用のポートを values.yaml 設定可能。デフォルト2222（ユーザランド運用のため）。
+  - SSH接続用のポートを values.yaml で設定可能。デフォルト2222（ユーザランド運用のため）。
   - Service リソースから利用される想定。
     - アドレス種別は values.yaml で設定可能。デフォルトでは ClusterIP 。
   - 以下は外付けで運用する想定であり、Helm チャートでは提供しない。
@@ -53,7 +54,7 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
   - 必要に応じて作成し、作業が終わったら削除する運用を想定
   - 自動スケーリングは無効（replicas固定）
 - バックアップ・復旧
-  - 本プロジェクトではPV のレイヤでの機能であるとして提供しない
+  - 本プロジェクトではPVレイヤの機能として提供しない
 - k8s デプロイ構成
   - deployment, replicas 1
   - service を提供、デフォルトで ClusterIP アドレスを提供
