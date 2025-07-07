@@ -1,6 +1,6 @@
 # helm-ssh-workspace
 
-Dropbear SSH サーバを利用したセキュアな ssh ワークスペースを提供する Helm チャート。
+Dropbear SSH サーバを利用したセキュアな ssh ワークスペースを提供する Helm チャートおよび Docker イメージ。
 
 - Dropbear SSH
   - https://github.com/mkj/dropbear
