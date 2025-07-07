@@ -31,6 +31,13 @@ Install フェーズでユーザの追加、ホームディレクトリのセッ
 この時ホームディレクトリを再利用するケースがあり、ホームディレクトリの内容を確認した上でユーザ設定を行う必要がある - [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)。
 また、要件から SSH サーバはユーザランドで動作するため、そのホストキーはユーザのホームディレクトリに保存することが第一の選択肢となる - [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)。
 
+#### 各種スクリプトについて
+
+ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [[U9A4-TEST]](../README.ja.md#U9A4-TEST)。
+また、節、[Install フェーズでのユーザ設定](#install-フェーズでのユーザ設定)、で述べた理由のため、複雑な処理を実行する必要がある - [[Y4F1-USER]](../README.ja.md#Y4F1-USER), [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME), [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)。
+
+確実にこれらの処理を実行できるようにするため、成果物の Docker イメージにこれらの処理のためのスクリプトを含めて、 Docker により全ての処理を行えるようにする。
+
 ## コンポーネントの詳細
 
 ## ライフサイクルの詳細
