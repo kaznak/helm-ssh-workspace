@@ -15,7 +15,7 @@
 
 #### Dropbear SSH の採用
 
-<span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
+- <span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
 
 この決定は非特権環境での運用要件 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT) を満たすためである。
 
@@ -45,6 +45,10 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - linuxbrew の非特権環境での導入とパッケージ管理 - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
 
 #### SSH ホストキーについて
+
+- <span id="W5X2-SECRET">[W5X2-SECRET]</span> SSH ホストキーは Secret に保存して永続化する
+- <span id="T8Q4-PREINSTALL">[T8Q4-PREINSTALL]</span> SSH ホストキーは、もしもユーザが指定しない場合、Pre-install Hook で生成する
+- <span id="R6N7-CRYPTO">[R6N7-CRYPTO]</span> SSH ホストキーは Ed25519 を優先し、RSA (4096bit) を併用する
 
 SSH ホストキーの管理は本プロジェクトの重要な設計要素である - [[V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)。
 
