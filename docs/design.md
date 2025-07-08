@@ -15,7 +15,7 @@
 
 #### Dropbear SSH の採用
 
-- <span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
+<span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
 
 この決定は非特権環境での運用要件 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT) を満たすためである。
 
@@ -45,34 +45,29 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - linuxbrew の非特権環境での導入とパッケージ管理 - [see:M4J7-BREW](../README.ja.md#M4J7-BREW)
 
 #### SSH ホストキーについて
+ 
+- <span id="W5X2-SECRET">[W5X2-SECRET]</span> SSH ホストキーは K8s Secret コンポーネントに保存して永続化する
+  - K8s Secret に保存すると K8s PVC に保存する場合と比較してセキュリティ上の利点がある
+    - readOnly マウントによる意図しない変更の防止
+    - defaultMode による確実なファイル権限設定 (0600)
+    - items による選択的マウントとファイル名変更
+    - tmpfs による実行時メモリ上での保護
+  - ホストキーは永続化され、helm release 削除後も再利用可能 - [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)
+    - "helm.sh/resource-policy": "keep" アノテーションを利用
 
-- <span id="W5X2-SECRET">[W5X2-SECRET]</span> SSH ホストキーは Secret に保存して永続化する
-- <span id="T8Q4-AUTOGEN">[T8Q4-AUTOGEN]</span> SSH ホストキーは、ユーザが指定しない場合、自動生成される
+- <span id="T8Q4-AUTOGEN">[T8Q4-AUTOGEN]</span> SSH ホストキーは、ユーザが指定しない場合、自動生成される - [see:V4J1-HOSTKEY](../README.ja.md#V4J1-HOSTKEY)
+  - values.yaml での事前指定がない場合のみ生成
+
+- K8s Secret作成権限は最小権限とし、生存期間を最低限に抑える
+  - SSH ホストキーを  K8s Secret コンポーネントに保存するため、 Secret 作成権限が必要
+  - Secret 作成権限は必要最小限に制限
+  - 作成完了後は不要な権限リソースを自動削除（hook-deletion-policy の活用）
+  - Helmfile Preapply Hook での namespace アノテーション設定を実施していたら、Pod Security Standards のテストも同時に実行可能 
+
 - <span id="R6N7-CRYPTO">[R6N7-CRYPTO]</span> SSH ホストキーは Ed25519 を優先し、RSA (4096bit) を併用する
-
-SSH ホストキーの管理は本プロジェクトの重要な設計要素である - [see:V4J1-HOSTKEY](../README.ja.md#V4J1-HOSTKEY), [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)。
-
-**保存方式の選択**:
-- **Secret 保存を採用** - PVC 保存と比較してセキュリティ上の利点がある
-  - readOnly マウントによる意図しない変更の防止
-  - defaultMode による確実なファイル権限設定 (0600)
-  - items による選択的マウントとファイル名変更
-  - tmpfs による実行時メモリ上での保護
-
-**生成タイミング**:
-- values.yaml での事前指定がない場合のみ生成
-- Pre-install Hook で実行し、Secret リソースとして保存
-- ホストキー Secret 自体は永続化され、helm release 削除後も再利用可能 - [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)
-
-**セキュリティ考慮事項**:
-- Pre-install Hook 実行時のSecret作成権限は最小限に制限
-- Hook 完了後は不要な権限リソースを自動削除（hook-delete-policy）
-- Helmfile Preapply Hook での namespace アノテーション設定を実施していたら、Pod Security Standards のテストも同時に実行可能 
-
-**アルゴリズムの選択**:
-- Ed25519: セキュリティと性能の観点から優先
-- RSA (4096bit): 古いクライアントとの互換性のため併用
-- dropbearkey コマンドによる生成
+  - Ed25519: セキュリティと性能の観点から優先
+  - RSA (4096bit): 古いクライアントとの互換性のため併用
+  - dropbearkey コマンドによる生成
 
 #### 各種スクリプトについて
 
