@@ -17,14 +17,14 @@
 
 - <span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
 
-この決定は非特権環境での運用要件 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT) を満たすためである。
+この決定は非特権環境での運用要件 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT) を満たすためである。
 
 Dropbear SSH の採用により以下の要件が容易に実現できる：
-- SSH 鍵認証のみの設定 [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH)
-- ポートフォワーディングのローカルホスト制限 [[L9K6-LOCAL]](../README.ja.md#L9K6-LOCAL)
+- SSH 鍵認証のみの設定 [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH)
+- ポートフォワーディングのローカルホスト制限 [see:L9K6-LOCAL](../README.ja.md#L9K6-LOCAL)
   - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
   - 外部アクセスを許可する `-a` オプションを使用しないことが重要
-- Pod Security Standards の restricted ポリシー完全対応 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
+- Pod Security Standards の restricted ポリシー完全対応 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
   - 非特権ポート（2222）使用により root 権限不要
   - ケーパビリティ不要でユーザランド完全実行
   - runAsNonRoot、allowPrivilegeEscalation=false 等の制約に対応
@@ -33,16 +33,16 @@ OpenSSH の場合、これらの要件を満たそうとすると複雑な設定
 
 #### ユーザ設定と関連する処理
 
-ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに合わせた設定を行う - [[Y4F1-USER]](../README.ja.md#Y4F1-USER), [[G8W5-USERNAME]](../README.ja.md#G8W5-USERNAME), [[Z2S7-UID]](../README.ja.md#Z2S7-UID), [[A9T3-GID]](../README.ja.md#A9T3-GID)。
+ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに合わせた設定を行う - [see:Y4F1-USER](../README.ja.md#Y4F1-USER), [see:G8W5-USERNAME](../README.ja.md#G8W5-USERNAME), [see:Z2S7-UID](../README.ja.md#Z2S7-UID), [see:A9T3-GID](../README.ja.md#A9T3-GID)。
 そのため CI フェーズではユーザの設定を行うことは出来ず、 Install フェーズで以下の処理を行う必要がある：
 
-- ユーザの追加とホームディレクトリのセットアップ - [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
+- ユーザの追加とホームディレクトリのセットアップ - [see:V5Q3-HOME](../README.ja.md#V5Q3-HOME)
 
 また Install フェーズでの関連する処理として以下がある：
 
-- ホームディレクトリ再利用時の既存設定確認 - [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)
+- ホームディレクトリ再利用時の既存設定確認 - [see:N3M9-PERSIST](../README.ja.md#N3M9-PERSIST)
   - ホームディレクトリのデータが既に存在する場合、ユーザ設定を上書きしないようにする。
-- linuxbrew の非特権環境での導入とパッケージ管理 - [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+- linuxbrew の非特権環境での導入とパッケージ管理 - [see:M4J7-BREW](../README.ja.md#M4J7-BREW)
 
 #### SSH ホストキーについて
 
@@ -50,7 +50,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - <span id="T8Q4-AUTOGEN">[T8Q4-AUTOGEN]</span> SSH ホストキーは、ユーザが指定しない場合、自動生成される
 - <span id="R6N7-CRYPTO">[R6N7-CRYPTO]</span> SSH ホストキーは Ed25519 を優先し、RSA (4096bit) を併用する
 
-SSH ホストキーの管理は本プロジェクトの重要な設計要素である - [[V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)。
+SSH ホストキーの管理は本プロジェクトの重要な設計要素である - [see:V4J1-HOSTKEY](../README.ja.md#V4J1-HOSTKEY), [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)。
 
 **保存方式の選択**:
 - **Secret 保存を採用** - PVC 保存と比較してセキュリティ上の利点がある
@@ -62,7 +62,7 @@ SSH ホストキーの管理は本プロジェクトの重要な設計要素で�
 **生成タイミング**:
 - values.yaml での事前指定がない場合のみ生成
 - Pre-install Hook で実行し、Secret リソースとして保存
-- ホストキー Secret 自体は永続化され、helm release 削除後も再利用可能 - [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+- ホストキー Secret 自体は永続化され、helm release 削除後も再利用可能 - [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)
 
 **セキュリティ考慮事項**:
 - Pre-install Hook 実行時のSecret作成権限は最小限に制限
@@ -76,14 +76,14 @@ SSH ホストキーの管理は本プロジェクトの重要な設計要素で�
 
 #### 各種スクリプトについて
 
-ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [[U9A4-TEST]](../README.ja.md#U9A4-TEST)。
-また、節、[Install フェーズでのユーザ設定](#install-フェーズでのユーザ設定)、で述べた理由のため、複雑な処理を実行する必要がある - [[Y4F1-USER]](../README.ja.md#Y4F1-USER), [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME), [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)。
+ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [see:U9A4-TEST](../README.ja.md#U9A4-TEST)。
+また、節、[Install フェーズでのユーザ設定](#install-フェーズでのユーザ設定)、で述べた理由のため、複雑な処理を実行する必要がある - [see:Y4F1-USER](../README.ja.md#Y4F1-USER), [see:V5Q3-HOME](../README.ja.md#V5Q3-HOME), [see:N3M9-PERSIST](../README.ja.md#N3M9-PERSIST)。
 
 確実にこれらの処理を実行できるようにするため、成果物の Docker イメージにこれらの処理のためのスクリプトを含めて、このイメージにより起動されるコンテナにより全ての処理を行えるようにする。
 
 #### replicas固定とスケーリング無効
 
-要件により replicas は 1 に固定し、自動スケーリングは無効とする - [[J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY), [[G9W8-FIXED]](../README.ja.md#G9W8-FIXED)。
+要件により replicas は 1 に固定し、自動スケーリングは無効とする - [see:J8R2-DEPLOY](../README.ja.md#J8R2-DEPLOY), [see:G9W8-FIXED](../README.ja.md#G9W8-FIXED)。
 
 HPA等の自動スケーリング機能は明示的に無効化し、単一replica前提での設計とする。
 これはSSH接続の特性上、複数インスタンスによる負荷分散が適さないためである。
@@ -103,12 +103,12 @@ ssh workspace のコンポーネントは以下から構成される。
 SSH workspace の実行環境を提供するコンテナイメージ。
 
 #### ベースイメージ
-- Ubuntu/Debian ベース - linuxbrew 対応のため [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+- Ubuntu/Debian ベース - linuxbrew 対応のため [see:M4J7-BREW](../README.ja.md#M4J7-BREW)
 
 #### 含まれるコンポーネント
-- **Dropbear SSH サーバ** - 非特権実行可能な SSH サーバ [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
-- **基本開発ツール** - git, curl, vim 等の基本ツール [[Q2N5-TOOLS]](../README.ja.md#Q2N5-TOOLS)
-- **linuxbrew 環境** - ユーザランドでのパッケージ管理 [[M4J7-BREW]](../README.ja.md#M4J7-BREW)
+- **Dropbear SSH サーバ** - 非特権実行可能な SSH サーバ [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
+- **基本開発ツール** - git, curl, vim 等の基本ツール [see:Q2N5-TOOLS](../README.ja.md#Q2N5-TOOLS)
+- **linuxbrew 環境** - ユーザランドでのパッケージ管理 [see:M4J7-BREW](../README.ja.md#M4J7-BREW)
 - **管理スクリプト群**
   - 初期化スクリプト (init-container 用)
   - エントリポイントスクリプト (SSH サーバ起動用)
@@ -123,27 +123,27 @@ SSH workspace の実行環境を提供するコンテナイメージ。
 Kubernetes リソースのデプロイとライフサイクル管理を提供。
 
 #### メインリソース
-- **Deployment** - SSH workspace Pod の管理 [[J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY)
-  - replicas: 1 固定 [[G9W8-FIXED]](../README.ja.md#G9W8-FIXED)
-  - securityContext: restricted policy 準拠 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT)
-- **Service** - SSH 接続用エンドポイント [[N4V9-SVC]](../README.ja.md#N4V9-SVC)
-  - type: ClusterIP (デフォルト) [[E4L7-CLUSTER]](../README.ja.md#E4L7-CLUSTER)
-  - port: 2222 [[B3Q8-PORT]](../README.ja.md#B3Q8-PORT)
+- **Deployment** - SSH workspace Pod の管理 [see:J8R2-DEPLOY](../README.ja.md#J8R2-DEPLOY)
+  - replicas: 1 固定 [see:G9W8-FIXED](../README.ja.md#G9W8-FIXED)
+  - securityContext: restricted policy 準拠 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
+- **Service** - SSH 接続用エンドポイント [see:N4V9-SVC](../README.ja.md#N4V9-SVC)
+  - type: ClusterIP (デフォルト) [see:E4L7-CLUSTER](../README.ja.md#E4L7-CLUSTER)
+  - port: 2222 [see:B3Q8-PORT](../README.ja.md#B3Q8-PORT)
 
 #### 設定リソース
 - **ConfigMap** - SSH サーバ設定、スクリプト等
-- **Secret** - SSH 認証鍵、ホストキー [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH), [[V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY)
+- **Secret** - SSH 認証鍵、ホストキー [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH), [see:V4J1-HOSTKEY](../README.ja.md#V4J1-HOSTKEY)
 
 #### ストレージリソース (オプション)
-- **PersistentVolumeClaim** - ホームディレクトリ永続化用 [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
-  - emptyDir がデフォルト [[T1H8-EMPTY]](../README.ja.md#T1H8-EMPTY)
+- **PersistentVolumeClaim** - ホームディレクトリ永続化用 [see:V5Q3-HOME](../README.ja.md#V5Q3-HOME)
+  - emptyDir がデフォルト [see:T1H8-EMPTY](../README.ja.md#T1H8-EMPTY)
 
 #### 初期化リソース
-- **Pre-install Hook** - ホストキー永続化 [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+- **Pre-install Hook** - ホストキー永続化 [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)
 - **Init Container** - ユーザ設定、環境初期化等
 
 #### テストリソース
-- **Test Pod** - helm test 用検証スクリプト [[U9A4-TEST]](../README.ja.md#U9A4-TEST)
+- **Test Pod** - helm test 用検証スクリプト [see:U9A4-TEST](../README.ja.md#U9A4-TEST)
 
 ### GitHub Actions ワークフロー
 
