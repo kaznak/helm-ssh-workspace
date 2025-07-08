@@ -24,8 +24,9 @@ ssh workspace のライフサイクルは以下の通り。
 
 #### Dropbear SSH の採用
 
-本プロジェクトでは OpenSSH ではなく Dropbear SSH を採用する。
-これは非特権環境での運用要件 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT) を満たすためである。
+<span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
+
+この決定は非特権環境での運用要件 [[X2K7-RESTRICT]](../README.ja.md#X2K7-RESTRICT) を満たすためである。
 
 Dropbear SSH の採用により以下の要件が容易に実現できる：
 - SSH 鍵認証のみの設定 [[L6H3-KEYAUTH]](../README.ja.md#L6H3-KEYAUTH)
@@ -36,6 +37,8 @@ Dropbear SSH の採用により以下の要件が容易に実現できる：
   - 非特権ポート（2222）使用により root 権限不要
   - ケーパビリティ不要でユーザランド完全実行
   - runAsNonRoot、allowPrivilegeEscalation=false 等の制約に対応
+
+OpenSSH の場合、これらの要件を満たそうとすると複雑な設定が必要となる。
 
 #### ユーザ設定と関連する処理
 
