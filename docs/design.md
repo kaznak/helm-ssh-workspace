@@ -47,7 +47,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 #### SSH ホストキーについて
 
 - <span id="W5X2-SECRET">[W5X2-SECRET]</span> SSH ホストキーは Secret に保存して永続化する
-- <span id="T8Q4-PREINSTALL">[T8Q4-PREINSTALL]</span> SSH ホストキーは、もしもユーザが指定しない場合、Pre-install Hook で生成する
+- <span id="T8Q4-AUTOGEN">[T8Q4-AUTOGEN]</span> SSH ホストキーは、ユーザが指定しない場合、自動生成される
 - <span id="R6N7-CRYPTO">[R6N7-CRYPTO]</span> SSH ホストキーは Ed25519 を優先し、RSA (4096bit) を併用する
 
 SSH ホストキーの管理は本プロジェクトの重要な設計要素である - [[V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY), [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)。
@@ -60,10 +60,13 @@ SSH ホストキーの管理は本プロジェクトの重要な設計要素で�
   - tmpfs による実行時メモリ上での保護
 
 **生成タイミング**:
-- **Pre-install Hook で実行** - 条件付きでのホストキー生成
 - values.yaml での事前指定がない場合のみ生成
-- 一時的な権限 (Secret 作成) の時間的制限
-- hook-delete-policy による権限リソースの自動削除
+- Pre-install Hook で実行し、Secret リソースとして保存
+- ホストキー Secret 自体は永続化され、helm release 削除後も再利用可能 - [[R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+
+**セキュリティ考慮事項**:
+- Pre-install Hook 実行時のSecret作成権限は最小限に制限
+- Hook 完了後は不要な権限リソースを自動削除（hook-delete-policy）
 - Helmfile Preapply Hook での namespace アノテーション設定を実施していたら、Pod Security Standards のテストも同時に実行可能 
 
 **アルゴリズムの選択**:
