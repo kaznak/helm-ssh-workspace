@@ -4,21 +4,12 @@
 
 [README.ja.md](../README.ja.md)の[要求・要件](../README.ja.md#要求要件)を満たすDropbear SSH ワークスペースHelmチャートおよびDockerイメージの実装設計。
 
-ssh workspace のコンポーネントは以下から構成される。
+この設計書の構成は以下の通り:
 
-- Dockerイメージ
-- Helmチャート(kubernetes リソース、 main/test)
-- github actions workflow マニフェスト
-
-ssh workspace のライフサイクルは以下の通り。
-
-- CI: Github Actions のフェーズ
-  - ビルド関連の処理のほか、 helm の全てのライフサイクルのテストも行う。
-- Install: helm install フェーズ
-- Test: helm test フェーズ
-- Upgrade: helm upgrade フェーズ
-- Rollback: helm rollback フェーズ
-- Uninstall: helm uninstall フェーズ
+- 重要な設計事項
+- コンポーネントの詳細
+- ライフサイクルの詳細
+- テストの詳細
 
 ### 重要な設計事項
 
@@ -81,7 +72,7 @@ SSH ホストキーの管理は本プロジェクトの重要な設計要素で�
 ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [[U9A4-TEST]](../README.ja.md#U9A4-TEST)。
 また、節、[Install フェーズでのユーザ設定](#install-フェーズでのユーザ設定)、で述べた理由のため、複雑な処理を実行する必要がある - [[Y4F1-USER]](../README.ja.md#Y4F1-USER), [[V5Q3-HOME]](../README.ja.md#V5Q3-HOME), [[N3M9-PERSIST]](../README.ja.md#N3M9-PERSIST)。
 
-確実にこれらの処理を実行できるようにするため、成果物の Docker イメージにこれらの処理のためのスクリプトを含めて、 Docker により全ての処理を行えるようにする。
+確実にこれらの処理を実行できるようにするため、成果物の Docker イメージにこれらの処理のためのスクリプトを含めて、このイメージにより起動されるコンテナにより全ての処理を行えるようにする。
 
 #### replicas固定とスケーリング無効
 
@@ -91,6 +82,14 @@ HPA等の自動スケーリング機能は明示的に無効化し、単一repli
 これはSSH接続の特性上、複数インスタンスによる負荷分散が適さないためである。
 
 ## コンポーネントの詳細
+
+### 概要
+
+ssh workspace のコンポーネントは以下から構成される。
+
+- Dockerイメージ
+- Helmチャート(kubernetes リソース、 main/test)
+- github actions workflow マニフェスト
 
 ### Docker イメージ
 
@@ -159,6 +158,18 @@ CI/CD パイプラインとリリース管理を提供。
 - Helm リポジトリへの登録
 
 ## ライフサイクルの詳細
+
+### 概要
+
+ssh workspace のライフサイクルは以下の通り。
+
+- CI: Github Actions のフェーズ
+  - ビルド関連の処理のほか、 helm の全てのライフサイクルのテストも行う。
+- Install: helm install フェーズ
+- Test: helm test フェーズ
+- Upgrade: helm upgrade フェーズ
+- Rollback: helm rollback フェーズ
+- Uninstall: helm uninstall フェーズ
 
 ### CI フェーズ (GitHub Actions)
 
