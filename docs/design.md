@@ -69,6 +69,29 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - RSA (4096bit): 古いクライアントとの互換性のため併用
   - dropbearkey コマンドによる生成
 
+#### ユーザの公開鍵について
+
+- <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` の設定値で指定して K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY)
+  - SSH 鍵認証のためのクライアント公開鍵として利用 - [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH)
+  - `authorized_keys` ファイルとして SSH サーバで利用される
+
+- <span id="H9F7-KEYFORMAT">[H9F7-KEYFORMAT]</span> SSH 公開鍵の形式検証と処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
+  - `values.yaml` での設定値を Pre-install/Pre-upgrade Hook で `ssh-keygen -lf` コマンドにより検証
+  - RSA: 2048bit未満の鍵は拒否、4096bit推奨
+  - Ed25519: セキュリティと性能の観点から優先される形式
+  - 検証済みの鍵を `authorized_keys` 形式で K8s Secret に保存
+
+- <span id="T2N6-MULTIKEY">[T2N6-MULTIKEY]</span> 複数の SSH 公開鍵の処理実装 - [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
+  - `values.yaml` での配列形式での複数鍵設定を Helm テンプレートで結合処理
+  - 各鍵の形式的な検証（ssh-rsa、ssh-ed25519 プレフィックス確認等）のみ実施
+  - 鍵の暗号学的検証は Pre-install/Pre-upgrade Hook で `ssh-keygen -lf` コマンドにより実施
+  - 無効な鍵が含まれる場合は Pre-install/Pre-upgrade Hook で適切なエラーメッセージを出力して helm install/upgrade を停止
+
+- <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
+  - 複数鍵を結合した `authorized_keys` ファイルとして `~/.ssh/` にマウント
+  - defaultMode による確実なファイル権限設定 (0644)
+  - 実行時の意図しない変更を防止
+
 #### 各種スクリプトについて
 
 ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [see:U9A4-TEST](../README.ja.md#U9A4-TEST)。
