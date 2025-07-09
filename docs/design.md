@@ -88,8 +88,10 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 #### ユーザの SSH 鍵について
 
-- <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` で `authorized_keys` ファイルの内容として記述し K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY), [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH), [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
+- <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` で直接指定または既存 Secret 参照により K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY), [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH), [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
   - SSH 鍵認証のためのクライアント公開鍵として利用
+  - `values.yaml` で `authorized_keys` ファイルの内容を直接記述可能
+  - `values.yaml` で既存 Secret 名を指定して参照可能、未指定時はデフォルト名（`{{ .Release.Name }}-ssh-pubkeys`）を使用
   - Helm テンプレートで K8s Secret に保存
 
 - <span id="H9F7-KEYFORMAT">[H9F7-KEYFORMAT]</span> SSH 公開鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
@@ -112,8 +114,10 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - defaultMode による確実なファイル権限設定 (0444) - 読み込み専用
   - 実行時の意図しない変更を防止
 
-- <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` でファイル名と内容を指定して K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
+- <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` で直接指定または既存 Secret 参照により K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
   - SSH クライアント接続用の秘密鍵として利用
+  - `values.yaml` でファイル名と内容を直接指定可能
+  - `values.yaml` で既存 Secret 名を指定して参照可能、未指定時はデフォルト名（`{{ .Release.Name }}-ssh-privkeys`）を使用
   - 複数の秘密鍵を異なるファイル名（`id_rsa`, `id_ed25519`, カスタム名等）で設定可能
   - Helm テンプレートで K8s Secret に保存
 
