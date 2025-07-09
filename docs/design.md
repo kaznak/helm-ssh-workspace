@@ -182,10 +182,15 @@ Install フェーズでの関連する処理：
 
 #### 各種スクリプトについて
 
-ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [see:U9A4-TEST](../README.ja.md#U9A4-TEST)。
-また、節、[Install フェーズでのユーザ設定](#install-フェーズでのユーザ設定)、で述べた理由のため、複雑な処理を実行する必要がある - [see:Y4F1-USER](../README.ja.md#Y4F1-USER), [see:V5Q3-HOME](../README.ja.md#V5Q3-HOME), [see:N3M9-PERSIST](../README.ja.md#N3M9-PERSIST)。
+- <span id="D8M4-SCRIPT">[D8M4-SCRIPT]</span> 初期化処理、検証処理、テスト処理は Docker イメージに同梱されたスクリプトとして実装する。
+- <span id="F5K3-SCRIPTPATH">[F5K3-SCRIPTPATH]</span> 管理用スクリプトは `/opt/ssh-workspace/bin/` に配置し、ユーザの一般的なコマンドパスとは分離する
 
-確実にこれらの処理を実行できるようにするため、成果物の Docker イメージにこれらの処理のためのスクリプトを含めて、このイメージにより起動されるコンテナにより全ての処理を行えるようにする。
+ssh workspace はライフサイクルの各段階でのテストを充実させ、後段でのトラブルの発生を極力抑える - [see:U9A4-TEST](../README.ja.md#U9A4-TEST)。
+また、ユーザ設定の動的な処理や複雑な検証処理が必要となる - [see:Y4F1-USER](../README.ja.md#Y4F1-USER), [see:V5Q3-HOME](../README.ja.md#V5Q3-HOME), [see:N3M9-PERSIST](../README.ja.md#N3M9-PERSIST)。
+
+Helm テンプレートでは表現が困難な複雑な処理や、テンプレートを肥大化させる長大な処理は、スクリプトとして実装する。
+
+これにより Helm テンプレートの肥大化を回避し、複雑なロジックを適切に管理できる。
 
 ## コンポーネントの詳細
 
