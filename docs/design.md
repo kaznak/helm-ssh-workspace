@@ -225,3 +225,34 @@ ssh workspace はライフサイクルの各段階でのテストを充実させ
 Helm テンプレートでは表現が困難な複雑な処理や、テンプレートを肥大化させる長大な処理は、スクリプトとして実装する。
 
 これにより Helm テンプレートの肥大化を回避し、複雑なロジックを適切に管理できる。
+
+#### Makefile・GitHub Actions による開発統合
+
+<span id="B6Y3-MAKEFILE">[B6Y3-MAKEFILE]</span> 本プロジェクトは Makefile でビルドとテストを統合し、GitHub Actions で Makefile を通じてビルドとテストを実行する。
+
+**設計判断の主な理由：**
+- **デバッグ容易性の確保**
+  - CI/CDで失敗した処理を開発者のローカル環境で同じように実行可能
+  - 段階的デバッグ（`make build`, `make test`, `make package`）による問題箇所の特定
+  - GitHub Actions固有の環境変数や設定に依存しない処理の実現
+- **GitHub Actions マニフェスト簡素化**
+  - 複雑なビルド・テストロジックをワークフローファイルから分離
+  - ビルド手順変更時はMakefileのみ修正、ワークフローは変更不要
+  - YAML肥大化回避により可読性と保守性を向上
+
+**実装方針：**
+
+*Makefile設計*
+- CI/CDとローカル開発の実行環境差異を吸収
+
+*GitHub Actions設計*
+- Docker layer cache、依存関係キャッシュを活用する
+- 各処理を異なるワークフローに適切に分離して並列実行を可能にする
+- マトリクスパラメータを活用して異なる環境でのテストを効率化する
+
+**対応要件：**
+- GitHub ActionsでのCI/CD実行 [[see:G4H7-CICD]](../README.ja.md#G4H7-CICD)
+- ビルド・パッケージング・公開の自動化 [[see:B2M7-BUILD]](../README.ja.md#B2M7-BUILD), [[see:H6N4-PACKAGE]](../README.ja.md#H6N4-PACKAGE), [[see:P1W9-PUBLISH]](../README.ja.md#P1W9-PUBLISH)
+- 品質保証・セキュリティテストの統合 [[see:Q3L8-QUALTEST]](../README.ja.md#Q3L8-QUALTEST), [[see:T9K5-SECTEST]](../README.ja.md#T9K5-SECTEST)
+
+この実装により、複雑な処理を段階的に実行し、開発者とCI環境で一貫した品質保証を提供する。
