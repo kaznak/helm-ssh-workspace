@@ -71,8 +71,8 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 
 #### 監視・ヘルスチェック
 - <span id="Q1P4-HEALTH">[Q1P4-HEALTH]</span> 基本的なヘルスチェック機能（liveness/readiness probe）を提供
-- <span id="F7C8-METRICS">[F7C8-METRICS]</span> 基本的な監視メトリクスを提供（接続数、リソース使用量）
-- <span id="K5G2-STRUCT">[K5G2-STRUCT]</span> 構造化されたログを出力
+- <span id="F7C8-METRICS">[F7C8-METRICS]</span> 基本的な監視メトリクスを提供（Kubernetes 標準のリソースメトリクス）
+- <span id="K5G2-LOGS">[K5G2-LOGS]</span> Kubernetes のログ収集に対応
 
 #### テスト
 - <span id="U9A4-TEST">[U9A4-TEST]</span> デプロイ結果が要件を全て満たしているかを確認するためのテストを提供
