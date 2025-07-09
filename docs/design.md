@@ -69,7 +69,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - RSA (4096bit): 古いクライアントとの互換性のため併用
   - dropbearkey コマンドによる生成
 
-#### ユーザの公開鍵について
+#### ユーザの SSH 鍵について
 
 - <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` で `authorized_keys` ファイルの内容として記述し K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY), [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH), [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
   - SSH 鍵認証のためのクライアント公開鍵として利用
@@ -93,6 +93,23 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
   - `authorized_keys` ファイルとして `~/.ssh/` にマウント
   - defaultMode による確実なファイル権限設定 (0644)
+  - 実行時の意図しない変更を防止
+
+- <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` でファイル名と内容を指定して K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
+  - SSH クライアント接続用の秘密鍵として利用
+  - 複数の秘密鍵を異なるファイル名（`id_rsa`, `id_ed25519`, カスタム名等）で設定可能
+  - Helm テンプレートで K8s Secret に保存
+
+- <span id="T6K9-PRIVFORMAT">[T6K9-PRIVFORMAT]</span> SSH 秘密鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
+  - Post-install/Post-upgrade Hook で Secret から秘密鍵内容を読み取り検証を実施
+  - `ssh-keygen -lf` コマンドで各鍵の暗号学的検証を実施
+  - RSA: 2048bit未満の鍵は拒否、4096bit推奨
+  - Ed25519: セキュリティと性能の観点から優先される形式
+  - 無効な鍵が含まれる場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
+
+- <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる
+  - 指定されたファイル名で `~/.ssh/` にマウント
+  - defaultMode による確実なファイル権限設定 (0600)
   - 実行時の意図しない変更を防止
 
 #### 各種スクリプトについて
