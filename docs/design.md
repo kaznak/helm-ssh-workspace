@@ -55,11 +55,14 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - ホストキーは永続化され、helm release 削除後も再利用可能 - [see:R8N9-REUSE](../README.ja.md#R8N9-REUSE)
     - "helm.sh/resource-policy": "keep" アノテーションを利用
 
-- <span id="T8Q4-AUTOGEN">[T8Q4-AUTOGEN]</span> SSH ホストキーは、ユーザが指定しない場合、自動生成される - [see:V4J1-HOSTKEY](../README.ja.md#V4J1-HOSTKEY)
-  - values.yaml での事前指定がない場合のみ生成
+- <span id="T8Q4-AUTOGEN">[T8Q4-AUTOGEN]</span> SSH ホストキーは `values.yaml` で Secret 名を指定し、存在しない場合のみ自動生成される - [see:V4J1-HOSTKEY](../README.ja.md#V4J1-HOSTKEY)
+  - `values.yaml` で Secret 名を明示的に指定可能、未指定時はデフォルト名（`{{ .Release.Name }}-ssh-hostkeys`）を使用
+  - Pre-install/Pre-upgrade Hook で指定された Secret の存在確認を実施
+  - Secret が存在しない場合のみ `dropbearkey` コマンドで自動生成
+  - 生成された Secret には "helm.sh/resource-policy": "keep" アノテーションを付与
 
-- K8s Secret作成権限は最小権限とし、生存期間を最低限に抑える
-  - SSH ホストキーを  K8s Secret コンポーネントに保存するため、 Secret 作成権限が必要
+- <span id="J5N4-HOSTPERM">[J5N4-HOSTPERM]</span> SSH ホストキー生成のための K8s Secret 作成権限は最小権限とし、生存期間を最低限に抑える
+  - SSH ホストキーを K8s Secret コンポーネントに保存するため、Secret 作成権限が必要
   - Secret 作成権限は必要最小限に制限
   - 作成完了後は不要な権限リソースを自動削除（hook-deletion-policy の活用）
   - Helmfile Preapply Hook での namespace アノテーション設定を実施していたら、Pod Security Standards のテストも同時に実行可能 
