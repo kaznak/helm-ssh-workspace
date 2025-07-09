@@ -90,10 +90,14 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 
 ### S - Supportability（保守性）
 
-保守性に関する要件は、他のカテゴリに分散して配置されています：
-- テスト機能は信頼性（Reliability）の品質保証として分類
-- 構造化ログは信頼性（Reliability）の監視機能として分類
-- 設定の容易さは使いやすさ（Usability）として分類
+#### テスト容易性
+- [[see:U9A4-TEST]](#U9A4-TEST) デプロイ結果が要件を全て満たしているかを確認するためのテストを提供
+
+#### 診断可能性
+- [[see:K5G2-LOGS]](#K5G2-LOGS) Kubernetes のログ収集に対応
+
+#### 設定可能性
+- [[see:Y4F1-USER]](#Y4F1-USER) ユーザ設定をvalues.yamlで柔軟に指定可能
 
 ### + 追加要素 : 実装要件（Implementation）
 
