@@ -113,6 +113,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
   - `authorized_keys` ファイルとして `~/.ssh/` にマウント
   - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
+  - 公開鍵と秘密鍵で共通の Secret を指定した場合の権限統一のため 0400 を採用
   - 実行時の意図しない変更を防止
 
 - <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` で直接指定または既存 Secret 参照により K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
@@ -133,6 +134,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 - <span id="L9K4-KEYDUP">[L9K4-KEYDUP]</span> 公開鍵と秘密鍵で異なる Secret が指定された場合のキー重複チェック
   - Post-install/Post-upgrade Hook で公開鍵と秘密鍵のシークレットキーの重複確認を実施
   - 異なる Secret を指定した場合のみ、それぞれのシークレットキーに重複がないことを確認
+  - マウント時の鍵の意図しない上書きを防止するための検証
   - 重複するキーが検出された場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
 
 - <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる - [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
