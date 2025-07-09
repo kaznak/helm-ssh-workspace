@@ -71,21 +71,18 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 #### ユーザの公開鍵について
 
-- <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` の設定値で指定して K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY)
-  - SSH 鍵認証のためのクライアント公開鍵として利用 - [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH)
-  - `authorized_keys` ファイルとして SSH サーバで利用される
+- <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` の配列形式で設定し K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY), [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH), [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
+  - SSH 鍵認証のためのクライアント公開鍵として `authorized_keys` ファイルで利用
+  - helm upgrade 時は既存の K8s Secret を新しい鍵で完全に置き換え
+  - upgrade 失敗時は既存の Secret が保持されるため、既存の鍵でアクセス継続可能
 
-- <span id="H9F7-KEYFORMAT">[H9F7-KEYFORMAT]</span> SSH 公開鍵の形式検証と処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
-  - `values.yaml` での設定値を Pre-install/Pre-upgrade Hook で `ssh-keygen -lf` コマンドにより検証
+- <span id="H9F7-KEYFORMAT">[H9F7-KEYFORMAT]</span> SSH 公開鍵は `values.yaml` の配列形式で設定し、Pre-install/Pre-upgrade Hook で検証してから K8s Secret に保存する - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE), [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
+  - Helm テンプレートで配列を結合し、基本的な形式確認（ssh-rsa、ssh-ed25519 プレフィックス等）を実施
+  - Pre-install/Pre-upgrade Hook で `ssh-keygen -lf` コマンドにより各鍵の暗号学的検証を実施
   - RSA: 2048bit未満の鍵は拒否、4096bit推奨
   - Ed25519: セキュリティと性能の観点から優先される形式
   - 検証済みの鍵を `authorized_keys` 形式で K8s Secret に保存
-
-- <span id="T2N6-MULTIKEY">[T2N6-MULTIKEY]</span> 複数の SSH 公開鍵の処理実装 - [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
-  - `values.yaml` での配列形式での複数鍵設定を Helm テンプレートで結合処理
-  - 各鍵の形式的な検証（ssh-rsa、ssh-ed25519 プレフィックス確認等）のみ実施
-  - 鍵の暗号学的検証は Pre-install/Pre-upgrade Hook で `ssh-keygen -lf` コマンドにより実施
-  - 無効な鍵が含まれる場合は Pre-install/Pre-upgrade Hook で適切なエラーメッセージを出力して helm install/upgrade を停止
+  - 無効な鍵が含まれる場合は適切なエラーメッセージを出力して helm install/upgrade を停止
 
 - <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
   - 複数鍵を結合した `authorized_keys` ファイルとして `~/.ssh/` にマウント
