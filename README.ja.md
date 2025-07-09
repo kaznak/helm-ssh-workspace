@@ -104,6 +104,18 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 #### セキュリティ実装
 - <span id="X2K7-RESTRICT">[X2K7-RESTRICT]</span> "pod-security.kubernetes.io/enforce=restricted" ポリシーで運用できること
 
+#### CI/CD実装
+- <span id="G4H7-CICD">[G4H7-CICD]</span> GitHub Actions で CI/CD を実行し、包括的な品質保証を行う
+
+#### テスト実装
+- <span id="T9K5-SECTEST">[T9K5-SECTEST]</span> CI/CD パイプラインでセキュリティテストを実行
+- <span id="Q3L8-QUALTEST">[Q3L8-QUALTEST]</span> CI/CD パイプラインで品質保証のためのテストを実行
+
+#### ビルド・パブリッシュ実装
+- <span id="B2M7-BUILD">[B2M7-BUILD]</span> CI/CD パイプラインで Docker イメージのビルドを実行
+- <span id="H6N4-PACKAGE">[H6N4-PACKAGE]</span> CI/CD パイプラインで Helm チャートのパッケージングを実行
+- <span id="P1W9-PUBLISH">[P1W9-PUBLISH]</span> CI/CD パイプラインで成果物のパブリッシュを実行
+
 ### + 追加要素 : インターフェース要件（Interface）
 
 #### ネットワーク
