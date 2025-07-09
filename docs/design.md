@@ -170,25 +170,14 @@ Install フェーズでの関連する処理：
 - <span id="L3F8-LIVENESS">[L3F8-LIVENESS]</span> Liveness Probe（再起動判定） - [see:Q1P4-HEALTH](../README.ja.md#Q1P4-HEALTH)
   - TCP Socket Probe を使用してポート 2222 への接続性を確認
   - kubelet が SSH サービスの基本的な動作を外部から監視
-  - 設定値：
-    - initialDelaySeconds: 30（初回起動後30秒待機）
-    - periodSeconds: 30（30秒間隔でチェック）
-    - timeoutSeconds: 5（5秒でタイムアウト）
-    - failureThreshold: 3（3回失敗で再起動）
 
 - <span id="R6Q9-READINESS">[R6Q9-READINESS]</span> Readiness Probe（トラフィック受付判定） - [see:Q1P4-HEALTH](../README.ja.md#Q1P4-HEALTH)
   - Exec Probe を使用してコンテナ内部の詳細な状態を確認
   - ヘルスチェックスクリプトによる包括的な健全性チェック
-  - 設定値：
-    - initialDelaySeconds: 5（初回起動後5秒待機）
-    - periodSeconds: 10（10秒間隔でチェック）
-    - timeoutSeconds: 3（3秒でタイムアウト）
-    - failureThreshold: 2（2回失敗でトラフィック停止）
-    - successThreshold: 1（1回成功でトラフィック再開）
   - ヘルスチェックスクリプトの実装：
-    - Dropbear プロセスの存在確認（`pgrep dropbear`）
-    - SSH ポートのリスニング状態確認（`ss -ln | grep :2222`）
-    - SSH ホストキーの存在確認（`/etc/dropbear/` 配下のキーファイル）
+    - Dropbear プロセスの存在確認
+    - SSH ポートのリスニング状態確認
+    - SSH ホストキーの存在確認
     - 実行はコンテナ内部で行われ、kubelet が Container Runtime Interface 経由でコマンドを実行
 
 #### 各種スクリプトについて
