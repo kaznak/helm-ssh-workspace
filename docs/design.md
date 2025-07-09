@@ -67,7 +67,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - 作成完了後は不要な権限リソースを自動削除（hook-deletion-policy の活用）
   - Helmfile Preapply Hook での namespace アノテーション設定を実施していたら、Pod Security Standards のテストも同時に実行可能 
 
-- <span id="R6N7-CRYPTO">[R6N7-CRYPTO]</span> SSH ホストキーは Ed25519 を優先し、RSA (4096bit) を併用する
+- <span id="R6N7-CRYPTO">[R6N7-CRYPTO]</span> SSH ホストキーは Ed25519 を優先し、RSA (4096bit) を併用する - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
   - Ed25519: セキュリティと性能の観点から優先
   - RSA (4096bit): 古いクライアントとの互換性のため併用
   - dropbearkey コマンドによる生成
@@ -117,14 +117,14 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - 複数の秘密鍵を異なるファイル名（`id_rsa`, `id_ed25519`, カスタム名等）で設定可能
   - Helm テンプレートで K8s Secret に保存
 
-- <span id="T6K9-PRIVFORMAT">[T6K9-PRIVFORMAT]</span> SSH 秘密鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
+- <span id="T6K9-PRIVFORMAT">[T6K9-PRIVFORMAT]</span> SSH 秘密鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE), [see:D5K8-PRIVTYPE](../README.ja.md#D5K8-PRIVTYPE)
   - Post-install/Post-upgrade Hook で Secret から秘密鍵内容を読み取り検証を実施
   - `ssh-keygen -lf` コマンドで各鍵の暗号学的検証を実施
   - RSA: 2048bit未満の鍵は拒否、4096bit推奨
   - Ed25519: セキュリティと性能の観点から優先される形式
   - 無効な鍵が含まれる場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
 
-- <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる
+- <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる - [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
   - 指定されたファイル名で `~/.ssh/` にマウント
   - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
   - 実行時の意図しない変更を防止
