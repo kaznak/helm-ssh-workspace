@@ -92,6 +92,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - SSH 鍵認証のためのクライアント公開鍵として利用
   - `values.yaml` で `authorized_keys` ファイルの内容を直接記述可能
   - `values.yaml` で既存 Secret 名を指定して参照可能、未指定時はデフォルト名（`{{ .Release.Name }}-ssh-pubkeys`）を使用
+  - 公開鍵と秘密鍵で共通の Secret を指定することも可能
   - Helm テンプレートで K8s Secret に保存
 
 - <span id="H9F7-KEYFORMAT">[H9F7-KEYFORMAT]</span> SSH 公開鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
@@ -111,7 +112,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 - <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
   - `authorized_keys` ファイルとして `~/.ssh/` にマウント
-  - defaultMode による確実なファイル権限設定 (0444) - 読み込み専用
+  - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
   - 実行時の意図しない変更を防止
 
 - <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` で直接指定または既存 Secret 参照により K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
@@ -119,6 +120,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - `values.yaml` でファイル名と内容を直接指定可能
   - `values.yaml` で既存 Secret 名を指定して参照可能、未指定時はデフォルト名（`{{ .Release.Name }}-ssh-privkeys`）を使用
   - 複数の秘密鍵を異なるファイル名（`id_rsa`, `id_ed25519`, カスタム名等）で設定可能
+  - 公開鍵と秘密鍵で共通の Secret を指定することも可能
   - Helm テンプレートで K8s Secret に保存
 
 - <span id="T6K9-PRIVFORMAT">[T6K9-PRIVFORMAT]</span> SSH 秘密鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE), [see:D5K8-PRIVTYPE](../README.ja.md#D5K8-PRIVTYPE)
@@ -127,6 +129,11 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - RSA: 2048bit未満の鍵は拒否、4096bit推奨
   - Ed25519: セキュリティと性能の観点から優先される形式
   - 無効な鍵が含まれる場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
+
+- <span id="L9K4-KEYDUP">[L9K4-KEYDUP]</span> 公開鍵と秘密鍵で異なる Secret が指定された場合のキー重複チェック
+  - Post-install/Post-upgrade Hook で公開鍵と秘密鍵のシークレットキーの重複確認を実施
+  - 異なる Secret を指定した場合のみ、それぞれのシークレットキーに重複がないことを確認
+  - 重複するキーが検出された場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
 
 - <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる - [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
   - 指定されたファイル名で `~/.ssh/` にマウント
