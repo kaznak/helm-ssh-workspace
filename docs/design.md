@@ -83,7 +83,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 - <span id="V9H6-HOSTMOUNT">[V9H6-HOSTMOUNT]</span> SSH ホストキーは K8s Secret から readOnly でマウントされる
   - 指定されたファイル名で `/etc/dropbear/` にマウント
-  - defaultMode による確実なファイル権限設定 (0600)
+  - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
   - 実行時の意図しない変更を防止
 
 #### ユーザの SSH 鍵について
@@ -109,7 +109,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 - <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
   - `authorized_keys` ファイルとして `~/.ssh/` にマウント
-  - defaultMode による確実なファイル権限設定 (0644)
+  - defaultMode による確実なファイル権限設定 (0444) - 読み込み専用
   - 実行時の意図しない変更を防止
 
 - <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` でファイル名と内容を指定して K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
@@ -126,7 +126,7 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 - <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる
   - 指定されたファイル名で `~/.ssh/` にマウント
-  - defaultMode による確実なファイル権限設定 (0600)
+  - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
   - 実行時の意図しない変更を防止
 
 #### 各種スクリプトについて
