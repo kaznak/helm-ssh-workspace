@@ -22,8 +22,8 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 
 - 機能
   - <span id="P3R8-SHELL">[P3R8-SHELL]</span> シングルユーザ SSH シェルアクセス可能な開発ワークスペースを提供
-  - <span id="Q2N5-TOOLS">[Q2N5-TOOLS]</span> 様々な開発ツールを提供
-    - <span id="M4J7-BREW">[M4J7-BREW]</span> linuxbrew でインストール可能なツールはユーザランドで linuxbrew を利用してインストール（非特権環境での利用）
+  - <span id="Q2N5-TOOLS">[Q2N5-TOOLS]</span> 開発ワークスペースでは様々な開発ツールを提供
+    - <span id="M4J7-BREW">[M4J7-BREW]</span> 開発ワークスペースでは linuxbrew などユーザランドで動作するパッケージマネージャでインストール可能なツールはユーザランドでインストール（非特権環境での利用）
   - <span id="P7M2-FORWARD">[P7M2-FORWARD]</span> SSH 標準のポートフォワーディング機能を提供
     - <span id="N4C7-NETPOL">[N4C7-NETPOL]</span> ポートフォワーディングのアクセス制御は運用者がネットワークポリシーで設定
   - <span id="V5Q3-HOME">[V5Q3-HOME]</span> ホームディレクトリは emptyDir と PersistentVolume のいずれかを values.yaml の設定値で指定してマウント
