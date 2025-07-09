@@ -1,0 +1,20 @@
+{{- if eq .Values.homeDirectory.type "persistentVolume" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-home
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    # Keep PVC after helm release deletion [N3M9-PERSIST]
+    "helm.sh/resource-policy": "keep"
+spec:
+  accessModes:
+    {{- toYaml .Values.homeDirectory.persistentVolume.accessModes | nindent 4 }}
+  resources:
+    requests:
+      storage: {{ .Values.homeDirectory.persistentVolume.size }}
+  {{- if .Values.homeDirectory.persistentVolume.storageClass }}
+  storageClassName: {{ .Values.homeDirectory.persistentVolume.storageClass }}
+  {{- end }}
+{{- end }}

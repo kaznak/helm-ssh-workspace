@@ -1,0 +1,56 @@
+1. Get the SSH service connection information:
+
+{{- if contains "NodePort" .Values.service.type }}
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "ssh-workspace.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "SSH connection: ssh {{ .Values.user.name }}@$NODE_IP -p $NODE_PORT"
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "ssh-workspace.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "ssh-workspace.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "SSH connection: ssh {{ .Values.user.name }}@$SERVICE_IP -p {{ .Values.service.port }}"
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "ssh-workspace.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "SSH connection via port-forward: kubectl port-forward --namespace {{ .Release.Namespace }} $POD_NAME 2222:$CONTAINER_PORT"
+  echo "Then connect with: ssh {{ .Values.user.name }}@localhost -p 2222"
+{{- end }}
+
+2. SSH workspace configuration:
+   - Username: {{ .Values.user.name }}
+   - UID: {{ .Values.user.uid }}
+   - GID: {{ .Values.user.gid }}
+   - Home directory: {{ .Values.homeDirectory.type }}
+   {{- if eq .Values.homeDirectory.type "persistentVolume" }}
+   - Storage class: {{ .Values.homeDirectory.persistentVolume.storageClass | default "default" }}
+   - Storage size: {{ .Values.homeDirectory.persistentVolume.size }}
+   {{- end }}
+
+3. SSH key configuration:
+   - Host keys secret: {{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}
+   - Public keys secret: {{ .Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .)) }}
+   {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+   - Private keys secret: {{ .Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .)) }}
+   {{- end }}
+
+4. Troubleshooting:
+   If the installation failed, check the validation job logs:
+   kubectl logs -l job-name={{ include "ssh-workspace.fullname" . }}-validate-keys -n {{ .Release.Namespace }}
+
+   Common issues and solutions:
+   - SSH key validation failed: Check if your SSH keys are in the correct format (RSA 2048+ bits or Ed25519)
+   - Permission denied: Ensure your SSH public key is properly configured in values.yaml
+   - Connection refused: Check if the SSH service is running and accessible
+
+5. Advanced configuration:
+   For detailed configuration options, see the values.yaml file or project documentation.
+   
+   To update SSH keys, create or update the relevant secrets and upgrade the release:
+   helm upgrade {{ .Release.Name }} ./helm -n {{ .Release.Namespace }}
+
+{{- if .Values.ssh.hostKeys.autoGenerate }}
+6. SSH Host Key Fingerprints:
+   To get the SSH host key fingerprints for verification:
+   kubectl get secret {{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }} -n {{ .Release.Namespace }} -o jsonpath='{.data.rsa_host_key}' | base64 -d | ssh-keygen -lf -
+   kubectl get secret {{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }} -n {{ .Release.Namespace }} -o jsonpath='{.data.ed25519_host_key}' | base64 -d | ssh-keygen -lf -
+{{- end }}

@@ -1,0 +1,172 @@
+# Default values for ssh-workspace
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Image configuration
+image:
+  repository: ssh-workspace
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+# Image pull secrets
+imagePullSecrets: []
+
+# Override the chart name
+nameOverride: ""
+fullnameOverride: ""
+
+# SSH configuration
+ssh:
+  # SSH server port [B3Q8-PORT]
+  port: 2222
+  
+  # SSH host keys configuration [V4J1-HOSTKEY]
+  hostKeys:
+    # Secret name for SSH host keys [W5X2-SECRET]
+    # If not specified, defaults to "{{ .Release.Name }}-ssh-hostkeys"
+    secretName: ""
+    # Auto-generate host keys if secret doesn't exist [T8Q4-AUTOGEN]
+    autoGenerate: true
+  
+  # SSH user public keys configuration [K9T4-PUBKEY]
+  publicKeys:
+    # Secret name for SSH public keys [P5Q8-PUBKEY]
+    # If not specified, defaults to "{{ .Release.Name }}-ssh-pubkeys"
+    secretName: ""
+    # Direct specification of authorized_keys content [M6L5-MULTIKEY]
+    authorizedKeys: ""
+  
+  # SSH user private keys configuration [W7N2-PRIVKEY]
+  privateKeys:
+    # Secret name for SSH private keys [R2L7-PRIVKEY]
+    # If not specified, defaults to "{{ .Release.Name }}-ssh-privkeys"
+    secretName: ""
+    # Direct specification of private keys [Q9M4-MULTIPRIVKEY]
+    keys: {}
+    # Example:
+    # keys:
+    #   id_rsa: |
+    #     -----BEGIN OPENSSH PRIVATE KEY-----
+    #     ...
+    #     -----END OPENSSH PRIVATE KEY-----
+    #   id_ed25519: |
+    #     -----BEGIN OPENSSH PRIVATE KEY-----
+    #     ...
+    #     -----END OPENSSH PRIVATE KEY-----
+
+# User configuration [Y4F1-USER]
+user:
+  # Username [G8W5-USERNAME]
+  name: developer
+  # User ID [Z2S7-UID]
+  uid: 1000
+  # Group ID [A9T3-GID]
+  gid: 1000
+
+# Service configuration
+service:
+  # Service type [E4L7-CLUSTER]
+  type: ClusterIP
+  # Service port
+  port: 22
+  # Target port (container port)
+  targetPort: 2222
+
+# Home directory configuration [V5Q3-HOME]
+homeDirectory:
+  # Storage type: "emptyDir" or "persistentVolume" [T1H8-EMPTY]
+  type: emptyDir
+  
+  # EmptyDir configuration
+  emptyDir:
+    sizeLimit: 1Gi
+  
+  # PersistentVolume configuration [R7P4-STORAGE]
+  persistentVolume:
+    # Storage class [R7P4-STORAGE]
+    storageClass: ""
+    # Storage size
+    size: 5Gi
+    # Access modes
+    accessModes:
+      - ReadWriteOnce
+    # Subdirectory mount [C6B2-SUBDIR]
+    subPath: ""
+
+# Resource limits and requests [J1X6-LIMIT]
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Security context [X2K7-RESTRICT]
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+      - ALL
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Health check configuration [Q1P4-HEALTH]
+healthCheck:
+  # Liveness probe [L3F8-LIVENESS]
+  livenessProbe:
+    enabled: true
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  
+  # Readiness probe [R6Q9-READINESS]
+  readinessProbe:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+
+# Service account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Replicas (fixed to 1) [J8R2-DEPLOY]
+replicaCount: 1
+
+# Update strategy [Y3S2-DOWN]
+updateStrategy:
+  type: Recreate

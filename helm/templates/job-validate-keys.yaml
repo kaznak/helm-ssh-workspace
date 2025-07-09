@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+subjects:
+- kind: ServiceAccount
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-validate-keys
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "ssh-workspace.fullname" . }}-key-validator
+      restartPolicy: OnFailure
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: key-validator
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        command:
+        - /bin/bash
+        - -c
+        - |
+          set -e
+          
+          NAMESPACE="{{ .Release.Namespace }}"
+          HOST_SECRET="{{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}"
+          PUB_SECRET="{{ .Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .)) }}"
+          {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+          PRIV_SECRET="{{ .Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .)) }}"
+          {{- end }}
+          
+          VALIDATION_FAILED=false
+          
+          # Validate host keys
+          echo "=== Validating SSH host keys ==="
+          kubectl get secret "$HOST_SECRET" -n "$NAMESPACE" -o jsonpath='{.data.rsa_host_key}' | base64 -d > /tmp/rsa_host_key
+          kubectl get secret "$HOST_SECRET" -n "$NAMESPACE" -o jsonpath='{.data.ed25519_host_key}' | base64 -d > /tmp/ed25519_host_key
+          
+          if ! /opt/ssh-workspace/bin/validate-ssh-keys.sh host-keys; then
+            VALIDATION_FAILED=true
+          fi
+          
+          # Validate public keys
+          echo "=== Validating SSH public keys ==="
+          if kubectl get secret "$PUB_SECRET" -n "$NAMESPACE" >/dev/null 2>&1; then
+            kubectl get secret "$PUB_SECRET" -n "$NAMESPACE" -o jsonpath='{.data.authorized_keys}' | base64 -d > /tmp/authorized_keys
+            if ! /opt/ssh-workspace/bin/validate-ssh-keys.sh authorized-keys /tmp/authorized_keys; then
+              VALIDATION_FAILED=true
+            fi
+          else
+            echo "WARNING: SSH public keys secret not found: $PUB_SECRET"
+          fi
+          
+          # Validate private keys
+          {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+          echo "=== Validating SSH private keys ==="
+          if kubectl get secret "$PRIV_SECRET" -n "$NAMESPACE" >/dev/null 2>&1; then
+            # Extract all private keys
+            mkdir -p /tmp/ssh_keys
+            kubectl get secret "$PRIV_SECRET" -n "$NAMESPACE" -o json | jq -r '.data | to_entries[] | "\(.key) \(.value)"' | while read -r key_name key_data; do
+              echo "$key_data" | base64 -d > "/tmp/ssh_keys/$key_name"
+            done
+            
+            if ! /opt/ssh-workspace/bin/validate-ssh-keys.sh private-keys /tmp/ssh_keys; then
+              VALIDATION_FAILED=true
+            fi
+          else
+            echo "INFO: SSH private keys secret not found: $PRIV_SECRET"
+          fi
+          {{- end }}
+          
+          # Check for key duplication [L9K4-KEYDUP]
+          {{- if and (or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys) (ne (.Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .))) (.Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .)))) }}
+          echo "=== Checking for key duplication ==="
+          if kubectl get secret "$PUB_SECRET" -n "$NAMESPACE" >/dev/null 2>&1 && kubectl get secret "$PRIV_SECRET" -n "$NAMESPACE" >/dev/null 2>&1; then
+            PUB_KEYS=$(kubectl get secret "$PUB_SECRET" -n "$NAMESPACE" -o json | jq -r '.data | keys[]')
+            PRIV_KEYS=$(kubectl get secret "$PRIV_SECRET" -n "$NAMESPACE" -o json | jq -r '.data | keys[]')
+            
+            for pub_key in $PUB_KEYS; do
+              for priv_key in $PRIV_KEYS; do
+                if [ "$pub_key" = "$priv_key" ]; then
+                  echo "ERROR: Duplicate key found in both public and private secrets: $pub_key"
+                  VALIDATION_FAILED=true
+                fi
+              done
+            done
+          fi
+          {{- end }}
+          
+          if [ "$VALIDATION_FAILED" = true ]; then
+            echo "FAILED: SSH key validation failed"
+            exit 1
+          else
+            echo "SUCCESS: All SSH key validations passed"
+          fi
+        env:
+        - name: KUBECONFIG
+          value: /var/run/secrets/kubernetes.io/serviceaccount/kubeconfig
+        volumeMounts:
+        - name: temp-keys
+          mountPath: /etc/dropbear
+        - name: temp-validation
+          mountPath: /tmp
+      volumes:
+      - name: temp-keys
+        emptyDir: {}
+      - name: temp-validation
+        emptyDir: {}

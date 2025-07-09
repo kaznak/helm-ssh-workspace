@@ -1,0 +1,148 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+spec:
+  # Fixed replicas [J8R2-DEPLOY]
+  replicas: {{ .Values.replicaCount }}
+  # Update strategy [Y3S2-DOWN]
+  strategy:
+    {{- toYaml .Values.updateStrategy | nindent 4 }}
+  selector:
+    matchLabels:
+      {{- include "ssh-workspace.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "ssh-workspace.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "ssh-workspace.serviceAccountName" . }}
+      # Pod security context
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          # Container security context [X2K7-RESTRICT]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Environment variables for user configuration [Y4F1-USER]
+          env:
+            - name: SSH_USERNAME
+              value: {{ .Values.user.name | quote }}
+            - name: SSH_UID
+              value: {{ .Values.user.uid | quote }}
+            - name: SSH_GID
+              value: {{ .Values.user.gid | quote }}
+          ports:
+            - name: ssh
+              containerPort: {{ .Values.ssh.port }}
+              protocol: TCP
+          # Health checks [Q1P4-HEALTH]
+          {{- if .Values.healthCheck.livenessProbe.enabled }}
+          livenessProbe:
+            tcpSocket:
+              port: ssh
+            initialDelaySeconds: {{ .Values.healthCheck.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.livenessProbe.failureThreshold }}
+            successThreshold: {{ .Values.healthCheck.livenessProbe.successThreshold }}
+          {{- end }}
+          {{- if .Values.healthCheck.readinessProbe.enabled }}
+          readinessProbe:
+            exec:
+              command:
+                - /opt/ssh-workspace/bin/health-check.sh
+            initialDelaySeconds: {{ .Values.healthCheck.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.healthCheck.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.healthCheck.readinessProbe.failureThreshold }}
+            successThreshold: {{ .Values.healthCheck.readinessProbe.successThreshold }}
+          {{- end }}
+          # Resource limits [J1X6-LIMIT]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          # Volume mounts
+          volumeMounts:
+            # Home directory mount [V5Q3-HOME]
+            - name: home
+              mountPath: /home/{{ .Values.user.name }}
+              {{- if and (eq .Values.homeDirectory.type "persistentVolume") .Values.homeDirectory.persistentVolume.subPath }}
+              subPath: {{ .Values.homeDirectory.persistentVolume.subPath }}
+              {{- end }}
+            # SSH host keys mount [V9H6-HOSTMOUNT]
+            - name: ssh-host-keys
+              mountPath: /etc/dropbear
+              readOnly: true
+            # SSH public keys mount [D4K3-KEYMOUNT]
+            - name: ssh-public-keys
+              mountPath: /home/{{ .Values.user.name }}/.ssh/authorized_keys
+              subPath: authorized_keys
+              readOnly: true
+            # SSH private keys mount [B8W3-PRIVMOUNT]
+            {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+            - name: ssh-private-keys
+              mountPath: /home/{{ .Values.user.name }}/.ssh/keys
+              readOnly: true
+            {{- end }}
+      volumes:
+        # Home directory volume [V5Q3-HOME]
+        - name: home
+          {{- if eq .Values.homeDirectory.type "persistentVolume" }}
+          persistentVolumeClaim:
+            claimName: {{ include "ssh-workspace.fullname" . }}-home
+          {{- else }}
+          emptyDir:
+            {{- if .Values.homeDirectory.emptyDir.sizeLimit }}
+            sizeLimit: {{ .Values.homeDirectory.emptyDir.sizeLimit }}
+            {{- end }}
+          {{- end }}
+        # SSH host keys volume [W5X2-SECRET]
+        - name: ssh-host-keys
+          secret:
+            secretName: {{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}
+            defaultMode: 0400
+            items:
+              - key: rsa_host_key
+                path: dropbear_rsa_host_key
+              - key: ed25519_host_key
+                path: dropbear_ed25519_host_key
+        # SSH public keys volume [P5Q8-PUBKEY]
+        - name: ssh-public-keys
+          secret:
+            secretName: {{ .Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .)) }}
+            defaultMode: 0400
+        # SSH private keys volume [R2L7-PRIVKEY]
+        {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+        - name: ssh-private-keys
+          secret:
+            secretName: {{ .Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .)) }}
+            defaultMode: 0400
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
