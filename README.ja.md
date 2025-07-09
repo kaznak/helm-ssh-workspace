@@ -47,9 +47,13 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 
 #### セキュリティ機能
 - <span id="L6H3-KEYAUTH">[L6H3-KEYAUTH]</span> 認証は SSH 公開鍵認証のみ
+- <span id="F2X8-KEYTYPE">[F2X8-KEYTYPE]</span> ユーザの SSH 鍵（公開鍵・秘密鍵）は RSA (2048bit以上) と Ed25519 形式に対応
 - <span id="K9T4-PUBKEY">[K9T4-PUBKEY]</span> ユーザの SSH 公開鍵を values.yaml の設定値で指定可能
-- <span id="F2X8-KEYTYPE">[F2X8-KEYTYPE]</span> SSH 公開鍵は RSA (2048bit以上) と Ed25519 形式に対応
-- <span id="M6L5-MULTIKEY">[M6L5-MULTIKEY]</span> 複数の SSH 公開鍵を同時に設定可能
+- <span id="M6L5-MULTIKEY">[M6L5-MULTIKEY]</span> ユーザの 複数の SSH 公開鍵を同時に設定可能
+- <span id="W7N2-PRIVKEY">[W7N2-PRIVKEY]</span> ユーザの SSH 秘密鍵を values.yaml の設定値で指定可能
+- <span id="D5K8-PRIVTYPE">[D5K8-PRIVTYPE]</span> ユーザの SSH 秘密鍵は RSA (2048bit以上) と Ed25519 形式に対応
+- <span id="Q9M4-MULTIPRIVKEY">[Q9M4-MULTIPRIVKEY]</span> ユーザの 複数の SSH 秘密鍵を同時に設定可能
+- <span id="C3J6-PRIVMOUNT">[C3J6-PRIVMOUNT]</span> SSH 秘密鍵はホームディレクトリの .ssh/ に配置される
 - <span id="V4J1-HOSTKEY">[V4J1-HOSTKEY]</span> SSH ホストキーは values.yaml の設定値でユーザが指定しない場合 helm release 作成時に生成
 - <span id="R8N9-REUSE">[R8N9-REUSE]</span> SSH サーバホストキーは helm release 削除後も残り、再利用可能
 
