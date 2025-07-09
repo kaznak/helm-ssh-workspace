@@ -178,7 +178,7 @@ Install フェーズでの関連する処理：
 
 - <span id="R6Q9-READINESS">[R6Q9-READINESS]</span> Readiness Probe（トラフィック受付判定） - [see:Q1P4-HEALTH](../README.ja.md#Q1P4-HEALTH)
   - Exec Probe を使用してコンテナ内部の詳細な状態を確認
-  - `/usr/local/bin/health-check.sh` スクリプトによる包括的な健全性チェック
+  - ヘルスチェックスクリプトによる包括的な健全性チェック
   - 設定値：
     - initialDelaySeconds: 5（初回起動後5秒待機）
     - periodSeconds: 10（10秒間隔でチェック）
