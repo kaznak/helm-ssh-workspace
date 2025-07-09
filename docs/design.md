@@ -21,7 +21,7 @@
 
 Dropbear SSH の採用により以下の要件が容易に実現できる：
 - SSH 鍵認証のみの設定 [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH)
-- ポートフォワーディングのローカルホスト制限 [see:L9K6-LOCAL](../README.ja.md#L9K6-LOCAL)
+- ポートフォワーディングのネットワークポリシー制御 [see:N4C7-NETPOL](../README.ja.md#N4C7-NETPOL)
   - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
   - 外部アクセスを許可する `-a` オプションを使用しないことが重要
 - Pod Security Standards の restricted ポリシー完全対応 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
