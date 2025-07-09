@@ -77,6 +77,8 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
 
 - <span id="H9F7-KEYFORMAT">[H9F7-KEYFORMAT]</span> SSH 公開鍵の検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
   - Post-install/Post-upgrade Hook で Secret から `authorized_keys` 内容を読み取り検証を実施
+  - Hook 実行のため専用 ServiceAccount に Secret の読み出し権限（get）を付与
+  - 権限関連リソース（ServiceAccount、Role、RoleBinding）は hook-delete-policy により Hook 実行完了後に自動削除
   - `ssh-keygen -lf` コマンドで各鍵の暗号学的検証を実施
   - RSA: 2048bit未満の鍵は拒否、4096bit推奨
   - Ed25519: セキュリティと性能の観点から優先される形式
