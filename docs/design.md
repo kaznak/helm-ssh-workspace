@@ -72,6 +72,20 @@ ssh workspace は、デプロイ時にユーザ情報を受け付けてそれに
   - RSA (4096bit): 古いクライアントとの互換性のため併用
   - dropbearkey コマンドによる生成
 
+- <span id="K2L8-HOSTVALID">[K2L8-HOSTVALID]</span> SSH ホストキーの検証処理 - [see:F2X8-KEYTYPE](../README.ja.md#F2X8-KEYTYPE)
+  - Post-install/Post-upgrade Hook で Secret からホストキー内容を読み取り検証を実施
+  - Hook 実行のため専用 ServiceAccount に Secret の読み出し権限（get）を付与
+  - 権限関連リソース（ServiceAccount、Role、RoleBinding）は hook-delete-policy により Hook 実行完了後に自動削除
+  - `ssh-keygen -lf` コマンドで各鍵の暗号学的検証を実施
+  - RSA: 4096bit未満の鍵は警告、2048bit未満は拒否
+  - Ed25519: セキュリティと性能の観点から優先される形式
+  - 無効な鍵が含まれる場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
+
+- <span id="V9H6-HOSTMOUNT">[V9H6-HOSTMOUNT]</span> SSH ホストキーは K8s Secret から readOnly でマウントされる
+  - 指定されたファイル名で `/etc/dropbear/` にマウント
+  - defaultMode による確実なファイル権限設定 (0600)
+  - 実行時の意図しない変更を防止
+
 #### ユーザの SSH 鍵について
 
 - <span id="P5Q8-PUBKEY">[P5Q8-PUBKEY]</span> ユーザの SSH 公開鍵は `values.yaml` で `authorized_keys` ファイルの内容として記述し K8s Secret に保存する - [see:K9T4-PUBKEY](../README.ja.md#K9T4-PUBKEY), [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH), [see:M6L5-MULTIKEY](../README.ja.md#M6L5-MULTIKEY)
