@@ -84,6 +84,8 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 
 #### スケーリング
 - <span id="J8R2-DEPLOY">[J8R2-DEPLOY]</span> Deployment リソースで replicas 1 固定で運用（自動スケーリング無効）
+  - HPA等の自動スケーリング機能は明示的に無効化し、単一replica前提での設計とする
+  - SSH接続の特性上、複数インスタンスによる負荷分散が適さないため
 - <span id="Y3S2-DOWN">[Y3S2-DOWN]</span> アップデートやメンテナンス時のダウンタイムを許容し、高可用性は要求しない
 
 ### S - Supportability（保守性）
