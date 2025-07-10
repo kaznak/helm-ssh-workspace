@@ -33,8 +33,9 @@ tmpd=$(mktemp -d)             # 一時ディレクトリ
 logd=$tmpd/log
 mkdir -p $logd
 
-# ファイルディスクリプタ3をstderrの複製として設定
-exec 3>&2
+# ファイルディスクリプタ3を冗長出力用として設定
+exec 3>&2  # 冗長出力を表示する場合
+# exec 3>/dev/null  # 冗長出力を抑制する場合
 
 # デバッグ時は以下のコメントアウトを外す
 # set -vx
@@ -80,13 +81,36 @@ print_help() {
 }
 ```
 
-### 8. メイン処理の書き方
+### 8. 中間処理結果のファイル管理
+```bash
+# 変数ではなく一時ファイルに中間結果を保存
+grep "pattern" input.txt > "$tmpd/filtered.txt"
+sort "$tmpd/filtered.txt" > "$tmpd/sorted.txt"
+uniq "$tmpd/sorted.txt" > "$tmpd/result.txt"
+
+# teeを使用してファイル出力とログ出力を同時実行（デバッグ時）
+grep "pattern" input.txt | tee "$tmpd/filtered.txt" >&3
+sort "$tmpd/filtered.txt" | tee "$tmpd/sorted.txt" >&3
+uniq "$tmpd/sorted.txt" | tee "$tmpd/result.txt" >&3
+
+# ファイルからデータを読み取って処理
+while read line; do
+    process "$line"
+done < "$tmpd/result.txt"
+
+# 複数のプロセスで同じデータを共有
+wc -l < "$tmpd/result.txt" > "$tmpd/count.txt"
+PROGRESS "処理対象: $(cat "$tmpd/count.txt") 行"
+```
+
+### 9. メイン処理の書き方
 - **早期終了パターン**: `[[ 条件 ]] && exit 1`
 - **エラーメッセージ事前設定**: 条件チェック前に `error_msg="メッセージ"` を設定
 - **if-then-elseの入れ子は避ける**: 線形な上から下への処理フロー
 - **バックグラウンド処理**: 必要に応じて子プロセスでエラーチェック
+- **中間結果はファイル管理**: 大きなデータや複雑な処理結果は変数ではなく `$tmpd` 内のファイルに保存
 
-### 9. 重要な原則
+### 10. 重要な原則
 - プログラム的構造（複雑な関数、制御フロー）は避ける
 - 上から下に読める線形構造
 - trapによるエラーハンドリングとリソース管理
