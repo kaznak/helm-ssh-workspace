@@ -147,9 +147,6 @@ spec:
           else
             echo "SUCCESS: All SSH key validations passed"
           fi
-        env:
-        - name: KUBECONFIG
-          value: /var/run/secrets/kubernetes.io/serviceaccount/kubeconfig
         volumeMounts:
         - name: temp-keys
           mountPath: /etc/dropbear

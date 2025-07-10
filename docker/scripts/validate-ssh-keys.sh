@@ -86,18 +86,51 @@ validate_private_key() {
     return 0
 }
 
+validate_dropbear_key() {
+    local key_file="$1"
+    local key_type="$2"
+    
+    if [ ! -f "$key_file" ]; then
+        echo "ERROR: Dropbear key file not found: $key_file"
+        return 1
+    fi
+    
+    if [ ! -s "$key_file" ]; then
+        echo "ERROR: Dropbear key file is empty: $key_file"
+        return 1
+    fi
+    
+    # Extract public key from dropbear private key and validate it
+    local temp_pub_key=$(mktemp)
+    if dropbearkey -y -f "$key_file" | grep "^ssh-" > "$temp_pub_key" 2>/dev/null; then
+        if validate_public_key "$temp_pub_key"; then
+            echo "INFO: Valid $key_type Dropbear key found in $key_file"
+            rm -f "$temp_pub_key"
+            return 0
+        else
+            echo "ERROR: Invalid $key_type Dropbear key in $key_file"
+            rm -f "$temp_pub_key"
+            return 1
+        fi
+    else
+        echo "ERROR: Cannot extract public key from Dropbear key: $key_file"
+        rm -f "$temp_pub_key"
+        return 1
+    fi
+}
+
 validate_host_keys() {
     local error_count=0
     
     echo "=== Validating SSH host keys ==="
     
     # Validate RSA host key
-    if ! validate_public_key "/etc/dropbear/dropbear_rsa_host_key"; then
+    if ! validate_dropbear_key "/etc/dropbear/dropbear_rsa_host_key" "RSA"; then
         error_count=$((error_count + 1))
     fi
     
     # Validate Ed25519 host key
-    if ! validate_public_key "/etc/dropbear/dropbear_ed25519_host_key"; then
+    if ! validate_dropbear_key "/etc/dropbear/dropbear_ed25519_host_key" "Ed25519"; then
         error_count=$((error_count + 1))
     fi
     

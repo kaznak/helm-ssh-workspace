@@ -27,8 +27,15 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     locales \
     tzdata \
+    # For hook operations
+    jq \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
+
+# Install kubectl for hook operations
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/
 
 # Set locale
 ENV LANG=en_US.UTF-8

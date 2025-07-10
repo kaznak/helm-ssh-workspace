@@ -83,13 +83,24 @@ main() {
     if [ "$error_count" -eq 0 ]; then
         echo "SUCCESS: SSH host key generation completed"
         
-        # Validate generated keys
-        if command -v /opt/ssh-workspace/bin/validate-ssh-keys.sh >/dev/null 2>&1; then
-            echo "Validating generated keys..."
-            /opt/ssh-workspace/bin/validate-ssh-keys.sh host-keys
-        fi
+        # Basic validation - check if files exist and have content
+        echo "Verifying generated key files..."
+        for key_file in "$RSA_KEY_FILE" "$ED25519_KEY_FILE"; do
+            if [ -f "$key_file" ] && [ -s "$key_file" ]; then
+                echo "INFO: Key file exists and has content: $key_file"
+            else
+                echo "WARNING: Key file missing or empty: $key_file"
+                error_count=$((error_count + 1))
+            fi
+        done
         
-        exit 0
+        if [ "$error_count" -eq 0 ]; then
+            echo "SUCCESS: All key files verified"
+            exit 0
+        else
+            echo "FAILED: Key file verification failed"
+            exit 1
+        fi
     else
         echo "FAILED: $error_count errors occurred during key generation"
         exit 1

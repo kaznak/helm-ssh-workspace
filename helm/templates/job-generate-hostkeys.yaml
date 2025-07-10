@@ -103,9 +103,6 @@ spec:
             -n "$NAMESPACE"
           
           echo "SSH host keys secret created successfully: $SECRET_NAME"
-        env:
-        - name: KUBECONFIG
-          value: /var/run/secrets/kubernetes.io/serviceaccount/kubeconfig
         volumeMounts:
         - name: temp-keys
           mountPath: /etc/dropbear
