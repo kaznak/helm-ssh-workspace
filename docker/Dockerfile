@@ -58,5 +58,5 @@ EXPOSE 2222
 # Set working directory
 WORKDIR /home
 
-# Default entrypoint
-ENTRYPOINT ["/opt/ssh-workspace/bin/entrypoint.sh"]
+# Default entrypoint (can be overridden by Kubernetes)
+ENTRYPOINT ["/opt/ssh-workspace/bin/start-ssh-server.sh"]

@@ -33,90 +33,12 @@ spec:
       # Pod security context
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
-      # Init container for SSH key setup
-      initContainers:
-        - name: ssh-key-setup
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # Run as root for user/group creation and file operations
-          securityContext:
-            runAsUser: 0
-          command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              echo "Setting up SSH environment..."
-              
-              # Create user and group if they don't exist
-              if ! getent group {{ .Values.user.gid }} >/dev/null; then
-                groupadd -g {{ .Values.user.gid }} {{ .Values.user.name }}
-              fi
-              if ! id {{ .Values.user.name }} >/dev/null 2>&1; then
-                useradd -u {{ .Values.user.uid }} -g {{ .Values.user.gid }} -d /home/{{ .Values.user.name }} -s /bin/bash {{ .Values.user.name }}
-              fi
-              
-              # Create SSH directories
-              mkdir -p /home/{{ .Values.user.name }}/.ssh
-              mkdir -p /home/{{ .Values.user.name }}/.ssh/dropbear
-              
-              # Copy SSH host keys from mounted secrets (with default permissions)
-              if [ -f /mnt/ssh-host-keys/rsa_host_key ]; then
-                cp /mnt/ssh-host-keys/rsa_host_key /home/{{ .Values.user.name }}/.ssh/dropbear/dropbear_rsa_host_key
-                chmod 600 /home/{{ .Values.user.name }}/.ssh/dropbear/dropbear_rsa_host_key
-              fi
-              if [ -f /mnt/ssh-host-keys/ed25519_host_key ]; then
-                cp /mnt/ssh-host-keys/ed25519_host_key /home/{{ .Values.user.name }}/.ssh/dropbear/dropbear_ed25519_host_key
-                chmod 600 /home/{{ .Values.user.name }}/.ssh/dropbear/dropbear_ed25519_host_key
-              fi
-              
-              # Copy SSH public keys (authorized_keys) from mounted secrets
-              if [ -f /mnt/ssh-public-keys/authorized_keys ]; then
-                cp /mnt/ssh-public-keys/authorized_keys /home/{{ .Values.user.name }}/.ssh/authorized_keys
-                chmod 600 /home/{{ .Values.user.name }}/.ssh/authorized_keys
-              fi
-              
-              # Copy SSH private keys if they exist
-              {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
-              if [ -d /mnt/ssh-private-keys ]; then
-                for key_file in /mnt/ssh-private-keys/*; do
-                  if [ -f "$key_file" ]; then
-                    cp "$key_file" /home/{{ .Values.user.name }}/.ssh/
-                    chmod 600 /home/{{ .Values.user.name }}/.ssh/$(basename "$key_file")
-                  fi
-                done
-              fi
-              {{- end }}
-              
-              # Set proper ownership
-              chown -R {{ .Values.user.uid }}:{{ .Values.user.gid }} /home/{{ .Values.user.name }}/.ssh
-              
-              echo "SSH environment setup completed"
-          volumeMounts:
-            # Home directory mount
-            - name: home
-              mountPath: /home/{{ .Values.user.name }}
-            # SSH host keys mount (read from default location)
-            - name: ssh-host-keys
-              mountPath: /mnt/ssh-host-keys
-              readOnly: true
-            # SSH public keys mount (read from default location)
-            - name: ssh-public-keys
-              mountPath: /mnt/ssh-public-keys
-              readOnly: true
-            # SSH private keys mount (if configured)
-            {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
-            - name: ssh-private-keys
-              mountPath: /mnt/ssh-private-keys
-              readOnly: true
-            {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           # Container security context [X2K7-RESTRICT]
           securityContext:
-            runAsUser: {{ .Values.user.uid }}
-            runAsGroup: {{ .Values.user.gid }}
-            runAsNonRoot: true
+            runAsUser: 0
+            runAsGroup: 0
             {{- if not (empty .Values.securityContext) }}
             {{- toYaml .Values.securityContext | nindent 12 }}
             {{- end }}
@@ -130,17 +52,11 @@ spec:
               value: {{ .Values.user.uid | quote }}
             - name: SSH_GID
               value: {{ .Values.user.gid | quote }}
-          # Override entrypoint to run dropbear directly
+            - name: SSH_PORT
+              value: {{ .Values.ssh.port | quote }}
+          # Override entrypoint to run SSH server startup script
           command:
-            - /bin/bash
-            - -c
-            - |
-              set -e
-              echo "Starting SSH workspace as user {{ .Values.user.name }} ({{ .Values.user.uid }}:{{ .Values.user.gid }})"
-              
-              # Start dropbear as the specified user
-              echo "Starting Dropbear SSH server..."
-              exec dropbear -F -p {{ .Values.ssh.port }} -r /home/{{ .Values.user.name }}/.ssh/dropbear/dropbear_rsa_host_key -r /home/{{ .Values.user.name }}/.ssh/dropbear/dropbear_ed25519_host_key
+            - /opt/ssh-workspace/bin/start-ssh-server.sh
           ports:
             - name: ssh
               containerPort: {{ .Values.ssh.port }}
@@ -178,6 +94,20 @@ spec:
               {{- if and (eq .Values.homeDirectory.type "persistentVolume") .Values.homeDirectory.persistentVolume.subPath }}
               subPath: {{ .Values.homeDirectory.persistentVolume.subPath }}
               {{- end }}
+            # SSH host keys mount (read from mounted secrets)
+            - name: ssh-host-keys
+              mountPath: /mnt/ssh-host-keys
+              readOnly: true
+            # SSH public keys mount (read from mounted secrets)
+            - name: ssh-public-keys
+              mountPath: /mnt/ssh-public-keys
+              readOnly: true
+            # SSH private keys mount (if configured)
+            {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+            - name: ssh-private-keys
+              mountPath: /mnt/ssh-private-keys
+              readOnly: true
+            {{- end }}
       volumes:
         # Home directory volume [V5Q3-HOME]
         - name: home
