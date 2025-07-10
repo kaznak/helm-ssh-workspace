@@ -225,6 +225,100 @@ validate_private_keys() {
     fi
 }
 
+# Kubernetes Hook validation function
+validate_k8s_hook() {
+    local namespace="$1"
+    local host_secret="$2"
+    local pub_secret="$3"
+    local priv_secret="$4"
+    
+    local validation_failed=false
+    
+    echo "=== Kubernetes Hook SSH Key Validation ==="
+    echo "Namespace: $namespace"
+    echo "Host Secret: $host_secret"
+    echo "Public Secret: $pub_secret"
+    echo "Private Secret: $priv_secret"
+    
+    # Validate host keys from Kubernetes secret
+    echo "=== Validating SSH host keys ==="
+    if kubectl get secret "$host_secret" -n "$namespace" >/dev/null 2>&1; then
+        # Ensure /etc/dropbear directory exists and is writable
+        mkdir -p /etc/dropbear 2>/dev/null || true
+        
+        # Extract host keys to expected locations
+        echo "Extracting RSA host key..."
+        kubectl get secret "$host_secret" -n "$namespace" -o jsonpath='{.data.rsa_host_key}' | base64 -d > /etc/dropbear/dropbear_rsa_host_key
+        chmod 600 /etc/dropbear/dropbear_rsa_host_key
+        
+        echo "Extracting Ed25519 host key..."
+        kubectl get secret "$host_secret" -n "$namespace" -o jsonpath='{.data.ed25519_host_key}' | base64 -d > /etc/dropbear/dropbear_ed25519_host_key
+        chmod 600 /etc/dropbear/dropbear_ed25519_host_key
+        
+        echo "Validating extracted host keys..."
+        if ! validate_host_keys; then
+            validation_failed=true
+        fi
+    else
+        echo "ERROR: Host keys secret not found: $host_secret"
+        validation_failed=true
+    fi
+    
+    # Validate public keys from Kubernetes secret
+    echo "=== Validating SSH public keys ==="
+    if kubectl get secret "$pub_secret" -n "$namespace" >/dev/null 2>&1; then
+        kubectl get secret "$pub_secret" -n "$namespace" -o jsonpath='{.data.authorized_keys}' | base64 -d > /tmp/authorized_keys
+        if ! validate_authorized_keys "/tmp/authorized_keys"; then
+            validation_failed=true
+        fi
+    else
+        echo "WARNING: SSH public keys secret not found: $pub_secret"
+    fi
+    
+    # Validate private keys from Kubernetes secret (if specified)
+    if [ -n "$priv_secret" ] && [ "$priv_secret" != "null" ]; then
+        echo "=== Validating SSH private keys ==="
+        if kubectl get secret "$priv_secret" -n "$namespace" >/dev/null 2>&1; then
+            # Extract all private keys
+            mkdir -p /tmp/ssh_keys
+            kubectl get secret "$priv_secret" -n "$namespace" -o json | jq -r '.data | to_entries[] | "\(.key) \(.value)"' | while read -r key_name key_data; do
+                echo "$key_data" | base64 -d > "/tmp/ssh_keys/$key_name"
+            done
+            
+            if ! validate_private_keys "/tmp/ssh_keys"; then
+                validation_failed=true
+            fi
+        else
+            echo "INFO: SSH private keys secret not found: $priv_secret"
+        fi
+        
+        # Check for key duplication between public and private secrets
+        echo "=== Checking for key duplication ==="
+        if kubectl get secret "$pub_secret" -n "$namespace" >/dev/null 2>&1 && kubectl get secret "$priv_secret" -n "$namespace" >/dev/null 2>&1; then
+            local pub_keys priv_keys
+            pub_keys=$(kubectl get secret "$pub_secret" -n "$namespace" -o json | jq -r '.data | keys[]')
+            priv_keys=$(kubectl get secret "$priv_secret" -n "$namespace" -o json | jq -r '.data | keys[]')
+            
+            for pub_key in $pub_keys; do
+                for priv_key in $priv_keys; do
+                    if [ "$pub_key" = "$priv_key" ]; then
+                        echo "ERROR: Duplicate key found in both public and private secrets: $pub_key"
+                        validation_failed=true
+                    fi
+                done
+            done
+        fi
+    fi
+    
+    if [ "$validation_failed" = true ]; then
+        echo "FAILED: SSH key validation failed"
+        return 1
+    else
+        echo "SUCCESS: All SSH key validations passed"
+        return 0
+    fi
+}
+
 # Main function
 main() {
     local command="$1"
@@ -240,11 +334,27 @@ main() {
         "private-keys")
             validate_private_keys "$target"
             ;;
+        "k8s-hook")
+            # For Kubernetes Hook validation
+            # Usage: validate-ssh-keys.sh k8s-hook <namespace> <host-secret> <pub-secret> [priv-secret]
+            local namespace="$2"
+            local host_secret="$3"
+            local pub_secret="$4"
+            local priv_secret="$5"
+            
+            if [ -z "$namespace" ] || [ -z "$host_secret" ] || [ -z "$pub_secret" ]; then
+                echo "Usage: $0 k8s-hook <namespace> <host-secret> <pub-secret> [priv-secret]"
+                exit 1
+            fi
+            
+            validate_k8s_hook "$namespace" "$host_secret" "$pub_secret" "$priv_secret"
+            ;;
         *)
-            echo "Usage: $0 <host-keys|authorized-keys|private-keys> [target]"
+            echo "Usage: $0 <host-keys|authorized-keys|private-keys|k8s-hook> [target]"
             echo "  host-keys: Validate SSH host keys"
             echo "  authorized-keys <file>: Validate authorized_keys file"
             echo "  private-keys <dir>: Validate private keys in SSH directory"
+            echo "  k8s-hook <namespace> <host-secret> <pub-secret> [priv-secret]: Validate keys from Kubernetes secrets"
             exit 1
             ;;
     esac
