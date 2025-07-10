@@ -80,7 +80,6 @@ spec:
           {{- toYaml .Values.securityContext | nindent 10 }}
         command:
         - /opt/ssh-workspace/bin/validate-ssh-keys.sh
-        - k8s-hook
         - "{{ .Release.Namespace }}"
         - "{{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}"
         - "{{ .Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .)) }}"
