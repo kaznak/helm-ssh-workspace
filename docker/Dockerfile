@@ -23,6 +23,9 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     # Required for user management
     sudo \
+    # Network utilities for health checks
+    iproute2 \
+    procps \
     # Utilities
     ca-certificates \
     locales \
