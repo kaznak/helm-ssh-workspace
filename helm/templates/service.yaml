@@ -1,3 +1,9 @@
+{{/*
+SSH Workspace Service Template
+Service resource configuration [[see:N4V9-SVC]](../README.ja.md#N4V9-SVC)
+Default ClusterIP service type [[see:E4L7-CLUSTER]](../README.ja.md#E4L7-CLUSTER)
+Service usage pattern [[see:W9F5-SERVICE]](../README.ja.md#W9F5-SERVICE)
+*/}}
 apiVersion: v1
 kind: Service
 metadata:

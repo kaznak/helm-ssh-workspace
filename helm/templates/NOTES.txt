@@ -1,3 +1,7 @@
+{{/*
+SSH Workspace User Guide - [[see:M8Q5-NOTES]](../docs/design.md#M8Q5-NOTES)
+Troubleshooting guidance for SSH workspace deployment
+*/}}
 1. Get the SSH service connection information:
 
 {{- if contains "NodePort" .Values.service.type }}

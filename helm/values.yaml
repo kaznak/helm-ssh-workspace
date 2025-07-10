@@ -17,31 +17,31 @@ fullnameOverride: ""
 
 # SSH configuration
 ssh:
-  # SSH server port [B3Q8-PORT]
+  # SSH server port [[see:B3Q8-PORT]](../README.ja.md#B3Q8-PORT)
   port: 2222
   
-  # SSH host keys configuration [V4J1-HOSTKEY]
+  # SSH host keys configuration [[see:V4J1-HOSTKEY]](../README.ja.md#V4J1-HOSTKEY)
   hostKeys:
-    # Secret name for SSH host keys [W5X2-SECRET]
+    # Secret name for SSH host keys [[see:W5X2-SECRET]](../README.ja.md#W5X2-SECRET)
     # If not specified, defaults to "{{ .Release.Name }}-ssh-hostkeys"
     secretName: ""
-    # Auto-generate host keys if secret doesn't exist [T8Q4-AUTOGEN]
+    # Auto-generate host keys if secret doesn't exist [[see:T8Q4-AUTOGEN]](../docs/design.md#T8Q4-AUTOGEN)
     autoGenerate: true
   
-  # SSH user public keys configuration [K9T4-PUBKEY]
+  # SSH user public keys configuration [[see:K9T4-PUBKEY]](../README.ja.md#K9T4-PUBKEY)
   publicKeys:
-    # Secret name for SSH public keys [P5Q8-PUBKEY]
+    # Secret name for SSH public keys [[see:P5Q8-PUBKEY]](../README.ja.md#P5Q8-PUBKEY)
     # If not specified, defaults to "{{ .Release.Name }}-ssh-pubkeys"
     secretName: ""
-    # Direct specification of authorized_keys content [M6L5-MULTIKEY]
+    # Direct specification of authorized_keys content [[see:M6L5-MULTIKEY]](../README.ja.md#M6L5-MULTIKEY)
     authorizedKeys: ""
   
-  # SSH user private keys configuration [W7N2-PRIVKEY]
+  # SSH user private keys configuration [[see:W7N2-PRIVKEY]](../README.ja.md#W7N2-PRIVKEY)
   privateKeys:
-    # Secret name for SSH private keys [R2L7-PRIVKEY]
+    # Secret name for SSH private keys [[see:R2L7-PRIVKEY]](../docs/design.md#R2L7-PRIVKEY)
     # If not specified, defaults to "{{ .Release.Name }}-ssh-privkeys"
     secretName: ""
-    # Direct specification of private keys [Q9M4-MULTIPRIVKEY]
+    # Direct specification of private keys [[see:Q9M4-MULTIPRIVKEY]](../README.ja.md#Q9M4-MULTIPRIVKEY)
     keys: {}
     # Example:
     # keys:
@@ -54,46 +54,46 @@ ssh:
     #     ...
     #     -----END OPENSSH PRIVATE KEY-----
 
-# User configuration [Y4F1-USER]
+# User configuration [[see:Y4F1-USER]](../README.ja.md#Y4F1-USER)
 user:
-  # Username [G8W5-USERNAME]
+  # Username [[see:G8W5-USERNAME]](../README.ja.md#G8W5-USERNAME)
   name: developer
-  # User ID [Z2S7-UID]
+  # User ID [[see:Z2S7-UID]](../README.ja.md#Z2S7-UID)
   uid: 1000
-  # Group ID [A9T3-GID]
+  # Group ID [[see:A9T3-GID]](../README.ja.md#A9T3-GID)
   gid: 1000
 
 # Service configuration
 service:
-  # Service type [E4L7-CLUSTER]
+  # Service type [[see:E4L7-CLUSTER]](../README.ja.md#E4L7-CLUSTER)
   type: ClusterIP
   # Service port
   port: 22
   # Target port (container port)
   targetPort: 2222
 
-# Home directory configuration [V5Q3-HOME]
+# Home directory configuration [[see:V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
 homeDirectory:
-  # Storage type: "emptyDir" or "persistentVolume" [T1H8-EMPTY]
+  # Storage type: "emptyDir" or "persistentVolume" [[see:T1H8-EMPTY]](../README.ja.md#T1H8-EMPTY)
   type: emptyDir
   
   # EmptyDir configuration
   emptyDir:
     sizeLimit: 1Gi
   
-  # PersistentVolume configuration [R7P4-STORAGE]
+  # PersistentVolume configuration [[see:R7P4-STORAGE]](../README.ja.md#R7P4-STORAGE)
   persistentVolume:
-    # Storage class [R7P4-STORAGE]
+    # Storage class [[see:R7P4-STORAGE]](../README.ja.md#R7P4-STORAGE)
     storageClass: ""
     # Storage size
     size: 5Gi
     # Access modes
     accessModes:
       - ReadWriteOnce
-    # Subdirectory mount [C6B2-SUBDIR]
+    # Subdirectory mount [[see:C6B2-SUBDIR]](../README.ja.md#C6B2-SUBDIR)
     subPath: ""
 
-# Resource limits and requests [J1X6-LIMIT]
+# Resource limits and requests [[see:J1X6-LIMIT]](../README.ja.md#J1X6-LIMIT)
 resources:
   limits:
     cpu: 500m
@@ -108,9 +108,9 @@ securityContext: {}
 # Pod security context
 podSecurityContext: {}
 
-# Health check configuration [Q1P4-HEALTH]
+# Health check configuration [[see:Q1P4-HEALTH]](../README.ja.md#Q1P4-HEALTH)
 healthCheck:
-  # Liveness probe [L3F8-LIVENESS]
+  # Liveness probe [[see:L3F8-LIVENESS]](../README.ja.md#L3F8-LIVENESS)
   livenessProbe:
     enabled: true
     initialDelaySeconds: 30
@@ -119,7 +119,7 @@ healthCheck:
     failureThreshold: 3
     successThreshold: 1
   
-  # Readiness probe [R6Q9-READINESS]
+  # Readiness probe [[see:R6Q9-READINESS]](../README.ja.md#R6Q9-READINESS)
   readinessProbe:
     enabled: true
     initialDelaySeconds: 5
@@ -153,9 +153,9 @@ tolerations: []
 # Affinity
 affinity: {}
 
-# Replicas (fixed to 1) [J8R2-DEPLOY]
+# Replicas (fixed to 1) [[see:J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY)
 replicaCount: 1
 
-# Update strategy [Y3S2-DOWN]
+# Update strategy [[see:Y3S2-DOWN]](../README.ja.md#Y3S2-DOWN)
 updateStrategy:
   type: Recreate

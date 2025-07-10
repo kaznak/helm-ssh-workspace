@@ -1,3 +1,11 @@
+{{/*
+SSH Key Validation Job Template
+SSH host key validation [[see:K2L8-HOSTVALID]](../docs/design.md#K2L8-HOSTVALID)
+Public key format validation [[see:H9F7-KEYFORMAT]](../docs/design.md#H9F7-KEYFORMAT)
+Private key format validation [[see:T6K9-PRIVFORMAT]](../docs/design.md#T6K9-PRIVFORMAT)
+Key duplication check [[see:L9K4-KEYDUP]](../docs/design.md#L9K4-KEYDUP)
+SSH key type requirements [[see:F2X8-KEYTYPE]](../README.ja.md#F2X8-KEYTYPE)
+*/}}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

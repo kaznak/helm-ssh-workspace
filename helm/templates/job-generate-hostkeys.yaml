@@ -1,3 +1,10 @@
+{{/*
+SSH Host Key Generation Job Template
+SSH host key auto-generation [[see:T8Q4-AUTOGEN]](../docs/design.md#T8Q4-AUTOGEN)
+Minimal permissions for host key generation [[see:J5N4-HOSTPERM]](../docs/design.md#J5N4-HOSTPERM)
+Ed25519 + RSA 4096-bit key generation [[see:R6N7-CRYPTO]](../docs/design.md#R6N7-CRYPTO)
+Host key persistence and reuse [[see:R8N9-REUSE]](../README.ja.md#R8N9-REUSE)
+*/}}
 {{- if .Values.ssh.hostKeys.autoGenerate }}
 apiVersion: v1
 kind: ServiceAccount
