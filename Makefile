@@ -39,10 +39,10 @@ help:
 	@echo "  helm-list           - List Helm releases"
 	@echo "  helm-lifecycle-test - Run complete lifecycle test"
 	@echo ""
-	@echo "Kind cluster targets (for local testing):"
-	@echo "  create-kind-cluster     - Create kind cluster for testing"
-	@echo "  delete-kind-cluster     - Delete kind cluster"
-	@echo "  load-image-to-kind      - Load Docker image to kind cluster"
+	@echo "k3d cluster targets (for local testing):"
+	@echo "  create-k3d-cluster      - Create k3d cluster for testing"
+	@echo "  delete-k3d-cluster      - Delete k3d cluster"
+	@echo "  load-image-to-k3d       - Load Docker image to k3d cluster"
 	@echo "  generate-test-ssh-key   - Generate test SSH key pair in tmp/"
 	@echo "  prepare-test-env        - Prepare test environment with SSH key validation"
 	@echo ""
@@ -166,52 +166,54 @@ integration-test: docker-build
 
 # Helm lifecycle management targets
 
-# Kind cluster configuration for testing
-KIND_CLUSTER_NAME ?= helm-ssh-workspace-test
-KIND_CONFIG_FILE ?= kind-config.yaml
+# k3d cluster configuration for testing
+K3D_CLUSTER_NAME ?= helm-ssh-workspace-test
+K3D_REGISTRY_PORT ?= 5000
 
-# Create kind cluster for testing
-.PHONY: create-kind-cluster
-create-kind-cluster:
-	@echo "Creating kind cluster: $(KIND_CLUSTER_NAME)"
-	@if ! command -v kind >/dev/null 2>&1; then \
-		echo "ERROR: kind is not installed. Please install kind first."; \
-		echo "Visit: https://kind.sigs.k8s.io/docs/user/quick-start/#installation"; \
+# Create k3d cluster for testing
+.PHONY: create-k3d-cluster
+create-k3d-cluster:
+	@echo "Creating k3d cluster: $(K3D_CLUSTER_NAME)"
+	@if ! command -v k3d >/dev/null 2>&1; then \
+		echo "ERROR: k3d is not installed. Please install k3d first."; \
+		echo "Visit: https://k3d.io/v5.6.0/#installation"; \
 		exit 1; \
 	fi
-	@if kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		echo "Kind cluster $(KIND_CLUSTER_NAME) already exists"; \
+	@if k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) already exists"; \
 	else \
-		kind create cluster --name $(KIND_CLUSTER_NAME); \
-		echo "Kind cluster $(KIND_CLUSTER_NAME) created successfully"; \
+		k3d cluster create $(K3D_CLUSTER_NAME) \
+			--port "2222:2222@loadbalancer" \
+			--wait --timeout 60s; \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) created successfully"; \
 	fi
-	@echo "Set KUBE_CONTEXT=$(KIND_CLUSTER_NAME) to use this cluster"
+	@echo "Cluster context: k3d-$(K3D_CLUSTER_NAME)"
 
-# Delete kind cluster
-.PHONY: delete-kind-cluster
-delete-kind-cluster:
-	@echo "Deleting kind cluster: $(KIND_CLUSTER_NAME)"
-	@if command -v kind >/dev/null 2>&1 && kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		kind delete cluster --name $(KIND_CLUSTER_NAME); \
-		echo "Kind cluster $(KIND_CLUSTER_NAME) deleted"; \
+# Delete k3d cluster
+.PHONY: delete-k3d-cluster
+delete-k3d-cluster:
+	@echo "Deleting k3d cluster: $(K3D_CLUSTER_NAME)"
+	@if command -v k3d >/dev/null 2>&1 && k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+		k3d cluster delete $(K3D_CLUSTER_NAME); \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) deleted"; \
 	else \
-		echo "Kind cluster $(KIND_CLUSTER_NAME) not found"; \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) not found"; \
 	fi
 
-# Load Docker image to kind cluster
-.PHONY: load-image-to-kind
-load-image-to-kind: docker-build
-	@echo "Loading Docker image to kind cluster..."
-	@if ! command -v kind >/dev/null 2>&1; then \
-		echo "ERROR: kind is not installed"; \
+# Load Docker image to k3d cluster
+.PHONY: load-image-to-k3d
+load-image-to-k3d: docker-build
+	@echo "Loading Docker image to k3d cluster..."
+	@if ! command -v k3d >/dev/null 2>&1; then \
+		echo "ERROR: k3d is not installed"; \
 		exit 1; \
 	fi
-	@if ! kind get clusters | grep -q "^$(KIND_CLUSTER_NAME)$$"; then \
-		echo "Kind cluster $(KIND_CLUSTER_NAME) not found. Creating..."; \
-		$(MAKE) create-kind-cluster; \
+	@if ! k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) not found. Creating..."; \
+		$(MAKE) create-k3d-cluster; \
 	fi
-	kind load docker-image $(DOCKER_IMAGE) --name $(KIND_CLUSTER_NAME)
-	@echo "Image loaded to kind cluster successfully"
+	k3d image import $(DOCKER_IMAGE) --cluster $(K3D_CLUSTER_NAME)
+	@echo "Image loaded to k3d cluster successfully"
 
 # Test environment preparation
 TEST_SSH_PUBKEY ?= 
