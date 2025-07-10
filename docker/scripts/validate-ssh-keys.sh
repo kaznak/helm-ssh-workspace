@@ -1,6 +1,6 @@
 #!/bin/bash
 # SSH key validation script
-# Design references: [[see:K2L8-HOSTVALID]](../../docs/design.md#K2L8-HOSTVALID), [[see:H9F7-KEYFORMAT]](../../docs/design.md#H9F7-KEYFORMAT), [[see:T6K9-PRIVFORMAT]](../../docs/design.md#T6K9-PRIVFORMAT)
+# Design references: [see:K2L8-HOSTVALID], [see:H9F7-KEYFORMAT], [see:T6K9-PRIVFORMAT]
 
 set -e
 

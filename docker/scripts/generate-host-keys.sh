@@ -1,6 +1,6 @@
 #!/bin/bash
 # SSH host key generation script
-# Design references: [[see:T8Q4-AUTOGEN]](../../docs/design.md#T8Q4-AUTOGEN), [[see:R6N7-CRYPTO]](../../docs/design.md#R6N7-CRYPTO)
+# Design references: [see:T8Q4-AUTOGEN], [see:R6N7-CRYPTO]
 
 set -e
 

@@ -1,5 +1,5 @@
 # Ubuntu base image for helm-ssh-workspace
-# Design reference: [[see:R8M5-UBUNTU]](../docs/design.md#R8M5-UBUNTU)
+# Design reference: [see:R8M5-UBUNTU]
 FROM ubuntu:22.04
 
 # Avoid interactive prompts during package installation
@@ -7,10 +7,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install essential packages
 RUN apt-get update && apt-get install -y \
-    # Dropbear SSH server [[see:K4R9-DROPBEAR]](../docs/design.md#K4R9-DROPBEAR)
+    # Dropbear SSH server [see:K4R9-DROPBEAR]
     dropbear \
     dropbear-bin \
-    # Basic development tools [[see:Q2N5-TOOLS]](../docs/design.md#Q2N5-TOOLS)
+    # Basic development tools [see:Q2N5-TOOLS]
     git \
     curl \
     wget \
@@ -45,17 +45,17 @@ ENV LANG=en_US.UTF-8
 ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
-# Create directory for management scripts [[see:F5K3-SCRIPTPATH]](../docs/design.md#F5K3-SCRIPTPATH)
+# Create directory for management scripts [see:F5K3-SCRIPTPATH]
 RUN mkdir -p /opt/ssh-workspace/bin
 
-# Copy management scripts [[see:D8M4-SCRIPT]](../docs/design.md#D8M4-SCRIPT)
+# Copy management scripts [see:D8M4-SCRIPT]
 COPY docker/scripts/* /opt/ssh-workspace/bin/
 RUN chmod +x /opt/ssh-workspace/bin/*
 
 # Create dropbear directory
 RUN mkdir -p /etc/dropbear
 
-# Expose SSH port (non-privileged) [[see:B3Q8-PORT]](../README.ja.md#B3Q8-PORT)
+# Expose SSH port (non-privileged) [see:B3Q8-PORT]
 EXPOSE 2222
 
 # Set working directory

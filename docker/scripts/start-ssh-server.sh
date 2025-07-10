@@ -1,6 +1,6 @@
 #!/bin/bash
 # SSH workspace complete setup and startup script
-# Design references: [[see:B3Q8-PORT]](../../README.ja.md#B3Q8-PORT), [[see:V4J1-HOSTKEY]](../../README.ja.md#V4J1-HOSTKEY), [[see:K2L8-HOSTVALID]](../../docs/design.md#K2L8-HOSTVALID), [[see:Y4F1-USER]](../../README.ja.md#Y4F1-USER)
+# Design references: [see:B3Q8-PORT], [see:V4J1-HOSTKEY], [see:K2L8-HOSTVALID], [see:Y4F1-USER]
 
 set -e
 

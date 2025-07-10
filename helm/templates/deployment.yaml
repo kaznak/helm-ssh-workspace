@@ -5,9 +5,9 @@ metadata:
   labels:
     {{- include "ssh-workspace.labels" . | nindent 4 }}
 spec:
-  # Fixed replicas [[see:J8R2-DEPLOY]](../README.ja.md#J8R2-DEPLOY)
+  # Fixed replicas [see:J8R2-DEPLOY]
   replicas: {{ .Values.replicaCount }}
-  # Update strategy [[see:Y3S2-DOWN]](../README.ja.md#Y3S2-DOWN)
+  # Update strategy [see:Y3S2-DOWN]
   strategy:
     {{- toYaml .Values.updateStrategy | nindent 4 }}
   selector:
@@ -19,7 +19,7 @@ spec:
         {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-        # Force pod restart when secrets change [[see:Z8Y4-RESTART]](../README.ja.md#Z8Y4-RESTART)
+        # Force pod restart when secrets change [see:Z8Y4-RESTART]
         {{- if not .Values.ssh.publicKeys.secretName }}
         checksum/ssh-pubkeys: {{ include (print $.Template.BasePath "/secret-pubkeys.yaml") . | sha256sum }}
         {{- end }}
@@ -53,7 +53,7 @@ spec:
             {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          # Environment variables for user configuration [[see:Y4F1-USER]](../README.ja.md#Y4F1-USER)
+          # Environment variables for user configuration [see:Y4F1-USER]
           env:
             - name: SSH_USERNAME
               value: {{ .Values.user.name | quote }}
@@ -70,7 +70,7 @@ spec:
             - name: ssh
               containerPort: {{ .Values.ssh.port }}
               protocol: TCP
-          # Health checks [[see:Q1P4-HEALTH]](../README.ja.md#Q1P4-HEALTH)
+          # Health checks [see:Q1P4-HEALTH]
           {{- if .Values.healthCheck.livenessProbe.enabled }}
           livenessProbe:
             tcpSocket:
@@ -92,12 +92,12 @@ spec:
             failureThreshold: {{ .Values.healthCheck.readinessProbe.failureThreshold }}
             successThreshold: {{ .Values.healthCheck.readinessProbe.successThreshold }}
           {{- end }}
-          # Resource limits [[see:J1X6-LIMIT]](../README.ja.md#J1X6-LIMIT)
+          # Resource limits [see:J1X6-LIMIT]
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           # Volume mounts
           volumeMounts:
-            # Home directory mount [[see:V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
+            # Home directory mount [see:V5Q3-HOME]
             - name: home
               mountPath: /home/{{ .Values.user.name }}
               {{- if and (eq .Values.homeDirectory.type "persistentVolume") .Values.homeDirectory.persistentVolume.subPath }}
@@ -118,7 +118,7 @@ spec:
               readOnly: true
             {{- end }}
       volumes:
-        # Home directory volume [[see:V5Q3-HOME]](../README.ja.md#V5Q3-HOME)
+        # Home directory volume [see:V5Q3-HOME]
         - name: home
           {{- if eq .Values.homeDirectory.type "persistentVolume" }}
           persistentVolumeClaim:
@@ -129,15 +129,15 @@ spec:
             sizeLimit: {{ .Values.homeDirectory.emptyDir.sizeLimit }}
             {{- end }}
           {{- end }}
-        # SSH host keys volume [[see:W5X2-SECRET]](../README.ja.md#W5X2-SECRET)
+        # SSH host keys volume [see:W5X2-SECRET]
         - name: ssh-host-keys
           secret:
             secretName: {{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}
-        # SSH public keys volume [[see:P5Q8-PUBKEY]](../README.ja.md#P5Q8-PUBKEY)
+        # SSH public keys volume [see:P5Q8-PUBKEY]
         - name: ssh-public-keys
           secret:
             secretName: {{ .Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .)) }}
-        # SSH private keys volume [[see:R2L7-PRIVKEY]](../docs/design.md#R2L7-PRIVKEY)
+        # SSH private keys volume [see:R2L7-PRIVKEY]
         {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
         - name: ssh-private-keys
           secret:
