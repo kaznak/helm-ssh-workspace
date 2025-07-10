@@ -101,9 +101,6 @@ SSH サーバとして OpenSSH が広く使われているが、Kubernetes 上�
 
 ### + 追加要素 : 実装要件（Implementation）
 
-#### セキュリティ実装
-- <span id="X2K7-RESTRICT">[X2K7-RESTRICT]</span> "pod-security.kubernetes.io/enforce=baseline" ポリシーで運用できること
-
 #### CI/CD実装
 - <span id="G4H7-CICD">[G4H7-CICD]</span> GitHub Actions で CI/CD を実行し、包括的な品質保証を行う
 

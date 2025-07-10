@@ -51,17 +51,17 @@
 
 <span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
 
-この決定は非特権環境での運用要件 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT) を満たすためである。
+この決定は非特権ポートでの運用を可能にし、セキュリティを向上させるためである。
 
 Dropbear SSH の採用により以下の要件が容易に実現できる：
 - SSH 鍵認証のみの設定 [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH)
 - ポートフォワーディングのネットワークポリシー制御 [see:N4C7-NETPOL](../README.ja.md#N4C7-NETPOL)
   - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
   - 外部アクセスを許可する `-a` オプションを使用しないことが重要
-- Pod Security Standards の baseline ポリシー完全対応 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
-  - 非特権ポート（2222）使用により root 権限不要
-  - ケーパビリティ不要でユーザランド完全実行
-  - runAsNonRoot、allowPrivilegeEscalation=false 等の制約に対応
+- セキュアな運用環境の実現
+  - 非特権ポート（2222）使用により通常ユーザでの SSH サーバ起動が可能
+  - 最小権限の原則に基づく設計
+  - コンテナ起動後は非特権ユーザで動作
 
 OpenSSH の場合、これらの要件を満たそうとすると複雑な設定が必要となる。
 
