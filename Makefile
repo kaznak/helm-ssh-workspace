@@ -46,15 +46,18 @@ help:
 	@echo "  helm-lifecycle-test-no-hooks - Complete test without hooks"
 	@echo ""
 	@echo "Kind cluster targets (for local testing):"
-	@echo "  create-kind-cluster - Create kind cluster for testing"
-	@echo "  delete-kind-cluster - Delete kind cluster"
-	@echo "  load-image-to-kind  - Load Docker image to kind cluster"
+	@echo "  create-kind-cluster     - Create kind cluster for testing"
+	@echo "  delete-kind-cluster     - Delete kind cluster"
+	@echo "  load-image-to-kind      - Load Docker image to kind cluster"
+	@echo "  generate-test-ssh-key   - Generate test SSH key pair in tmp/"
+	@echo "  prepare-test-env        - Prepare test environment with SSH key validation"
 	@echo ""
 	@echo "Kubernetes variables:"
 	@echo "  KUBE_CONTEXT       - Kubernetes context (optional)"
 	@echo "  KUBE_NAMESPACE     - Kubernetes namespace (default: default)"
 	@echo "  HELM_RELEASE_NAME  - Helm release name (default: ssh-workspace-test)"
 	@echo "  KIND_CLUSTER_NAME  - Kind cluster name (default: helm-ssh-workspace-test)"
+	@echo "  TEST_SSH_PUBKEY    - SSH public key for testing (required for helm operations)"
 
 # Build targets
 
@@ -152,6 +155,7 @@ dev-clean:
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf $(HELM_PACKAGE_DIR)
+	rm -rf tmp
 	# Remove Docker images
 	docker rmi $(DOCKER_IMAGE) 2>/dev/null || true
 	@echo "Clean complete"
@@ -215,6 +219,38 @@ load-image-to-kind: docker-build
 	kind load docker-image $(DOCKER_IMAGE) --name $(KIND_CLUSTER_NAME)
 	@echo "Image loaded to kind cluster successfully"
 
+# Test environment preparation
+TEST_SSH_PUBKEY ?= 
+TEST_SSH_KEY_FILE ?= tmp/test_ssh_key
+
+.PHONY: generate-test-ssh-key
+generate-test-ssh-key:
+	@echo "Generating test SSH key pair..."
+	@mkdir -p tmp
+	@if [ -f "$(TEST_SSH_KEY_FILE)" ]; then \
+		echo "Test SSH key already exists: $(TEST_SSH_KEY_FILE)"; \
+	else \
+		ssh-keygen -t rsa -b 2048 -f $(TEST_SSH_KEY_FILE) -N "" -C "test@ssh-workspace.local"; \
+		echo "Test SSH key pair generated:"; \
+		echo "  Private key: $(TEST_SSH_KEY_FILE)"; \
+		echo "  Public key:  $(TEST_SSH_KEY_FILE).pub"; \
+	fi
+
+.PHONY: prepare-test-env
+prepare-test-env:
+	@echo "Preparing test environment..."
+	@if [ -z "$(TEST_SSH_PUBKEY)" ]; then \
+		if [ ! -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+			echo "No SSH public key provided and test key not found. Generating test key..."; \
+			$(MAKE) generate-test-ssh-key; \
+		fi; \
+		TEST_SSH_PUBKEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+		echo "Using generated test SSH key: $$TEST_SSH_PUBKEY"; \
+	else \
+		echo "Using provided SSH public key: $(TEST_SSH_PUBKEY)"; \
+	fi
+	@echo "Test environment preparation completed"
+
 # Variables for Helm lifecycle testing
 HELM_RELEASE_NAME ?= ssh-workspace-test
 HELM_NAMESPACE ?= $(KUBE_NAMESPACE)
@@ -223,30 +259,40 @@ HELM_IMAGE_REPO ?= $(DOCKER_REPO)
 HELM_IMAGE_PULL_POLICY ?= Never
 
 .PHONY: helm-install
-helm-install: helm-package
+helm-install: helm-package prepare-test-env
 	@echo "Installing Helm release: $(HELM_RELEASE_NAME)"
 	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
 	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
 		(echo "Note: Using existing namespace $(HELM_NAMESPACE)" && true)
+	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
+	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+	fi; \
 	helm install $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) \
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
 		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--wait --timeout=60s
 	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully"
 
 .PHONY: helm-upgrade
-helm-upgrade: helm-package
+helm-upgrade: helm-package prepare-test-env
 	@echo "Upgrading Helm release: $(HELM_RELEASE_NAME)"
 	# Increment version for upgrade test
+	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
+	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+	fi; \
 	helm upgrade $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) \
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
 		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--set image.tag=latest \
 		--wait --timeout=60s
 	@echo "Helm release $(HELM_RELEASE_NAME) upgraded successfully"
@@ -293,30 +339,40 @@ helm-list:
 
 # No-hooks versions for testing in restricted environments
 .PHONY: helm-install-no-hooks
-helm-install-no-hooks: helm-package
+helm-install-no-hooks: helm-package prepare-test-env
 	@echo "Installing Helm release (no hooks): $(HELM_RELEASE_NAME)"
 	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
 	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
 		(echo "Note: Using existing namespace $(HELM_NAMESPACE)" && true)
+	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
+	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+	fi; \
 	helm install $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) \
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
 		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--no-hooks \
 		--wait --timeout=60s
 	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully (no hooks)"
 
 .PHONY: helm-upgrade-no-hooks
-helm-upgrade-no-hooks: helm-package
+helm-upgrade-no-hooks: helm-package prepare-test-env
 	@echo "Upgrading Helm release (no hooks): $(HELM_RELEASE_NAME)"
+	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
+	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+	fi; \
 	helm upgrade $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) \
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
 		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--set image.tag=latest \
 		--no-hooks \
 		--wait --timeout=60s
