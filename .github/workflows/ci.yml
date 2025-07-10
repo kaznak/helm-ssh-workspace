@@ -1,3 +1,4 @@
+# [see:G4H7-CICD] GitHub Actions CI/CD pipeline
 name: CI/CD Pipeline
 
 on:
@@ -13,7 +14,7 @@ env:
   HELM_VERSION: 3.12.0
 
 jobs:
-  # Build and test Docker image
+  # [see:B2M7-BUILD] Docker image build and test
   docker-build:
     runs-on: ubuntu-latest
     outputs:
@@ -53,7 +54,7 @@ jobs:
         run: |
           make docker-test DOCKER_TAG=${{ github.sha }}
 
-  # Security scanning
+  # [see:T9K5-SECTEST] Security testing pipeline
   security:
     runs-on: ubuntu-latest
     needs: [docker-build]
@@ -99,7 +100,7 @@ jobs:
         with:
           sarif_file: hadolint-results.sarif
 
-  # Helm chart testing
+  # [see:U9A4-TEST] Helm chart deployment testing
   helm-test:
     runs-on: ubuntu-latest
     steps:
@@ -143,7 +144,7 @@ jobs:
         if: steps.list-changed.outputs.changed == 'true'
         run: ct install --chart-dirs helm --target-branch ${{ github.event.repository.default_branch }}
 
-  # Quality assurance
+  # [see:Q3L8-QUALTEST] Quality assurance testing
   quality:
     runs-on: ubuntu-latest
     needs: [docker-build, helm-test]
@@ -171,7 +172,7 @@ jobs:
       - name: Run quality checks
         run: make quality DOCKER_TAG=quality-check
 
-  # Integration tests
+  # [see:U9A4-TEST] Integration testing
   integration:
     runs-on: ubuntu-latest
     needs: [docker-build, helm-test]
@@ -209,7 +210,7 @@ jobs:
       - name: Run integration tests
         run: make integration-test DOCKER_TAG=integration-test
 
-  # Package artifacts
+  # [see:H6N4-PACKAGE] Helm chart packaging
   package:
     runs-on: ubuntu-latest
     needs: [docker-build, helm-test, security, quality]
@@ -232,7 +233,7 @@ jobs:
           name: helm-chart
           path: dist/*.tgz
 
-  # Publish artifacts
+  # [see:P1W9-PUBLISH] Artifact publishing
   publish:
     runs-on: ubuntu-latest
     needs: [package, integration]

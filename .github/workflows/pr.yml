@@ -1,3 +1,4 @@
+# [see:Q3L8-QUALTEST] Pull Request validation pipeline
 name: Pull Request Validation
 
 on:
@@ -9,7 +10,7 @@ env:
   DOCKER_REPO: ssh-workspace
 
 jobs:
-  # Validate PR structure and content
+  # [see:Q3L8-QUALTEST] PR structure and content validation
   pr-validation:
     runs-on: ubuntu-latest
     steps:
@@ -23,7 +24,7 @@ jobs:
           test -f Makefile
 
 
-  # Fast feedback for common issues
+  # [see:Q3L8-QUALTEST] Fast feedback quality checks
   quick-check:
     runs-on: ubuntu-latest
     steps:
@@ -50,7 +51,7 @@ jobs:
           bash -n scripts/generate-host-keys.sh
           echo "Script syntax check passed"
 
-  # Security-focused checks for PRs
+  # [see:T9K5-SECTEST] PR security validation
   security-check:
     runs-on: ubuntu-latest
     steps:
@@ -79,7 +80,7 @@ jobs:
             echo "Kubesec not available, skipping security scan"
           fi
 
-  # Documentation checks
+  # [see:Q3L8-QUALTEST] Documentation quality checks
   docs-check:
     runs-on: ubuntu-latest
     steps:
@@ -108,7 +109,7 @@ jobs:
             echo "Design document ID format validation passed"
           fi
 
-  # Code quality checks
+  # [see:Q3L8-QUALTEST] Code quality validation
   quality-check:
     runs-on: ubuntu-latest
     steps:
@@ -124,7 +125,7 @@ jobs:
           yamllint helm/
           yamllint .github/workflows/
 
-  # Integration test on PR
+  # [see:U9A4-TEST] PR integration testing
   pr-integration:
     runs-on: ubuntu-latest
     needs: [pr-validation, quick-check]
