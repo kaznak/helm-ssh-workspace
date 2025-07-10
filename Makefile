@@ -39,12 +39,6 @@ help:
 	@echo "  helm-list           - List Helm releases"
 	@echo "  helm-lifecycle-test - Run complete lifecycle test"
 	@echo ""
-	@echo "No-hooks versions (for restricted environments):"
-	@echo "  helm-install-no-hooks        - Install without hooks"
-	@echo "  helm-upgrade-no-hooks        - Upgrade without hooks"
-	@echo "  helm-rollback-no-hooks       - Rollback without hooks"
-	@echo "  helm-lifecycle-test-no-hooks - Complete test without hooks"
-	@echo ""
 	@echo "Kind cluster targets (for local testing):"
 	@echo "  create-kind-cluster     - Create kind cluster for testing"
 	@echo "  delete-kind-cluster     - Delete kind cluster"
@@ -337,56 +331,6 @@ helm-list:
 		--namespace $(HELM_NAMESPACE) \
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
 
-# No-hooks versions for testing in restricted environments
-.PHONY: helm-install-no-hooks
-helm-install-no-hooks: helm-package prepare-test-env
-	@echo "Installing Helm release (no hooks): $(HELM_RELEASE_NAME)"
-	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
-	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
-		(echo "Note: Using existing namespace $(HELM_NAMESPACE)" && true)
-	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
-	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
-		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
-	fi; \
-	helm install $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
-		--namespace $(HELM_NAMESPACE) \
-		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
-		--values $(HELM_VALUES_FILE) \
-		--set image.repository=$(HELM_IMAGE_REPO) \
-		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
-		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
-		--no-hooks \
-		--wait --timeout=60s
-	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully (no hooks)"
-
-.PHONY: helm-upgrade-no-hooks
-helm-upgrade-no-hooks: helm-package prepare-test-env
-	@echo "Upgrading Helm release (no hooks): $(HELM_RELEASE_NAME)"
-	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
-	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
-		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
-	fi; \
-	helm upgrade $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
-		--namespace $(HELM_NAMESPACE) \
-		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
-		--values $(HELM_VALUES_FILE) \
-		--set image.repository=$(HELM_IMAGE_REPO) \
-		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
-		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
-		--set image.tag=latest \
-		--no-hooks \
-		--wait --timeout=60s
-	@echo "Helm release $(HELM_RELEASE_NAME) upgraded successfully (no hooks)"
-
-.PHONY: helm-rollback-no-hooks
-helm-rollback-no-hooks:
-	@echo "Rolling back Helm release (no hooks): $(HELM_RELEASE_NAME)"
-	helm rollback $(HELM_RELEASE_NAME) \
-		--namespace $(HELM_NAMESPACE) \
-		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
-		--no-hooks \
-		--wait --timeout=60s
-	@echo "Helm release $(HELM_RELEASE_NAME) rolled back successfully (no hooks)"
 
 # Complete Helm lifecycle test
 .PHONY: helm-lifecycle-test
@@ -405,19 +349,3 @@ helm-lifecycle-test: docker-build helm-package
 	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Helm lifecycle test completed successfully ==="
 
-# Helm lifecycle test without hooks (for restricted environments)
-.PHONY: helm-lifecycle-test-no-hooks
-helm-lifecycle-test-no-hooks: docker-build helm-package
-	@echo "Starting Helm lifecycle test (no hooks)..."
-	@echo "=== Phase 1: Install (no hooks) ==="
-	$(MAKE) helm-install-no-hooks KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	@echo "=== Phase 2: Upgrade (no hooks) ==="
-	$(MAKE) helm-upgrade-no-hooks KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	@echo "=== Phase 3: Rollback (no hooks) ==="
-	$(MAKE) helm-rollback-no-hooks KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	@echo "=== Phase 4: Uninstall ==="
-	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	@echo "=== Helm lifecycle test (no hooks) completed successfully ==="

@@ -210,9 +210,20 @@ Install フェーズでの関連する処理：
   - ヘルスチェックスクリプトによる包括的な健全性チェック
   - ヘルスチェックスクリプトの実装：
     - Dropbear プロセスの存在確認
-    - SSH ポートのリスニング状態確認
+    - SSH ポートのリスニング状態確認（ssコマンドを使用）
     - SSH ホストキーの存在確認
     - 実行はコンテナ内部で行われ、kubelet が Container Runtime Interface 経由でコマンドを実行
+
+#### Secret/ConfigMap 変更時のPod再起動について
+
+- <span id="Z8Y4-RESTART">[Z8Y4-RESTART]</span> Secret や ConfigMap が変更された際に Pod を自動的に再起動する仕組み
+  - Pod のアノテーションにチェックサムを追加することで実現
+  - Helm で管理される Secret が更新されると、チェックサムが変更され、Deployment のテンプレートが更新される
+  - これにより Kubernetes が Pod を再作成し、新しい Secret/ConfigMap が反映される
+  - 対象となる Secret：
+    - SSH 公開鍵 (ssh-pubkeys)
+    - SSH 秘密鍵 (ssh-privkeys) ※設定されている場合
+    - 設定全体のチェックサム（外部管理のSecretにも対応）
 
 #### 各種スクリプトについて
 

@@ -15,10 +15,19 @@ spec:
       {{- include "ssh-workspace.selectorLabels" . | nindent 6 }}
   template:
     metadata:
-      {{- with .Values.podAnnotations }}
       annotations:
+        {{- with .Values.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
+        # Force pod restart when secrets change [Z8Y4-RESTART]
+        {{- if not .Values.ssh.publicKeys.secretName }}
+        checksum/ssh-pubkeys: {{ include (print $.Template.BasePath "/secret-pubkeys.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if and (not .Values.ssh.privateKeys.secretName) (or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys) }}
+        checksum/ssh-privkeys: {{ include (print $.Template.BasePath "/secret-privkeys.yaml") . | sha256sum }}
+        {{- end }}
+        # For host keys, we always check the generated secret name
+        checksum/config: {{ printf "%s-%s-%s" (.Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .))) (.Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .))) (.Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .))) | sha256sum }}
       labels:
         {{- include "ssh-workspace.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
