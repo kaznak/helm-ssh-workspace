@@ -29,9 +29,26 @@ help:
 	@echo "  helm-package - Package Helm chart"
 	@echo "  clean        - Clean build artifacts"
 	@echo ""
+	@echo "Helm lifecycle targets:"
+	@echo "  helm-install        - Install Helm release"
+	@echo "  helm-upgrade        - Upgrade Helm release"
+	@echo "  helm-rollback       - Rollback Helm release"
+	@echo "  helm-uninstall      - Uninstall Helm release"
+	@echo "  helm-status         - Show Helm release status"
+	@echo "  helm-history        - Show Helm release history"
+	@echo "  helm-list           - List Helm releases"
+	@echo "  helm-lifecycle-test - Run complete lifecycle test"
+	@echo ""
+	@echo "No-hooks versions (for restricted environments):"
+	@echo "  helm-install-no-hooks        - Install without hooks"
+	@echo "  helm-upgrade-no-hooks        - Upgrade without hooks"
+	@echo "  helm-rollback-no-hooks       - Rollback without hooks"
+	@echo "  helm-lifecycle-test-no-hooks - Complete test without hooks"
+	@echo ""
 	@echo "Kubernetes variables:"
-	@echo "  KUBE_CONTEXT   - Kubernetes context (optional)"
-	@echo "  KUBE_NAMESPACE - Kubernetes namespace (default: default)"
+	@echo "  KUBE_CONTEXT       - Kubernetes context (optional)"
+	@echo "  KUBE_NAMESPACE     - Kubernetes namespace (default: default)"
+	@echo "  HELM_RELEASE_NAME  - Helm release name (default: ssh-workspace-test)"
 
 # Build targets
 
@@ -142,3 +159,146 @@ integration-test: docker-build
 	$(MAKE) dev-test KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) dev-clean KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "Integration tests passed"
+
+# Helm lifecycle management targets
+
+# Variables for Helm lifecycle testing
+HELM_RELEASE_NAME ?= ssh-workspace-test
+HELM_NAMESPACE ?= $(KUBE_NAMESPACE)
+HELM_VALUES_FILE ?= helm/values.yaml
+
+.PHONY: helm-install
+helm-install: helm-package
+	@echo "Installing Helm release: $(HELM_RELEASE_NAME)"
+	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
+	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
+		(echo "Note: Using existing namespace $(HELM_NAMESPACE)" && true)
+	helm install $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--values $(HELM_VALUES_FILE) \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully"
+
+.PHONY: helm-upgrade
+helm-upgrade: helm-package
+	@echo "Upgrading Helm release: $(HELM_RELEASE_NAME)"
+	# Increment version for upgrade test
+	helm upgrade $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--values $(HELM_VALUES_FILE) \
+		--set image.tag=latest \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) upgraded successfully"
+
+.PHONY: helm-rollback
+helm-rollback:
+	@echo "Rolling back Helm release: $(HELM_RELEASE_NAME)"
+	helm rollback $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) rolled back successfully"
+
+.PHONY: helm-uninstall
+helm-uninstall:
+	@echo "Uninstalling Helm release: $(HELM_RELEASE_NAME)"
+	helm uninstall $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) uninstalled successfully"
+
+# Helm status and info targets
+.PHONY: helm-status
+helm-status:
+	@echo "Checking status of Helm release: $(HELM_RELEASE_NAME)"
+	helm status $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
+
+.PHONY: helm-history
+helm-history:
+	@echo "Showing history of Helm release: $(HELM_RELEASE_NAME)"
+	helm history $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
+
+.PHONY: helm-list
+helm-list:
+	@echo "Listing Helm releases in namespace: $(HELM_NAMESPACE)"
+	helm list \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
+
+# No-hooks versions for testing in restricted environments
+.PHONY: helm-install-no-hooks
+helm-install-no-hooks: helm-package
+	@echo "Installing Helm release (no hooks): $(HELM_RELEASE_NAME)"
+	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
+	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
+		(echo "Note: Using existing namespace $(HELM_NAMESPACE)" && true)
+	helm install $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--values $(HELM_VALUES_FILE) \
+		--no-hooks \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully (no hooks)"
+
+.PHONY: helm-upgrade-no-hooks
+helm-upgrade-no-hooks: helm-package
+	@echo "Upgrading Helm release (no hooks): $(HELM_RELEASE_NAME)"
+	helm upgrade $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--values $(HELM_VALUES_FILE) \
+		--set image.tag=latest \
+		--no-hooks \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) upgraded successfully (no hooks)"
+
+.PHONY: helm-rollback-no-hooks
+helm-rollback-no-hooks:
+	@echo "Rolling back Helm release (no hooks): $(HELM_RELEASE_NAME)"
+	helm rollback $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--no-hooks \
+		--wait --timeout=120s
+	@echo "Helm release $(HELM_RELEASE_NAME) rolled back successfully (no hooks)"
+
+# Complete Helm lifecycle test
+.PHONY: helm-lifecycle-test
+helm-lifecycle-test: docker-build helm-package
+	@echo "Starting complete Helm lifecycle test..."
+	@echo "=== Phase 1: Install ==="
+	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 2: Upgrade ==="
+	$(MAKE) helm-upgrade KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 3: Rollback ==="
+	$(MAKE) helm-rollback KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 4: Uninstall ==="
+	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Helm lifecycle test completed successfully ==="
+
+# Helm lifecycle test without hooks (for restricted environments)
+.PHONY: helm-lifecycle-test-no-hooks
+helm-lifecycle-test-no-hooks: docker-build helm-package
+	@echo "Starting Helm lifecycle test (no hooks)..."
+	@echo "=== Phase 1: Install (no hooks) ==="
+	$(MAKE) helm-install-no-hooks KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 2: Upgrade (no hooks) ==="
+	$(MAKE) helm-upgrade-no-hooks KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 3: Rollback (no hooks) ==="
+	$(MAKE) helm-rollback-no-hooks KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 4: Uninstall ==="
+	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Helm lifecycle test (no hooks) completed successfully ==="
