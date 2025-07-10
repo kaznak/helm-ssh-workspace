@@ -1,0 +1,92 @@
+{{/*
+SSH Host Key Generation Job Template
+SSH host key auto-generation [see:T8Q4-AUTOGEN]
+Minimal permissions for host key generation [see:J5N4-HOSTPERM]
+Ed25519 + RSA 4096-bit key generation [see:R6N7-CRYPTO]
+Host key persistence and reuse [see:R8N9-REUSE]
+*/}}
+{{- if .Values.ssh.hostKeys.autoGenerate }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+subjects:
+- kind: ServiceAccount
+  name: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-generate-hostkeys
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "pre-install,pre-upgrade"
+    "helm.sh/hook-weight": "-1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
+      restartPolicy: OnFailure
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: hostkey-generator
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        command:
+        - /opt/ssh-workspace/bin/generate-host-keys.sh
+        - k8s-hook
+        - "{{ .Release.Namespace }}"
+        - "{{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}"
+        volumeMounts:
+        - name: temp-keys
+          mountPath: /etc/dropbear
+      volumes:
+      - name: temp-keys
+        emptyDir: {}
+{{- end }}

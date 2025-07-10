@@ -1,0 +1,196 @@
+# [see:Q3L8-QUALTEST] Pull Request validation pipeline
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+
+env:
+  DOCKER_REPO: ssh-workspace
+
+jobs:
+  # [see:Q3L8-QUALTEST] PR structure and content validation
+  pr-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check project structure
+        run: |
+          test -f docker/Dockerfile
+          test -f helm/Chart.yaml
+          test -f Makefile
+
+
+  # [see:Q3L8-QUALTEST] Fast feedback quality checks
+  quick-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 3.12.0
+
+      - name: Helm lint (quick check)
+        run: helm lint helm/
+
+      - name: Helm template dry-run
+        run: helm template test helm/ --dry-run > /dev/null
+
+      - name: Check script syntax
+        run: |
+          # Check bash script syntax
+          bash -n scripts/entrypoint.sh
+          bash -n scripts/health-check.sh
+          bash -n scripts/validate-ssh-keys.sh
+          bash -n scripts/generate-host-keys.sh
+          echo "Script syntax check passed"
+
+  # [see:T9K5-SECTEST] PR security validation
+  security-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint on Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ./docker/Dockerfile
+          failure-threshold: error
+
+      - name: Check for secrets in code
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+
+      - name: Kubernetes security check
+        run: |
+          # Check for security anti-patterns in Kubernetes manifests
+          if command -v kubesec >/dev/null 2>&1; then
+            helm template test helm/ | kubesec scan -
+          else
+            echo "Kubesec not available, skipping security scan"
+          fi
+
+  # [see:Q3L8-QUALTEST] Documentation quality checks
+  docs-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check documentation links
+        run: |
+          # Check for broken internal links in documentation
+          markdown-link-check README.ja.md
+          markdown-link-check docs/design.md
+
+      - name: Validate design document references
+        run: |
+          # Check that design document IDs are properly formatted and referenced
+          grep -E '\[([A-Z0-9]{4}-[A-Z0-9]+)\]' docs/design.md > /tmp/design_ids.txt || true
+          grep -E '#([A-Z0-9]{4}-[A-Z0-9]+)' docs/design.md > /tmp/design_anchors.txt || true
+          
+          if [ -s /tmp/design_ids.txt ]; then
+            echo "Found design document IDs - checking format..."
+            # Validate ID format: 4 alphanumeric chars + hyphen + alphanumeric
+            if grep -vE '\[[A-Z0-9]{4}-[A-Z0-9]+\]' /tmp/design_ids.txt; then
+              echo "ERROR: Invalid design document ID format found"
+              exit 1
+            fi
+            echo "Design document ID format validation passed"
+          fi
+
+  # [see:Q3L8-QUALTEST] Code quality validation
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check shell scripts with shellcheck
+        run: |
+          find scripts/ -name "*.sh" -exec shellcheck {} \;
+
+      - name: Check YAML files
+        run: |
+          yamllint helm/
+          yamllint .github/workflows/
+
+  # [see:U9A4-TEST] PR integration testing
+  pr-integration:
+    runs-on: ubuntu-latest
+    needs: [pr-validation, quick-check]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 3.12.0
+
+      - name: Create k3d cluster
+        uses: nolar/setup-k3d-k3s@v1
+        with:
+          version: v1.28
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build test image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          tags: ${{ env.DOCKER_REPO }}:pr-test
+          cache-from: type=gha
+
+      - name: Load image into k3d
+        run: |
+          k3d image import ${{ env.DOCKER_REPO }}:pr-test
+
+      - name: Test deployment
+        run: |
+          # Create test SSH keys
+          ssh-keygen -t ed25519 -f /tmp/test_key -N "" -C "test@example.com"
+          
+          # Deploy with test configuration
+          helm upgrade --install ssh-workspace-pr-test helm/ \
+            --set image.repository=${{ env.DOCKER_REPO }} \
+            --set image.tag=pr-test \
+            --set ssh.publicKeys.authorizedKeys="$(cat /tmp/test_key.pub)" \
+            --wait --timeout=300s
+
+      - name: Test SSH connectivity
+        run: |
+          # Get pod name
+          POD_NAME=$(kubectl get pods -l "app.kubernetes.io/name=ssh-workspace" -o jsonpath="{.items[0].metadata.name}")
+          
+          # Test port forward
+          kubectl port-forward "$POD_NAME" 2222:2222 &
+          PF_PID=$!
+          
+          # Wait for port forward to be ready
+          sleep 5
+          
+          # Test SSH connection (should fail with authentication but port should be accessible)
+          nc -z localhost 2222 || exit 1
+          echo "SSH port is accessible"
+          kill $PF_PID
+
+      - name: Cleanup
+        if: always()
+        run: |
+          helm uninstall ssh-workspace-pr-test || true
+          rm -f /tmp/test_key /tmp/test_key.pub

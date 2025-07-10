@@ -1,0 +1,353 @@
+# Makefile for SSH Workspace
+# Design reference: [B6Y3-MAKEFILE]
+
+# Variables
+DOCKER_REPO ?= ssh-workspace
+DOCKER_TAG ?= latest
+DOCKER_IMAGE = $(DOCKER_REPO):$(DOCKER_TAG)
+HELM_CHART_DIR = helm
+HELM_PACKAGE_DIR = dist
+DOCKER_BUILD_DIR = docker
+
+# Kubernetes configuration
+KUBE_CONTEXT ?= 
+KUBE_NAMESPACE ?= default
+KUBECTL_OPTS = $(if $(KUBE_CONTEXT),--context=$(KUBE_CONTEXT)) $(if $(KUBE_NAMESPACE),--namespace=$(KUBE_NAMESPACE))
+KUBECTL = kubectl $(KUBECTL_OPTS)
+
+# Default target
+.PHONY: all
+all: docker-build test helm-package
+
+# Help target
+.PHONY: help
+help:
+	@echo "Main targets:"
+	@echo "  all          - Build, test, and package"
+	@echo "  docker-build - Build Docker image"
+	@echo "  test         - Run tests"
+	@echo "  helm-package - Package Helm chart"
+	@echo "  clean        - Clean build artifacts"
+	@echo ""
+	@echo "Helm lifecycle targets:"
+	@echo "  helm-install        - Install Helm release"
+	@echo "  helm-upgrade        - Upgrade Helm release"
+	@echo "  helm-rollback       - Rollback Helm release"
+	@echo "  helm-uninstall      - Uninstall Helm release"
+	@echo "  helm-status         - Show Helm release status"
+	@echo "  helm-history        - Show Helm release history"
+	@echo "  helm-list           - List Helm releases"
+	@echo "  helm-lifecycle-test - Run complete lifecycle test"
+	@echo ""
+	@echo "k3d cluster targets (for local testing):"
+	@echo "  create-k3d-cluster      - Create k3d cluster for testing"
+	@echo "  delete-k3d-cluster      - Delete k3d cluster"
+	@echo "  load-image-to-k3d       - Load Docker image to k3d cluster"
+	@echo "  generate-test-ssh-key   - Generate test SSH key pair in tmp/"
+	@echo "  prepare-test-env        - Prepare test environment with SSH key validation"
+	@echo ""
+	@echo "Kubernetes variables:"
+	@echo "  KUBE_CONTEXT       - Kubernetes context (optional)"
+	@echo "  KUBE_NAMESPACE     - Kubernetes namespace (default: default)"
+	@echo "  HELM_RELEASE_NAME  - Helm release name (default: ssh-workspace-test)"
+	@echo "  KIND_CLUSTER_NAME  - Kind cluster name (default: helm-ssh-workspace-test)"
+	@echo "  TEST_SSH_PUBKEY    - SSH public key for testing (required for helm operations)"
+
+# Build targets
+
+.PHONY: docker-build
+docker-build:
+	@echo "Building Docker image: $(DOCKER_IMAGE)"
+	docker build -t $(DOCKER_IMAGE) -f $(DOCKER_BUILD_DIR)/Dockerfile .
+
+# Test targets
+.PHONY: test
+test: lint helm-test docker-test
+
+.PHONY: lint
+lint: helm-lint
+
+.PHONY: helm-lint
+helm-lint:
+	@echo "Linting Helm chart..."
+	helm lint $(HELM_CHART_DIR)
+
+.PHONY: helm-test
+helm-test: helm-lint
+	@echo "Testing Helm chart..."
+	helm template test $(HELM_CHART_DIR) --debug --dry-run > /dev/null
+	@echo "Helm template test passed"
+
+.PHONY: docker-test
+docker-test: docker-build
+	@echo "Testing Docker image..."
+	docker run --rm --entrypoint="" $(DOCKER_IMAGE) /opt/ssh-workspace/bin/generate-host-keys.sh --help
+	@echo "Docker image test passed"
+
+# Security testing
+.PHONY: security
+security: docker-security helm-security
+
+.PHONY: docker-security
+docker-security:
+	@echo "Running Docker security tests..."
+	trivy image --exit-code 1 --severity HIGH,CRITICAL $(DOCKER_IMAGE)
+	hadolint $(DOCKER_BUILD_DIR)/Dockerfile
+
+.PHONY: helm-security
+helm-security:
+	@echo "Running Helm security tests..."
+	helm template test $(HELM_CHART_DIR) | kubesec scan -
+
+# Package targets
+
+.PHONY: helm-package
+helm-package: helm-test
+	@echo "Packaging Helm chart..."
+	mkdir -p $(HELM_PACKAGE_DIR)
+	helm package $(HELM_CHART_DIR) --destination $(HELM_PACKAGE_DIR)
+	@echo "Helm chart packaged in $(HELM_PACKAGE_DIR)"
+
+# Publish targets
+.PHONY: publish
+publish: docker-push helm-publish
+
+.PHONY: docker-push
+docker-push: docker-build docker-test
+	@echo "Pushing Docker image: $(DOCKER_IMAGE)"
+	docker push $(DOCKER_IMAGE)
+
+.PHONY: helm-publish
+helm-publish: helm-package
+	@echo "Publishing Helm chart..."
+	@echo "ERROR: Helm publishing not implemented"
+	@exit 1
+
+# Quality assurance targets
+.PHONY: quality
+quality: lint security
+
+# Development targets
+
+.PHONY: dev-test
+dev-test: docker-build
+	@echo "Running development tests..."
+	$(KUBECTL) create namespace ssh-workspace-test --dry-run=client -o yaml | $(KUBECTL) apply -f -
+	@echo "ERROR: SSH public key required for testing"
+	@echo "Usage: make dev-test SSH_PUBKEY=\"\$$(cat ~/.ssh/id_rsa.pub)\""
+	@exit 1
+
+.PHONY: dev-clean
+dev-clean:
+	@echo "Cleaning development environment..."
+	# Remove test namespace
+	$(KUBECTL) delete namespace ssh-workspace-test --ignore-not-found=true
+	@echo "Development environment cleaned"
+
+# Clean targets
+.PHONY: clean
+clean:
+	@echo "Cleaning build artifacts..."
+	rm -rf $(HELM_PACKAGE_DIR)
+	rm -rf tmp
+	# Remove Docker images
+	docker rmi $(DOCKER_IMAGE) 2>/dev/null || true
+	@echo "Clean complete"
+
+
+
+# Integration tests
+.PHONY: integration-test
+integration-test: docker-build
+	@echo "Running integration tests..."
+	$(MAKE) dev-test KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) dev-clean KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "Integration tests passed"
+
+# Helm lifecycle management targets
+
+# k3d cluster configuration for testing
+K3D_CLUSTER_NAME ?= helm-ssh-workspace-test
+K3D_REGISTRY_PORT ?= 5000
+
+# Create k3d cluster for testing
+.PHONY: create-k3d-cluster
+create-k3d-cluster:
+	@echo "Creating k3d cluster: $(K3D_CLUSTER_NAME)"
+	@if ! command -v k3d >/dev/null 2>&1; then \
+		echo "ERROR: k3d is not installed. Please install k3d first."; \
+		echo "Visit: https://k3d.io/v5.6.0/#installation"; \
+		exit 1; \
+	fi
+	@if k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) already exists"; \
+	else \
+		k3d cluster create $(K3D_CLUSTER_NAME) \
+			--port "2222:2222@loadbalancer" \
+			--wait --timeout 60s; \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) created successfully"; \
+	fi
+	@echo "Cluster context: k3d-$(K3D_CLUSTER_NAME)"
+
+# Delete k3d cluster
+.PHONY: delete-k3d-cluster
+delete-k3d-cluster:
+	@echo "Deleting k3d cluster: $(K3D_CLUSTER_NAME)"
+	@if command -v k3d >/dev/null 2>&1 && k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+		k3d cluster delete $(K3D_CLUSTER_NAME); \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) deleted"; \
+	else \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) not found"; \
+	fi
+
+# Load Docker image to k3d cluster
+.PHONY: load-image-to-k3d
+load-image-to-k3d: docker-build
+	@echo "Loading Docker image to k3d cluster..."
+	@if ! command -v k3d >/dev/null 2>&1; then \
+		echo "ERROR: k3d is not installed"; \
+		exit 1; \
+	fi
+	@if ! k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+		echo "k3d cluster $(K3D_CLUSTER_NAME) not found. Creating..."; \
+		$(MAKE) create-k3d-cluster; \
+	fi
+	k3d image import $(DOCKER_IMAGE) --cluster $(K3D_CLUSTER_NAME)
+	@echo "Image loaded to k3d cluster successfully"
+
+# Test environment preparation
+TEST_SSH_PUBKEY ?= 
+TEST_SSH_KEY_FILE ?= tmp/test_ssh_key
+
+.PHONY: generate-test-ssh-key
+generate-test-ssh-key:
+	@echo "Generating test SSH key pair..."
+	@mkdir -p tmp
+	@if [ -f "$(TEST_SSH_KEY_FILE)" ]; then \
+		echo "Test SSH key already exists: $(TEST_SSH_KEY_FILE)"; \
+	else \
+		ssh-keygen -t rsa -b 2048 -f $(TEST_SSH_KEY_FILE) -N "" -C "test@ssh-workspace.local"; \
+		echo "Test SSH key pair generated:"; \
+		echo "  Private key: $(TEST_SSH_KEY_FILE)"; \
+		echo "  Public key:  $(TEST_SSH_KEY_FILE).pub"; \
+	fi
+
+.PHONY: prepare-test-env
+prepare-test-env:
+	@echo "Preparing test environment..."
+	@if [ -z "$(TEST_SSH_PUBKEY)" ]; then \
+		if [ ! -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+			echo "No SSH public key provided and test key not found. Generating test key..."; \
+			$(MAKE) generate-test-ssh-key; \
+		fi; \
+		TEST_SSH_PUBKEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+		echo "Using generated test SSH key: $$TEST_SSH_PUBKEY"; \
+	else \
+		echo "Using provided SSH public key: $(TEST_SSH_PUBKEY)"; \
+	fi
+	@echo "Test environment preparation completed"
+
+# Variables for Helm lifecycle testing
+HELM_RELEASE_NAME ?= ssh-workspace-test
+HELM_NAMESPACE ?= $(KUBE_NAMESPACE)
+HELM_VALUES_FILE ?= helm/values.yaml
+HELM_IMAGE_REPO ?= $(DOCKER_REPO)
+HELM_IMAGE_PULL_POLICY ?= Never
+
+.PHONY: helm-install
+helm-install: helm-package prepare-test-env
+	@echo "Installing Helm release: $(HELM_RELEASE_NAME)"
+	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
+	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
+		(echo "Note: Using existing namespace $(HELM_NAMESPACE)" && true)
+	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
+	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+	fi; \
+	helm install $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--values $(HELM_VALUES_FILE) \
+		--set image.repository=$(HELM_IMAGE_REPO) \
+		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
+		--wait --timeout=60s
+	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully"
+
+.PHONY: helm-upgrade
+helm-upgrade: helm-package prepare-test-env
+	@echo "Upgrading Helm release: $(HELM_RELEASE_NAME)"
+	# Increment version for upgrade test
+	@SSH_KEY="$(TEST_SSH_PUBKEY)"; \
+	if [ -z "$$SSH_KEY" ] && [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+		SSH_KEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+	fi; \
+	helm upgrade $(HELM_RELEASE_NAME) $(HELM_CHART_DIR) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--values $(HELM_VALUES_FILE) \
+		--set image.repository=$(HELM_IMAGE_REPO) \
+		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
+		--set image.tag=latest \
+		--wait --timeout=60s
+	@echo "Helm release $(HELM_RELEASE_NAME) upgraded successfully"
+
+.PHONY: helm-rollback
+helm-rollback:
+	@echo "Rolling back Helm release: $(HELM_RELEASE_NAME)"
+	helm rollback $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--wait --timeout=60s
+	@echo "Helm release $(HELM_RELEASE_NAME) rolled back successfully"
+
+.PHONY: helm-uninstall
+helm-uninstall:
+	@echo "Uninstalling Helm release: $(HELM_RELEASE_NAME)"
+	helm uninstall $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--wait --timeout=60s
+	@echo "Helm release $(HELM_RELEASE_NAME) uninstalled successfully"
+
+# Helm status and info targets
+.PHONY: helm-status
+helm-status:
+	@echo "Checking status of Helm release: $(HELM_RELEASE_NAME)"
+	helm status $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
+
+.PHONY: helm-history
+helm-history:
+	@echo "Showing history of Helm release: $(HELM_RELEASE_NAME)"
+	helm history $(HELM_RELEASE_NAME) \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
+
+.PHONY: helm-list
+helm-list:
+	@echo "Listing Helm releases in namespace: $(HELM_NAMESPACE)"
+	helm list \
+		--namespace $(HELM_NAMESPACE) \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT))
+
+
+# Complete Helm lifecycle test
+.PHONY: helm-lifecycle-test
+helm-lifecycle-test: docker-build helm-package
+	@echo "Starting complete Helm lifecycle test..."
+	@echo "=== Phase 1: Install ==="
+	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 2: Upgrade ==="
+	$(MAKE) helm-upgrade KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 3: Rollback ==="
+	$(MAKE) helm-rollback KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 4: Uninstall ==="
+	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Helm lifecycle test completed successfully ==="
+

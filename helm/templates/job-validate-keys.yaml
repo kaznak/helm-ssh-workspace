@@ -1,0 +1,99 @@
+{{/*
+SSH Key Validation Job Template
+SSH host key validation [see:K2L8-HOSTVALID]
+Public key format validation [see:H9F7-KEYFORMAT]
+Private key format validation [see:T6K9-PRIVFORMAT]
+Key duplication check [see:L9K4-KEYDUP]
+SSH key type requirements [see:F2X8-KEYTYPE]
+*/}}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+rules:
+- apiGroups: [""]
+  resources: ["secrets"]
+  verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "1"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+subjects:
+- kind: ServiceAccount
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: {{ include "ssh-workspace.fullname" . }}-key-validator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-validate-keys
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+  annotations:
+    "helm.sh/hook": "post-install,post-upgrade"
+    "helm.sh/hook-weight": "2"
+    "helm.sh/hook-delete-policy": "before-hook-creation,hook-succeeded"
+spec:
+  template:
+    metadata:
+      labels:
+        {{- include "ssh-workspace.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "ssh-workspace.fullname" . }}-key-validator
+      restartPolicy: OnFailure
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+      - name: key-validator
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        command:
+        - /opt/ssh-workspace/bin/validate-ssh-keys.sh
+        - k8s-hook
+        - "{{ .Release.Namespace }}"
+        - "{{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}"
+        - "{{ .Values.ssh.publicKeys.secretName | default (printf "%s-ssh-pubkeys" (include "ssh-workspace.fullname" .)) }}"
+        {{- if or .Values.ssh.privateKeys.secretName .Values.ssh.privateKeys.keys }}
+        - "{{ .Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .)) }}"
+        {{- end }}
+        volumeMounts:
+        - name: temp-keys
+          mountPath: /etc/dropbear
+        - name: temp-validation
+          mountPath: /tmp
+      volumes:
+      - name: temp-keys
+        emptyDir: {}
+      - name: temp-validation
+        emptyDir: {}

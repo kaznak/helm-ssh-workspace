@@ -51,17 +51,17 @@
 
 <span id="K4R9-DROPBEAR">[K4R9-DROPBEAR]</span> 本プロジェクトでは SSH サーバとして Dropbear SSH を採用する。
 
-この決定は非特権環境での運用要件 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT) を満たすためである。
+この決定は非特権ポートでの運用を可能にし、セキュリティを向上させるためである。
 
 Dropbear SSH の採用により以下の要件が容易に実現できる：
 - SSH 鍵認証のみの設定 [see:L6H3-KEYAUTH](../README.ja.md#L6H3-KEYAUTH)
 - ポートフォワーディングのネットワークポリシー制御 [see:N4C7-NETPOL](../README.ja.md#N4C7-NETPOL)
   - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
   - 外部アクセスを許可する `-a` オプションを使用しないことが重要
-- Pod Security Standards の baseline ポリシー完全対応 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
-  - 非特権ポート（2222）使用により root 権限不要
-  - ケーパビリティ不要でユーザランド完全実行
-  - runAsNonRoot、allowPrivilegeEscalation=false 等の制約に対応
+- セキュアな運用環境の実現
+  - 非特権ポート（2222）使用により通常ユーザでの SSH サーバ起動が可能
+  - 最小権限の原則に基づく設計
+  - コンテナ起動後は非特権ユーザで動作
 
 OpenSSH の場合、これらの要件を満たそうとすると複雑な設定が必要となる。
 
@@ -95,6 +95,17 @@ CI フェーズではユーザ固有の設定を行うことができない理�
     - 初期化完了マーカーファイルの更新（タイムスタンプ等）
 
 Install フェーズでの関連する処理：
+
+- **SSH環境の動的セットアップ** - [see:M7X3-MOUNTSTRATEGY](#M7X3-MOUNTSTRATEGY)
+  - コンテナ起動時に `start-ssh-server.sh` スクリプトが実行される
+  - Phase 1: ユーザ・環境セットアップ（root権限で実行）
+    - ユーザとグループの作成
+    - SSH ディレクトリの作成（`~/.ssh/`, `~/.ssh/dropbear/`）
+    - Secret から SSH 鍵のコピーと権限設定
+    - ファイルの所有者設定（chown）
+  - Phase 2: SSH サーバ起動（ターゲットユーザ権限で実行）
+    - `su` コマンドによるユーザ切り替え
+    - Dropbear SSH サーバの起動
 
 - **linuxbrew の非特権環境での導入とパッケージ管理** - [see:M4J7-BREW](../README.ja.md#M4J7-BREW)
   - 非特権ユーザでのパッケージ管理システムとして linuxbrew を活用
@@ -138,10 +149,12 @@ Install フェーズでの関連する処理：
   - Ed25519: セキュリティと性能の観点から優先される形式
   - 無効な鍵が含まれる場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
 
-- <span id="V9H6-HOSTMOUNT">[V9H6-HOSTMOUNT]</span> SSH ホストキーは K8s Secret から readOnly でマウントされる
-  - 指定されたファイル名で `/etc/dropbear/` にマウント
-  - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
-  - 実行時の意図しない変更を防止
+- <span id="V9H6-HOSTMOUNT">[V9H6-HOSTMOUNT]</span> SSH ホストキーは K8s Secret から readOnly でマウントされ、起動時に適切な場所にコピーされる
+  - Secret は `/mnt/ssh-host-keys/` に readOnly でマウントされる
+  - 起動時にスクリプトが `${DROPBEAR_DIR}` （`/home/${USERNAME}/.ssh/dropbear/`）にコピーし、適切な権限（0600）を設定
+  - ファイル名: `dropbear_rsa_host_key`, `dropbear_ed25519_host_key`
+  - readOnly マウントにより Secret の意図しない変更を防止
+  - コピー時の権限設定により、ユーザ固有の所有者設定とDropbearの要求する権限を満たす
 
 #### ユーザの SSH 鍵について
 
@@ -167,11 +180,11 @@ Install フェーズでの関連する処理：
   - `NOTES.txt` に Hook のログ確認方法を記載し、ユーザーがトラブルシューティングを実施できるようにする
   - install/upgrade 失敗時の具体的な対処手順を提供
 
-- <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされる
-  - `authorized_keys` ファイルとして `~/.ssh/` にマウント
-  - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
-  - 公開鍵と秘密鍵で共通の Secret を指定した場合の権限統一のため 0400 を採用
-  - 実行時の意図しない変更を防止
+- <span id="D4K3-KEYMOUNT">[D4K3-KEYMOUNT]</span> SSH 公開鍵は K8s Secret から readOnly でマウントされ、起動時に適切な場所にコピーされる
+  - Secret は `/mnt/ssh-public-keys/` に readOnly でマウントされる
+  - 起動時にスクリプトが `~/.ssh/authorized_keys` にコピーし、適切な権限（0600）を設定
+  - readOnly マウントにより Secret の意図しない変更を防止
+  - コピー時の権限設定により、ユーザ固有の所有者設定とSSHクライアントの要求する権限を満たす
 
 - <span id="R2L7-PRIVKEY">[R2L7-PRIVKEY]</span> ユーザの SSH 秘密鍵は `values.yaml` で直接指定または既存 Secret 参照により K8s Secret に保存する - [see:W7N2-PRIVKEY](../README.ja.md#W7N2-PRIVKEY), [see:Q9M4-MULTIPRIVKEY](../README.ja.md#Q9M4-MULTIPRIVKEY), [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
   - SSH クライアント接続用の秘密鍵として利用
@@ -194,10 +207,11 @@ Install フェーズでの関連する処理：
   - マウント時の鍵の意図しない上書きを防止するための検証
   - 重複するキーが検出された場合は適切なエラーメッセージを出力して Hook を失敗させ、リリースステータスを failed にする
 
-- <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされる - [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
-  - 指定されたファイル名で `~/.ssh/` にマウント
-  - defaultMode による確実なファイル権限設定 (0400) - 読み込み専用
-  - 実行時の意図しない変更を防止
+- <span id="B8W3-PRIVMOUNT">[B8W3-PRIVMOUNT]</span> SSH 秘密鍵は K8s Secret から readOnly でマウントされ、起動時に適切な場所にコピーされる - [see:C3J6-PRIVMOUNT](../README.ja.md#C3J6-PRIVMOUNT)
+  - Secret は `/mnt/ssh-private-keys/` に readOnly でマウントされる
+  - 起動時にスクリプトが指定されたファイル名で `~/.ssh/` にコピーし、適切な権限（0600）を設定
+  - readOnly マウントにより Secret の意図しない変更を防止
+  - コピー時の権限設定により、ユーザ固有の所有者設定とSSHクライアントの要求する権限を満たす
 
 #### ヘルスチェックプローブについて
 
@@ -209,10 +223,41 @@ Install フェーズでの関連する処理：
   - Exec Probe を使用してコンテナ内部の詳細な状態を確認
   - ヘルスチェックスクリプトによる包括的な健全性チェック
   - ヘルスチェックスクリプトの実装：
-    - Dropbear プロセスの存在確認
-    - SSH ポートのリスニング状態確認
-    - SSH ホストキーの存在確認
+    - Dropbear プロセスの存在確認（`pgrep dropbear`）
+    - SSH ポートのリスニング状態確認（`ss -ln` コマンドを使用）
+    - SSH ホストキーの存在確認（`${DROPBEAR_DIR}/dropbear_rsa_host_key`, `${DROPBEAR_DIR}/dropbear_ed25519_host_key`）
+    - `DROPBEAR_DIR="/home/${USERNAME}/.ssh/dropbear"` で定義される場所をチェック
+    - デフォルトでは `/home/developer/.ssh/dropbear/` 配下のホストキーファイルを確認
     - 実行はコンテナ内部で行われ、kubelet が Container Runtime Interface 経由でコマンドを実行
+
+#### Secret マウント戦略について
+
+- <span id="M7X3-MOUNTSTRATEGY">[M7X3-MOUNTSTRATEGY]</span> SSH 鍵の Secret マウント戦略
+  - **中間ディレクトリマウント + 起動時コピー方式**を採用
+  - Secret は中間ディレクトリ（`/mnt/ssh-*`）に readOnly でマウント
+  - 起動時スクリプトが最終的な配置場所にコピーし、適切な権限とオーナーシップを設定
+  
+**この方式の利点：**
+- **セキュリティ強化**: Secret の直接変更を完全に防止（readOnly マウント）
+- **権限制御の柔軟性**: ユーザ固有のUID/GIDに合わせた所有者設定が可能
+- **ファイル権限の正確性**: SSH やDropbear の要求する正確な権限（0600）を保証
+- **設定の独立性**: Secret の内容とファイルシステム上の配置を分離
+- **トラブルシューティング**: 中間ディレクトリで Secret の内容を確認可能
+
+**直接マウントとの比較：**
+- 直接マウント: Secret の defaultMode で権限は設定できるが、所有者はコンテナの実行ユーザに固定
+- コピー方式: 動的なユーザ作成後に適切な所有者を設定可能、より柔軟な権限管理
+
+#### Secret/ConfigMap 変更時のPod再起動について
+
+- <span id="Z8Y4-RESTART">[Z8Y4-RESTART]</span> Secret や ConfigMap が変更された際に Pod を自動的に再起動する仕組み
+  - Pod のアノテーションにチェックサムを追加することで実現
+  - Helm で管理される Secret が更新されると、チェックサムが変更され、Deployment のテンプレートが更新される
+  - これにより Kubernetes が Pod を再作成し、新しい Secret/ConfigMap が反映される
+  - 対象となる Secret：
+    - SSH 公開鍵 (ssh-pubkeys)
+    - SSH 秘密鍵 (ssh-privkeys) ※設定されている場合
+    - 設定全体のチェックサム（外部管理のSecretにも対応）
 
 #### 各種スクリプトについて
 

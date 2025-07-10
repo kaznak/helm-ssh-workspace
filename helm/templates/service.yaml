@@ -1,0 +1,21 @@
+{{/*
+SSH Workspace Service Template
+Service resource configuration [see:N4V9-SVC]
+Default ClusterIP service type [see:E4L7-CLUSTER]
+Service usage pattern [see:W9F5-SERVICE]
+*/}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: ssh
+  selector:
+    {{- include "ssh-workspace.selectorLabels" . | nindent 4 }}
