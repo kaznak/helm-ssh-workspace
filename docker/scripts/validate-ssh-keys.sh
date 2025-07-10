@@ -195,60 +195,62 @@ $5=="(ED25519)" {
 
 PROGRESS "Validating private keys from secret"
 
-# Check if private keys secret exists (必須)
-error_msg="Private keys secret not found: $priv_secret"
-kubectl get secret "$priv_secret" -n "$namespace" >&3
+# Extract private keys data from secret
+error_msg="Failed to extract private keys data from secret: $priv_secret"
+kubectl get secret "$priv_secret" -n "$namespace" -o json |
+jq -r '.data'   |
+tee "$tmpd/priv_keys_data.json" >&3
 
-# Extract private keys to user SSH directory
-if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' >&3; then
-    kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' | base64 -d > /home/user/.ssh/id_rsa
-    chmod 600 /home/user/.ssh/id_rsa
-    
-    # Validate RSA private key
-    temp_pub_key="$tmpd/priv_rsa_pub"
-    error_msg="Cannot extract public key from RSA private key"
-    ssh-keygen -y -f "/home/user/.ssh/id_rsa" > "$temp_pub_key" 2>/dev/null
-    
-    key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
-    error_msg="Invalid RSA private key format"
-    [[ -n "$key_info" ]]
-    
-    key_bits=$(echo "$key_info" | awk '{print $1}')
-    key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
-    
-    case "$key_type" in
-        "RSA")
-            error_msg="RSA private key is too weak ($key_bits bits). Minimum 2048 bits required"
-            [[ "$key_bits" -ge 2048 ]]
-            [[ "$key_bits" -lt 4096 ]] && MSG "WARNING: RSA private key is $key_bits bits. 4096 bits recommended"
-            ;;
-        *)
-            error_msg="Expected RSA private key, got $key_type"
-            false
-            ;;
-    esac
-    
-    MSG "INFO: Valid RSA private key ($key_bits bits)"
-fi
+error_msg="Failed to validate private keys data format"
+jq -r 'keys[]' "$tmpd/priv_keys_data.json"  |
+while read -r key_name ; do
+    kfile="$tmpd/priv_keys_data.$key_name"
 
-if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' >&3; then
-    kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' | base64 -d > /home/user/.ssh/id_ed25519
-    chmod 600 /home/user/.ssh/id_ed25519
-    
-    # Validate Ed25519 private key
-    temp_pub_key="$tmpd/priv_ed25519_pub"
-    error_msg="Cannot extract public key from Ed25519 private key"
-    ssh-keygen -y -f "/home/user/.ssh/id_ed25519" > "$temp_pub_key" 2>/dev/null
-    
-    key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
-    error_msg="Invalid Ed25519 private key format"
-    [[ -n "$key_info" ]]
-    
-    key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
-    error_msg="Expected Ed25519 private key, got $key_type"
-    [[ "$key_type" == "ED25519" ]]
-    
-    MSG "INFO: Valid Ed25519 private key"
-fi
+    error_msg="Failed to extract private key for $key_name"
+    jq ".$key_name" "$tmpd/priv_keys_data.json" |
+    base64 -d   |
+    tee $kfile >&3
+
+    pfile="$kfile.pub"
+    ssh-keygen -y -f $kfile |
+    tee $pfile >&3
+
+    ifile="$kfile.info"
+    ssh-keygen -lf $pfile   |
+    tee $ifile >&3
+
+    echo $key_name $kfile $pfile $(cat $ifile)
+done    |
+awk '
+function MSG(level, msg) {
+    print "'"$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) "'" level ": " msg > "/dev/fd/3"
+}
+{ 
+    key_name = $1; kfile = $2; pfile = $3; key_bits = $4; fingerprint = $5;
+    comment = $6 ; key_type = $NF
+}
+key_type == "(RSA)" && key_bits < 2048 {
+    MSG("ERROR", "RSA private key " key_name " is too weak (" key_bits " bits). Minimum 2048 bits required")
+    exit 1
+}
+key_type == "(RSA)" && key_bits >= 2048 && key_bits < 4096 {
+    MSG("WARNING", "RSA private key " key_name " is " key_bits " bits. 4096 bits recommended")
+    MSG("INFO", "Valid RSA private key " key_name " (" key_bits " bits)")
+    next
+}
+key_type == "(RSA)" && key_bits >= 4096 {
+    MSG("INFO", "Valid RSA private key " key_name " (" key_bits " bits)")
+    next
+}
+key_type == "(ED25519)" {
+    MSG("INFO", "Ed25519 private key " key_name " is using recommended algorithm")
+    MSG("INFO", "Valid ED25519 private key " key_name " (256 bits)")
+    next
+}
+{
+    MSG("ERROR", "Unsupported private key type " key_type " for " key_name ". Only RSA and Ed25519 are supported")
+    exit 1
+}
+'
 
 MSG "SUCCESS: SSH key validation completed"
