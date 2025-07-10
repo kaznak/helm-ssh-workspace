@@ -47,7 +47,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    printf '%s %s[%s]: %s\n' "$(date)" "$pname" "$$" "$*" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
 }
 
 PROGRESS() {
@@ -97,24 +97,24 @@ PROGRESS "Generating SSH host keys"
 # RSA鍵生成
 PROGRESS "Generating RSA host key (${RSA_KEY_SIZE} bits)"
 error_msg="Failed to generate RSA host key"
-dropbearkey -t rsa -s "$RSA_KEY_SIZE" -f "$RSA_KEY_FILE" || ERROR_HANDLER ${LINENO}
+dropbearkey -t rsa -s "$RSA_KEY_SIZE" -f "$RSA_KEY_FILE"
 chmod 600 "$RSA_KEY_FILE"
-MSG "SUCCESS: RSA host key generated at $RSA_KEY_FILE"
+
+# RSA鍵ファイル検証
+error_msg="RSA key file missing or empty: $RSA_KEY_FILE"
+[[ -s "$RSA_KEY_FILE" ]]
+MSG "SUCCESS: RSA host key generated and verified at $RSA_KEY_FILE"
 
 # Ed25519鍵生成
 PROGRESS "Generating Ed25519 host key"
 error_msg="Failed to generate Ed25519 host key"
-dropbearkey -t ed25519 -f "$ED25519_KEY_FILE" || ERROR_HANDLER ${LINENO}
+dropbearkey -t ed25519 -f "$ED25519_KEY_FILE"
 chmod 600 "$ED25519_KEY_FILE"
-MSG "SUCCESS: Ed25519 host key generated at $ED25519_KEY_FILE"
 
-# ファイル検証
-PROGRESS "Verifying generated key files"
-for key_file in "$RSA_KEY_FILE" "$ED25519_KEY_FILE"; do
-    error_msg="Key file missing or empty: $key_file"
-    [[ ! -f "$key_file" || ! -s "$key_file" ]] && ERROR_HANDLER ${LINENO}
-    MSG "INFO: Key file verified: $key_file"
-done
+# Ed25519鍵ファイル検証
+error_msg="Ed25519 key file missing or empty: $ED25519_KEY_FILE"
+[[ -s "$ED25519_KEY_FILE" ]]
+MSG "SUCCESS: Ed25519 host key generated and verified at $ED25519_KEY_FILE"
 
 # Secret作成
 PROGRESS "Creating Kubernetes secret: $secret_name"
@@ -122,12 +122,12 @@ error_msg="Failed to create Kubernetes secret"
 kubectl create secret generic "$secret_name" \
     --from-file=rsa_host_key="$RSA_KEY_FILE" \
     --from-file=ed25519_host_key="$ED25519_KEY_FILE" \
-    -n "$namespace" || ERROR_HANDLER ${LINENO}
+    -n "$namespace"
 
 # リソースポリシー注釈追加 [R8N9-REUSE]
 error_msg="Failed to add resource policy annotation"
 kubectl annotate secret "$secret_name" \
     "helm.sh/resource-policy=keep" \
-    -n "$namespace" || ERROR_HANDLER ${LINENO}
+    -n "$namespace"
 
 MSG "SUCCESS: SSH host keys secret created successfully: $secret_name"

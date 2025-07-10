@@ -36,7 +36,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    printf '%s %s[%s]: %s\n' "$(date)" "$pname" "$$" "$*" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
 }
 
 PROGRESS() {
@@ -70,17 +70,17 @@ PROGRESS "Phase 1: User and Environment Setup"
 
 # グループ作成
 PROGRESS "Creating user and group"
-getent group "${USER_GID}" >/dev/null || {
+getent group "${USER_GID}" >&3 || {
     MSG "Creating group ${USERNAME} with GID ${USER_GID}"
     error_msg="Failed to create group ${USERNAME}"
-    groupadd -g "${USER_GID}" "${USERNAME}" || ERROR_HANDLER ${LINENO}
+    groupadd -g "${USER_GID}" "${USERNAME}"
 }
 
 # ユーザ作成
-id "${USERNAME}" >/dev/null 2>&1 || {
+id "${USERNAME}" >&3 2>&1 || {
     MSG "Creating user ${USERNAME} with UID ${USER_UID}"
     error_msg="Failed to create user ${USERNAME}"
-    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}" || ERROR_HANDLER ${LINENO}
+    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}"
 }
 
 # SSHディレクトリ作成
@@ -90,55 +90,50 @@ mkdir -p "${DROPBEAR_DIR}"
 
 # SSHホストキーのコピー
 PROGRESS "Setting up SSH host keys"
-[[ -f /mnt/ssh-host-keys/rsa_host_key ]] && {
-    PROGRESS "Copying RSA host key"
-    cp /mnt/ssh-host-keys/rsa_host_key "${DROPBEAR_DIR}/dropbear_rsa_host_key"
-    chmod 600 "${DROPBEAR_DIR}/dropbear_rsa_host_key"
-    MSG "RSA host key configured"
-} || {
-    MSG "WARNING: RSA host key not found in /mnt/ssh-host-keys/rsa_host_key"
-}
 
-[[ -f /mnt/ssh-host-keys/ed25519_host_key ]] && {
-    PROGRESS "Copying Ed25519 host key"
-    cp /mnt/ssh-host-keys/ed25519_host_key "${DROPBEAR_DIR}/dropbear_ed25519_host_key"
-    chmod 600 "${DROPBEAR_DIR}/dropbear_ed25519_host_key"
-    MSG "Ed25519 host key configured"
-} || {
-    MSG "WARNING: Ed25519 host key not found in /mnt/ssh-host-keys/ed25519_host_key"
-}
+# RSA host key (必須)
+PROGRESS "Copying RSA host key"
+error_msg="RSA host key not found in /mnt/ssh-host-keys/rsa_host_key"
+[[ -f /mnt/ssh-host-keys/rsa_host_key ]]
+cp /mnt/ssh-host-keys/rsa_host_key "${DROPBEAR_DIR}/dropbear_rsa_host_key"
+chmod 600 "${DROPBEAR_DIR}/dropbear_rsa_host_key"
+MSG "RSA host key configured"
 
-# SSH公開鍵のコピー
+# Ed25519 host key (必須)
+PROGRESS "Copying Ed25519 host key"
+error_msg="Ed25519 host key not found in /mnt/ssh-host-keys/ed25519_host_key"
+[[ -f /mnt/ssh-host-keys/ed25519_host_key ]]
+cp /mnt/ssh-host-keys/ed25519_host_key "${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+chmod 600 "${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+MSG "Ed25519 host key configured"
+
+# SSH公開鍵のコピー (必須)
 PROGRESS "Setting up SSH public keys"
-[[ -f /mnt/ssh-public-keys/authorized_keys ]] && {
-    PROGRESS "Copying authorized_keys"
-    cp /mnt/ssh-public-keys/authorized_keys "${SSH_DIR}/authorized_keys"
-    chmod 600 "${SSH_DIR}/authorized_keys"
-    MSG "Authorized keys configured"
-} || {
-    MSG "WARNING: Authorized keys not found in /mnt/ssh-public-keys/authorized_keys"
-}
+PROGRESS "Copying authorized_keys"
+error_msg="Authorized keys not found in /mnt/ssh-public-keys/authorized_keys"
+[[ -f /mnt/ssh-public-keys/authorized_keys ]]
+cp /mnt/ssh-public-keys/authorized_keys "${SSH_DIR}/authorized_keys"
+chmod 600 "${SSH_DIR}/authorized_keys"
+MSG "Authorized keys configured"
 
-# SSH秘密鍵のコピー
-[[ -d /mnt/ssh-private-keys ]] && {
-    PROGRESS "Setting up SSH private keys"
-    for key_file in /mnt/ssh-private-keys/*; do
-        [[ -f "$key_file" ]] && {
-            key_name=$(basename "$key_file")
-            PROGRESS "Copying private key: $key_name"
-            cp "$key_file" "${SSH_DIR}/$key_name"
-            chmod 600 "${SSH_DIR}/$key_name"
-        }
-    done
-    MSG "Private keys configured"
-} || {
+# SSH秘密鍵のコピー (オプショナル)
+PROGRESS "Setting up SSH private keys"
+if [[ -d /mnt/ssh-private-keys ]] ; then
+    ls /mnt/ssh-private-keys/*
+    true
+else
     MSG "INFO: No private keys directory found"
-}
+fi |
+while read -r key_name; do
+    PROGRESS "Copying private key: $key_name"
+    cp "/mnt/ssh-private-keys/$key_name" "${SSH_DIR}/$key_name"
+    chmod 600 "${SSH_DIR}/$key_name"
+done
 
 # ファイル所有権設定
 PROGRESS "Setting file ownership"
 error_msg="Failed to set file ownership"
-chown -R "${USER_UID}:${USER_GID}" "${SSH_DIR}" || ERROR_HANDLER ${LINENO}
+chown -R "${USER_UID}:${USER_GID}" "${SSH_DIR}"
 
 # セットアップ検証
 PROGRESS "Setup Verification"

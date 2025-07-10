@@ -47,7 +47,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    echo "$(date) $pname[$$]: $*" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
 }
 
 PROGRESS() {
@@ -86,7 +86,7 @@ MSG "Private Secret: $priv_secret"
 # Validate host keys from Kubernetes secret
 PROGRESS "Validating SSH host keys from secret"
 error_msg="Host keys secret not found: $host_secret"
-kubectl get secret "$host_secret" -n "$namespace" >/dev/null 2>&1 || ERROR_HANDLER ${LINENO}
+kubectl get secret "$host_secret" -n "$namespace" >/dev/null 2>&1
 
 # Ensure /etc/dropbear directory exists
 mkdir -p /etc/dropbear 2>/dev/null || true
@@ -99,7 +99,7 @@ chmod 600 /etc/dropbear/dropbear_rsa_host_key
 
 temp_pub_key="$tmpd/rsa_host_pub"
 error_msg="Cannot extract RSA public key from Dropbear key"
-dropbearkey -y -f "/etc/dropbear/dropbear_rsa_host_key" | grep "^ssh-" > "$temp_pub_key" || ERROR_HANDLER ${LINENO}
+dropbearkey -y -f "/etc/dropbear/dropbear_rsa_host_key" | grep "^ssh-" > "$temp_pub_key"
 
 key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
 error_msg="Invalid RSA host key format"
@@ -120,7 +120,7 @@ chmod 600 /etc/dropbear/dropbear_ed25519_host_key
 
 temp_pub_key="$tmpd/ed25519_host_pub"
 error_msg="Cannot extract Ed25519 public key from Dropbear key"
-dropbearkey -y -f "/etc/dropbear/dropbear_ed25519_host_key" | grep "^ssh-" > "$temp_pub_key" || ERROR_HANDLER ${LINENO}
+dropbearkey -y -f "/etc/dropbear/dropbear_ed25519_host_key" | grep "^ssh-" > "$temp_pub_key"
 
 key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
 error_msg="Invalid Ed25519 host key format"
@@ -135,7 +135,7 @@ MSG "INFO: Valid Ed25519 host key"
 # Validate public keys from authorized_keys secret
 PROGRESS "Validating authorized keys from secret"
 error_msg="Public keys secret not found: $pub_secret"
-kubectl get secret "$pub_secret" -n "$namespace" >/dev/null 2>&1 || ERROR_HANDLER ${LINENO}
+kubectl get secret "$pub_secret" -n "$namespace" >/dev/null 2>&1
 
 # Create user-specific SSH directory
 mkdir -p /home/user/.ssh
@@ -160,7 +160,7 @@ done |
 # line_number key_bits fingerprint comment key_type
 awk '
 function MSG(level, msg) {
-    print "'"$(date) $pname[$$]: "'" level ": " msg > "/dev/fd/3"
+    print "'"$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) "'" level ": " msg > "/dev/fd/3"
 }
 $5=="(RSA)" && $2<2048 {
     MSG("ERROR", "RSA public key at line " $1 " is too weak (" $2 " bits). Minimum 2048 bits required")
@@ -200,7 +200,7 @@ if [[ -n "$priv_secret" ]]; then
             # Validate RSA private key
             temp_pub_key="$tmpd/priv_rsa_pub"
             error_msg="Cannot extract public key from RSA private key"
-            ssh-keygen -y -f "/home/user/.ssh/id_rsa" > "$temp_pub_key" 2>/dev/null || ERROR_HANDLER ${LINENO}
+            ssh-keygen -y -f "/home/user/.ssh/id_rsa" > "$temp_pub_key" 2>/dev/null
             
             key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
             error_msg="Invalid RSA private key format"
@@ -231,7 +231,7 @@ if [[ -n "$priv_secret" ]]; then
             # Validate Ed25519 private key
             temp_pub_key="$tmpd/priv_ed25519_pub"
             error_msg="Cannot extract public key from Ed25519 private key"
-            ssh-keygen -y -f "/home/user/.ssh/id_ed25519" > "$temp_pub_key" 2>/dev/null || ERROR_HANDLER ${LINENO}
+            ssh-keygen -y -f "/home/user/.ssh/id_ed25519" > "$temp_pub_key" 2>/dev/null
             
             key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
             error_msg="Invalid Ed25519 private key format"

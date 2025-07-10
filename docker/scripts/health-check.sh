@@ -36,7 +36,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    printf '%s %s[%s]: %s\n' "$(date)" "$pname" "$$" "$*" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
 }
 
 PROGRESS() {
@@ -58,27 +58,25 @@ PROGRESS "Starting SSH workspace health check"
 # Dropbearプロセスチェック
 PROGRESS "Checking Dropbear SSH server process"
 error_msg="Dropbear SSH server process not found"
-pgrep dropbear > /dev/null || ERROR_HANDLER ${LINENO}
+pgrep dropbear >&3
 MSG "INFO: Dropbear SSH server process is running"
 
 # SSHポートリスニングチェック
 PROGRESS "Checking SSH port ${SSH_PORT} listening status"
 error_msg="SSH port ${SSH_PORT} is not listening"
-ss -ln | grep -q ":${SSH_PORT} " || ERROR_HANDLER ${LINENO}
+ss -ln | grep -q ":${SSH_PORT} "
 MSG "INFO: SSH port ${SSH_PORT} is listening"
 
 # RSAホストキー存在チェック
 PROGRESS "Checking RSA host key file"
-rsa_key_file="${DROPBEAR_DIR}/dropbear_rsa_host_key"
-error_msg="RSA host key not found at ${rsa_key_file}"
-[[ ! -f "$rsa_key_file" ]] && ERROR_HANDLER ${LINENO}
-MSG "INFO: RSA host key found at ${rsa_key_file}"
+error_msg="RSA host key not found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
+[[ -f "${DROPBEAR_DIR}/dropbear_rsa_host_key" ]]
+MSG "INFO: RSA host key found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
 
 # Ed25519ホストキー存在チェック
 PROGRESS "Checking Ed25519 host key file"
-ed25519_key_file="${DROPBEAR_DIR}/dropbear_ed25519_host_key"
-error_msg="Ed25519 host key not found at ${ed25519_key_file}"
-[[ ! -f "$ed25519_key_file" ]] && ERROR_HANDLER ${LINENO}
-MSG "INFO: Ed25519 host key found at ${ed25519_key_file}"
+error_msg="Ed25519 host key not found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+[[ -f "${DROPBEAR_DIR}/dropbear_ed25519_host_key" ]]
+MSG "INFO: Ed25519 host key found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
 
 MSG "SUCCESS: SSH workspace health check passed"
