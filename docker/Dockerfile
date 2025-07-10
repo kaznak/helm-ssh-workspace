@@ -39,7 +39,7 @@ ENV LC_ALL=en_US.UTF-8
 RUN mkdir -p /opt/ssh-workspace/bin
 
 # Copy management scripts [D8M4-SCRIPT]
-COPY scripts/* /opt/ssh-workspace/bin/
+COPY docker/scripts/* /opt/ssh-workspace/bin/
 RUN chmod +x /opt/ssh-workspace/bin/*
 
 # Create dropbear directory
