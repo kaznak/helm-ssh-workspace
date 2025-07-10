@@ -187,65 +187,68 @@ $5=="(ED25519)" {
 '
 
 # Validate private keys if provided
-if [[ -n "$priv_secret" ]]; then
-    PROGRESS "Validating private keys from secret"
+[[ -z "$priv_secret" ]] && {
+    MSG "INFO: No private keys secret specified"
+    MSG "SUCCESS: SSH key validation completed"
+    exit 0
+}
+
+PROGRESS "Validating private keys from secret"
+
+# Check if private keys secret exists (必須)
+error_msg="Private keys secret not found: $priv_secret"
+kubectl get secret "$priv_secret" -n "$namespace" >&3
+
+# Extract private keys to user SSH directory
+if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' >&3; then
+    kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' | base64 -d > /home/user/.ssh/id_rsa
+    chmod 600 /home/user/.ssh/id_rsa
     
-    # Check if private keys secret exists
-    if kubectl get secret "$priv_secret" -n "$namespace" >&3; then
-        # Extract private keys to user SSH directory
-        if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' >&3; then
-            kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' | base64 -d > /home/user/.ssh/id_rsa
-            chmod 600 /home/user/.ssh/id_rsa
-            
-            # Validate RSA private key
-            temp_pub_key="$tmpd/priv_rsa_pub"
-            error_msg="Cannot extract public key from RSA private key"
-            ssh-keygen -y -f "/home/user/.ssh/id_rsa" > "$temp_pub_key" 2>/dev/null
-            
-            key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
-            error_msg="Invalid RSA private key format"
-            [[ -n "$key_info" ]]
-            
-            key_bits=$(echo "$key_info" | awk '{print $1}')
-            key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
-            
-            case "$key_type" in
-                "RSA")
-                    error_msg="RSA private key is too weak ($key_bits bits). Minimum 2048 bits required"
-                    [[ "$key_bits" -ge 2048 ]]
-                    [[ "$key_bits" -lt 4096 ]] && MSG "WARNING: RSA private key is $key_bits bits. 4096 bits recommended"
-                    ;;
-                *)
-                    error_msg="Expected RSA private key, got $key_type"
-                    false
-                    ;;
-            esac
-            
-            MSG "INFO: Valid RSA private key ($key_bits bits)"
-        fi
-        
-        if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' >&3; then
-            kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' | base64 -d > /home/user/.ssh/id_ed25519
-            chmod 600 /home/user/.ssh/id_ed25519
-            
-            # Validate Ed25519 private key
-            temp_pub_key="$tmpd/priv_ed25519_pub"
-            error_msg="Cannot extract public key from Ed25519 private key"
-            ssh-keygen -y -f "/home/user/.ssh/id_ed25519" > "$temp_pub_key" 2>/dev/null
-            
-            key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
-            error_msg="Invalid Ed25519 private key format"
-            [[ -n "$key_info" ]]
-            
-            key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
-            error_msg="Expected Ed25519 private key, got $key_type"
-            [[ "$key_type" == "ED25519" ]]
-            
-            MSG "INFO: Valid Ed25519 private key"
-        fi
-    else
-        MSG "WARNING: Private keys secret not found: $priv_secret"
-    fi
+    # Validate RSA private key
+    temp_pub_key="$tmpd/priv_rsa_pub"
+    error_msg="Cannot extract public key from RSA private key"
+    ssh-keygen -y -f "/home/user/.ssh/id_rsa" > "$temp_pub_key" 2>/dev/null
+    
+    key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
+    error_msg="Invalid RSA private key format"
+    [[ -n "$key_info" ]]
+    
+    key_bits=$(echo "$key_info" | awk '{print $1}')
+    key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
+    
+    case "$key_type" in
+        "RSA")
+            error_msg="RSA private key is too weak ($key_bits bits). Minimum 2048 bits required"
+            [[ "$key_bits" -ge 2048 ]]
+            [[ "$key_bits" -lt 4096 ]] && MSG "WARNING: RSA private key is $key_bits bits. 4096 bits recommended"
+            ;;
+        *)
+            error_msg="Expected RSA private key, got $key_type"
+            false
+            ;;
+    esac
+    
+    MSG "INFO: Valid RSA private key ($key_bits bits)"
+fi
+
+if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' >&3; then
+    kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' | base64 -d > /home/user/.ssh/id_ed25519
+    chmod 600 /home/user/.ssh/id_ed25519
+    
+    # Validate Ed25519 private key
+    temp_pub_key="$tmpd/priv_ed25519_pub"
+    error_msg="Cannot extract public key from Ed25519 private key"
+    ssh-keygen -y -f "/home/user/.ssh/id_ed25519" > "$temp_pub_key" 2>/dev/null
+    
+    key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
+    error_msg="Invalid Ed25519 private key format"
+    [[ -n "$key_info" ]]
+    
+    key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
+    error_msg="Expected Ed25519 private key, got $key_type"
+    [[ "$key_type" == "ED25519" ]]
+    
+    MSG "INFO: Valid Ed25519 private key"
 fi
 
 MSG "SUCCESS: SSH key validation completed"
