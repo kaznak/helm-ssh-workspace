@@ -47,7 +47,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    printf '%s %s[%s]: %s\n' "$(date)" "$pname" "$$" "$*" >&3
+    echo "$(date) $pname[$$]: $*" >&3
 }
 
 PROGRESS() {
@@ -145,44 +145,46 @@ chmod 700 /home/user/.ssh
 kubectl get secret "$pub_secret" -n "$namespace" -o jsonpath='{.data.authorized_keys}' | base64 -d > /home/user/.ssh/authorized_keys
 chmod 600 /home/user/.ssh/authorized_keys
 
-# Validate each line in authorized_keys
-line_number=0
-while IFS= read -r line || [[ -n "$line" ]]; do
-    ((line_number++))
-    
-    # Skip empty lines and comments
-    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
-    
-    # Validate the public key
-    temp_pub_key="$tmpd/auth_key_$line_number"
-    echo "$line" > "$temp_pub_key"
-    
-    key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
-    if [[ -z "$key_info" ]]; then
-        error_msg="Invalid public key format at line $line_number"
-        ERROR_HANDLER ${LINENO}
-    fi
-    
-    key_bits=$(echo "$key_info" | awk '{print $1}')
-    key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
-    
-    case "$key_type" in
-        "RSA")
-            error_msg="RSA public key at line $line_number is too weak ($key_bits bits). Minimum 2048 bits required"
-            [[ "$key_bits" -lt 2048 ]] && ERROR_HANDLER ${LINENO}
-            [[ "$key_bits" -lt 4096 ]] && MSG "WARNING: RSA public key at line $line_number is $key_bits bits. 4096 bits recommended"
-            ;;
-        "ED25519")
-            MSG "INFO: Ed25519 public key at line $line_number is using recommended algorithm"
-            ;;
-        *)
-            error_msg="Unsupported public key type $key_type at line $line_number. Only RSA and Ed25519 are supported"
-            ERROR_HANDLER ${LINENO}
-            ;;
-    esac
-    
-    MSG "INFO: Valid $key_type public key ($key_bits bits) at line $line_number"
-done < /home/user/.ssh/authorized_keys
+# Validate each line in authorized_keys using stream processing
+# 前処理とファイル分割を直接パイプで接続
+grep -vE '^[[:space:]]*($|#)' /home/user/.ssh/authorized_keys | awk '{
+    filename = "'$tmpd'/auth_key_" NR
+    print $0 > filename
+    close(filename)
+    print NR " " filename
+}' | while read -r line_number temp_pub_key; do
+    error_msg="Invalid public key format at line $line_number"
+    echo -n "$line_number "
+    ssh-keygen -lf "$temp_pub_key"
+done |
+# line_number key_bits fingerprint comment key_type
+awk '
+function MSG(level, msg) {
+    print "'"$(date) $pname[$$]: "'" level ": " msg > "/dev/fd/3"
+}
+$5=="(RSA)" && $2<2048 {
+    MSG("ERROR", "RSA public key at line " $1 " is too weak (" $2 " bits). Minimum 2048 bits required")
+    exit 1
+}
+$5=="(RSA)" && $2>=2048 && $2<4096 {
+    MSG("WARNING", "RSA public key at line " $1 " is " $2 " bits. 4096 bits recommended")
+    MSG("INFO", "Valid RSA public key (" $2 " bits) at line " $1)
+    next
+}
+$5=="(RSA)" && $2>=4096 {
+    MSG("INFO", "Valid RSA public key (" $2 " bits) at line " $1)
+    next
+}
+$5=="(ED25519)" {
+    MSG("INFO", "Ed25519 public key at line " $1 " is using recommended algorithm")
+    MSG("INFO", "Valid ED25519 public key (256 bits) at line " $1)
+    next
+}
+{
+    MSG("ERROR", "Unsupported public key type " $5 " at line " $1 ". Only RSA and Ed25519 are supported")
+    exit 1
+}
+'
 
 # Validate private keys if provided
 if [[ -n "$priv_secret" ]]; then
