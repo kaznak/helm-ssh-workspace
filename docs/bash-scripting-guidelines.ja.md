@@ -66,7 +66,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 ### 6. ログ関数
 ```bash
 MSG() { 
-    printf '%s %s[%s]: %s\n' "$(date)" "$pname" "$$" "$*" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
 }
 
 PROGRESS() {
@@ -93,10 +93,21 @@ grep "pattern" input.txt | tee "$tmpd/filtered.txt" >&3
 sort "$tmpd/filtered.txt" | tee "$tmpd/sorted.txt" >&3
 uniq "$tmpd/sorted.txt" | tee "$tmpd/result.txt" >&3
 
-# ファイルからデータを読み取って処理
+# ストリーム処理を優先（パイプラインで処理）
+grep -v '^#' "$tmpd/result.txt" | grep -v '^$' | process_stream
+
+# while readを使用する場合もストリーム処理として記述
+# 悪い例：while内で複雑な処理、リダイレクトで入力
 while read line; do
-    process "$line"
-done < "$tmpd/result.txt"
+    if [[ "$line" =~ ^# ]]; then continue; fi
+    if [[ -z "$line" ]]; then continue; fi
+    echo "Processing: $line"
+done < "$tmpd/input.txt"
+
+# 良い例：catでパイプライン化し、既存コマンドで前処理
+cat "$tmpd/input.txt" | grep -v '^#' | grep -v '^$' | while read line; do
+    echo "Processing: $line"  # whileブロックは単純な処理のみ
+done
 
 # 複数のプロセスで同じデータを共有
 wc -l < "$tmpd/result.txt" > "$tmpd/count.txt"
@@ -109,6 +120,8 @@ PROGRESS "処理対象: $(cat "$tmpd/count.txt") 行"
 - **if-then-elseの入れ子は避ける**: 線形な上から下への処理フロー
 - **バックグラウンド処理**: 必要に応じて子プロセスでエラーチェック
 - **中間結果はファイル管理**: 大きなデータや複雑な処理結果は変数ではなく `$tmpd` 内のファイルに保存
+- **ストリーム処理を優先**: パイプラインで処理できる場合は `while read` を避ける
+- **while内もストリーム処理**: `while read` を使用する場合も既存コマンドで前処理してブロック内は単純に
 
 ### 10. 重要な原則
 - プログラム的構造（複雑な関数、制御フロー）は避ける
