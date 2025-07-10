@@ -219,15 +219,14 @@ while read -r key_name ; do
     ssh-keygen -lf $pfile   |
     tee $ifile >&3
 
-    echo $key_name $kfile $pfile $(cat $ifile)
+    echo $key_name $(cat $ifile)
 done    |
 awk '
 function MSG(level, msg) {
     print "'"$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) "'" level ": " msg > "/dev/fd/3"
 }
 { 
-    key_name = $1; kfile = $2; pfile = $3; key_bits = $4; fingerprint = $5;
-    comment = $6 ; key_type = $NF
+    key_name = $1; key_bits = $2; fingerprint = $3; comment = $4 ; key_type = $NF
 }
 key_type == "(RSA)" && key_bits < 2048 {
     MSG("ERROR", "RSA private key " key_name " is too weak (" key_bits " bits). Minimum 2048 bits required")

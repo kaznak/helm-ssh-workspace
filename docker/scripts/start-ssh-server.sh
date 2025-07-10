@@ -119,7 +119,7 @@ MSG "Authorized keys configured"
 # SSH秘密鍵のコピー (オプショナル)
 PROGRESS "Setting up SSH private keys"
 if [[ -d /mnt/ssh-private-keys ]] ; then
-    ls /mnt/ssh-private-keys/*
+    ls /mnt/ssh-private-keys
     true
 else
     MSG "INFO: No private keys directory found"
@@ -138,11 +138,10 @@ chown -R "${USER_UID}:${USER_GID}" "${SSH_DIR}"
 # セットアップ検証
 PROGRESS "Setup Verification"
 MSG "SSH directory contents:"
-ls -la "${SSH_DIR}" || MSG "SSH directory not accessible"
-[[ -d "${DROPBEAR_DIR}" ]] && {
-    MSG "Dropbear directory contents:"
-    ls -la "${DROPBEAR_DIR}" || MSG "Dropbear directory not accessible"
-}
+error_msg="SSH directory not accessible"
+ls -la "${SSH_DIR}"
+error_msg="Dropbear directory not accessible"
+ls -la "${DROPBEAR_DIR}"
 
 MSG "SUCCESS: SSH environment setup completed"
 
