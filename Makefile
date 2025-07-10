@@ -61,7 +61,7 @@ helm-test: helm-lint
 .PHONY: docker-test
 docker-test: docker-build
 	@echo "Testing Docker image..."
-	docker run --rm $(DOCKER_IMAGE) /opt/ssh-workspace/bin/generate-host-keys.sh --help
+	docker run --rm --entrypoint="" $(DOCKER_IMAGE) /opt/ssh-workspace/bin/generate-host-keys.sh --help
 	@echo "Docker image test passed"
 
 # Security testing
