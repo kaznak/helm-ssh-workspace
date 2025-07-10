@@ -34,7 +34,92 @@ generate_ed25519_key() {
     fi
 }
 
+# Kubernetes Hook function for host key generation
+generate_for_k8s_hook() {
+    local namespace="$1"
+    local secret_name="$2"
+    
+    if [ -z "$namespace" ] || [ -z "$secret_name" ]; then
+        echo "ERROR: Missing required parameters"
+        echo "Usage: generate_for_k8s_hook <namespace> <secret_name>"
+        exit 1
+    fi
+    
+    echo "=== Kubernetes Hook Host Key Generation ==="
+    echo "Namespace: $namespace"
+    echo "Secret Name: $secret_name"
+    
+    # Check if secret already exists
+    if kubectl get secret "$secret_name" -n "$namespace" >/dev/null 2>&1; then
+        echo "INFO: SSH host keys secret already exists: $secret_name"
+        return 0
+    fi
+    
+    echo "Generating SSH host keys..."
+    
+    # Create host key directory if it doesn't exist
+    mkdir -p "$HOST_KEY_DIR" 2>/dev/null || true
+    
+    local error_count=0
+    
+    # Generate RSA key
+    if ! generate_rsa_key; then
+        error_count=$((error_count + 1))
+    fi
+    
+    # Generate Ed25519 key
+    if ! generate_ed25519_key; then
+        error_count=$((error_count + 1))
+    fi
+    
+    if [ "$error_count" -eq 0 ]; then
+        echo "SUCCESS: SSH host key generation completed"
+        
+        # Verify generated key files
+        echo "Verifying generated key files..."
+        for key_file in "$RSA_KEY_FILE" "$ED25519_KEY_FILE"; do
+            if [ -f "$key_file" ] && [ -s "$key_file" ]; then
+                echo "INFO: Key file exists and has content: $key_file"
+            else
+                echo "WARNING: Key file missing or empty: $key_file"
+                error_count=$((error_count + 1))
+            fi
+        done
+        
+        if [ "$error_count" -eq 0 ]; then
+            # Create secret with generated keys
+            echo "Creating Kubernetes secret: $secret_name"
+            kubectl create secret generic "$secret_name" \
+                --from-file=rsa_host_key="$RSA_KEY_FILE" \
+                --from-file=ed25519_host_key="$ED25519_KEY_FILE" \
+                -n "$namespace"
+            
+            # Add resource policy annotation for persistence [R8N9-REUSE]
+            kubectl annotate secret "$secret_name" \
+                "helm.sh/resource-policy=keep" \
+                -n "$namespace"
+            
+            echo "SUCCESS: SSH host keys secret created successfully: $secret_name"
+            return 0
+        else
+            echo "FAILED: Key file verification failed"
+            return 1
+        fi
+    else
+        echo "FAILED: $error_count errors occurred during key generation"
+        return 1
+    fi
+}
+
 main() {
+    # Check for k8s-hook command first
+    if [ "$1" = "k8s-hook" ]; then
+        local namespace="$2"
+        local secret_name="$3"
+        generate_for_k8s_hook "$namespace" "$secret_name"
+        return $?
+    fi
+    
     local force_regenerate=false
     
     # Parse command line arguments
@@ -46,8 +131,10 @@ main() {
                 ;;
             -h|--help)
                 echo "Usage: $0 [-f|--force] [-h|--help]"
+                echo "       $0 k8s-hook <namespace> <secret_name>"
                 echo "  -f, --force    Force regeneration of existing keys"
                 echo "  -h, --help     Show this help message"
+                echo "  k8s-hook       Generate keys and create Kubernetes secret"
                 exit 0
                 ;;
             *)

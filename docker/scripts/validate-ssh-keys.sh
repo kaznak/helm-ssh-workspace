@@ -102,7 +102,7 @@ validate_dropbear_key() {
     
     # Extract public key from dropbear private key and validate it
     local temp_pub_key=$(mktemp)
-    if dropbearkey -y -f "$key_file" | grep "^ssh-" > "$temp_pub_key" 2>/dev/null; then
+    if dropbearkey -y -f "$key_file" | grep "^ssh-" > "$temp_pub_key"; then
         if validate_public_key "$temp_pub_key"; then
             echo "INFO: Valid $key_type Dropbear key found in $key_file"
             rm -f "$temp_pub_key"

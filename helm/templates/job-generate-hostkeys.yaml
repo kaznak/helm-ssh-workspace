@@ -72,37 +72,10 @@ spec:
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
         command:
-        - /bin/bash
-        - -c
-        - |
-          set -e
-          
-          SECRET_NAME="{{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}"
-          NAMESPACE="{{ .Release.Namespace }}"
-          
-          # Check if secret already exists
-          if kubectl get secret "$SECRET_NAME" -n "$NAMESPACE" >/dev/null 2>&1; then
-            echo "INFO: SSH host keys secret already exists: $SECRET_NAME"
-            exit 0
-          fi
-          
-          echo "Generating SSH host keys..."
-          
-          # Generate keys
-          /opt/ssh-workspace/bin/generate-host-keys.sh
-          
-          # Create secret with generated keys
-          kubectl create secret generic "$SECRET_NAME" \
-            --from-file=rsa_host_key=/etc/dropbear/dropbear_rsa_host_key \
-            --from-file=ed25519_host_key=/etc/dropbear/dropbear_ed25519_host_key \
-            -n "$NAMESPACE"
-          
-          # Add resource policy annotation for persistence [R8N9-REUSE]
-          kubectl annotate secret "$SECRET_NAME" \
-            "helm.sh/resource-policy=keep" \
-            -n "$NAMESPACE"
-          
-          echo "SSH host keys secret created successfully: $SECRET_NAME"
+        - /opt/ssh-workspace/bin/generate-host-keys.sh
+        - k8s-hook
+        - "{{ .Release.Namespace }}"
+        - "{{ .Values.ssh.hostKeys.secretName | default (printf "%s-ssh-hostkeys" (include "ssh-workspace.fullname" .)) }}"
         volumeMounts:
         - name: temp-keys
           mountPath: /etc/dropbear
