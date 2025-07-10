@@ -1,36 +1,84 @@
 #!/bin/bash
-# Health check script for SSH workspace
+# NAME: health-check.sh
+# SYNOPSIS: Health check script for SSH workspace
 # Design reference: [R6Q9-READINESS]
 
-set -e
+set -Cu -Ee -o pipefail
+shopt -s nullglob
 
-# Configuration
+# 基本変数の初期化
+stime=$(date +%Y%m%d%H%M%S%Z)
+pname=$(basename $0)
+based=$(readlink -f $(dirname $0)/..)
+tmpd=$(mktemp -d)
+
+# ログ出力設定
+logd=$tmpd/log
+mkdir -p $logd
+exec 3>&2
+
+# エラーハンドリング
+error_msg=""
+error_status=0
+
+BEFORE_EXIT() {
+    [[ -d "$tmpd" ]] && rm -rf "$tmpd"
+}
+
+ERROR_HANDLER() {
+    error_status=$?
+    MSG "ERROR at line $1: $error_msg"
+    exit $error_status
+}
+
+trap 'BEFORE_EXIT' EXIT
+trap 'ERROR_HANDLER ${LINENO}' ERR
+
+# ログ関数
+MSG() { 
+    printf '%s %s[%s]: %s\n' "$(date)" "$pname" "$$" "$*" >&3
+}
+
+PROGRESS() {
+    MSG "PROGRESS(${BASH_LINENO[0]}): $*"
+}
+
+# ヘルプ機能
+print_help() {
+    sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
+}
+
+# 設定
 USERNAME="${SSH_USERNAME:-developer}"
 SSH_PORT="${SSH_PORT:-2222}"
 DROPBEAR_DIR="/home/${USERNAME}/.ssh/dropbear"
 
-# Check if Dropbear process is running
-if ! pgrep dropbear > /dev/null; then
-    echo "ERROR: Dropbear SSH server process not found"
-    exit 1
-fi
+PROGRESS "Starting SSH workspace health check"
 
-# Check if SSH port is listening using ss
-if ! ss -ln | grep -q ":${SSH_PORT} "; then
-    echo "ERROR: SSH port ${SSH_PORT} is not listening"
-    exit 1
-fi
+# Dropbearプロセスチェック
+PROGRESS "Checking Dropbear SSH server process"
+error_msg="Dropbear SSH server process not found"
+pgrep dropbear > /dev/null || ERROR_HANDLER ${LINENO}
+MSG "INFO: Dropbear SSH server process is running"
 
-# Check if SSH host keys exist in the correct location
-if [ ! -f "${DROPBEAR_DIR}/dropbear_rsa_host_key" ]; then
-    echo "ERROR: RSA host key not found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
-    exit 1
-fi
+# SSHポートリスニングチェック
+PROGRESS "Checking SSH port ${SSH_PORT} listening status"
+error_msg="SSH port ${SSH_PORT} is not listening"
+ss -ln | grep -q ":${SSH_PORT} " || ERROR_HANDLER ${LINENO}
+MSG "INFO: SSH port ${SSH_PORT} is listening"
 
-if [ ! -f "${DROPBEAR_DIR}/dropbear_ed25519_host_key" ]; then
-    echo "ERROR: Ed25519 host key not found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
-    exit 1
-fi
+# RSAホストキー存在チェック
+PROGRESS "Checking RSA host key file"
+rsa_key_file="${DROPBEAR_DIR}/dropbear_rsa_host_key"
+error_msg="RSA host key not found at ${rsa_key_file}"
+[[ ! -f "$rsa_key_file" ]] && ERROR_HANDLER ${LINENO}
+MSG "INFO: RSA host key found at ${rsa_key_file}"
 
-echo "SSH workspace health check passed"
-exit 0
+# Ed25519ホストキー存在チェック
+PROGRESS "Checking Ed25519 host key file"
+ed25519_key_file="${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+error_msg="Ed25519 host key not found at ${ed25519_key_file}"
+[[ ! -f "$ed25519_key_file" ]] && ERROR_HANDLER ${LINENO}
+MSG "INFO: Ed25519 host key found at ${ed25519_key_file}"
+
+MSG "SUCCESS: SSH workspace health check passed"
