@@ -88,7 +88,7 @@ MSG "Namespace: $namespace"
 MSG "Secret Name: $secret_name"
 
 # Secret存在チェック
-kubectl get secret "$secret_name" -n "$namespace" >/dev/null 2>&1 && {
+kubectl get secret "$secret_name" -n "$namespace" >&3 && {
     MSG "INFO: SSH host keys secret already exists: $secret_name"
     exit 0
 }

@@ -86,7 +86,7 @@ MSG "Private Secret: $priv_secret"
 # Validate host keys from Kubernetes secret
 PROGRESS "Validating SSH host keys from secret"
 error_msg="Host keys secret not found: $host_secret"
-kubectl get secret "$host_secret" -n "$namespace" >/dev/null 2>&1
+kubectl get secret "$host_secret" -n "$namespace" >&3
 
 # Ensure /etc/dropbear directory exists
 mkdir -p /etc/dropbear 2>/dev/null || true
@@ -103,12 +103,12 @@ dropbearkey -y -f "/etc/dropbear/dropbear_rsa_host_key" | grep "^ssh-" > "$temp_
 
 key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
 error_msg="Invalid RSA host key format"
-[[ -z "$key_info" ]] && ERROR_HANDLER ${LINENO}
+[[ -n "$key_info" ]]
 
 key_bits=$(echo "$key_info" | awk '{print $1}')
 key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
 error_msg="RSA host key is too weak ($key_bits bits). Minimum 2048 bits required"
-[[ "$key_type" == "RSA" && "$key_bits" -lt 2048 ]] && ERROR_HANDLER ${LINENO}
+[[ "$key_type" != "RSA" || "$key_bits" -ge 2048 ]]
 
 MSG "INFO: Valid $key_type host key ($key_bits bits)"
 
@@ -124,18 +124,18 @@ dropbearkey -y -f "/etc/dropbear/dropbear_ed25519_host_key" | grep "^ssh-" > "$t
 
 key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
 error_msg="Invalid Ed25519 host key format"
-[[ -z "$key_info" ]] && ERROR_HANDLER ${LINENO}
+[[ -n "$key_info" ]]
 
 key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
 error_msg="Expected Ed25519 key, got $key_type"
-[[ "$key_type" != "ED25519" ]] && ERROR_HANDLER ${LINENO}
+[[ "$key_type" == "ED25519" ]]
 
 MSG "INFO: Valid Ed25519 host key"
 
 # Validate public keys from authorized_keys secret
 PROGRESS "Validating authorized keys from secret"
 error_msg="Public keys secret not found: $pub_secret"
-kubectl get secret "$pub_secret" -n "$namespace" >/dev/null 2>&1
+kubectl get secret "$pub_secret" -n "$namespace" >&3
 
 # Create user-specific SSH directory
 mkdir -p /home/user/.ssh
@@ -191,9 +191,9 @@ if [[ -n "$priv_secret" ]]; then
     PROGRESS "Validating private keys from secret"
     
     # Check if private keys secret exists
-    if kubectl get secret "$priv_secret" -n "$namespace" >/dev/null 2>&1; then
+    if kubectl get secret "$priv_secret" -n "$namespace" >&3; then
         # Extract private keys to user SSH directory
-        if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' >/dev/null 2>&1; then
+        if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' >&3; then
             kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_rsa}' | base64 -d > /home/user/.ssh/id_rsa
             chmod 600 /home/user/.ssh/id_rsa
             
@@ -204,7 +204,7 @@ if [[ -n "$priv_secret" ]]; then
             
             key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
             error_msg="Invalid RSA private key format"
-            [[ -z "$key_info" ]] && ERROR_HANDLER ${LINENO}
+            [[ -n "$key_info" ]]
             
             key_bits=$(echo "$key_info" | awk '{print $1}')
             key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
@@ -212,19 +212,19 @@ if [[ -n "$priv_secret" ]]; then
             case "$key_type" in
                 "RSA")
                     error_msg="RSA private key is too weak ($key_bits bits). Minimum 2048 bits required"
-                    [[ "$key_bits" -lt 2048 ]] && ERROR_HANDLER ${LINENO}
+                    [[ "$key_bits" -ge 2048 ]]
                     [[ "$key_bits" -lt 4096 ]] && MSG "WARNING: RSA private key is $key_bits bits. 4096 bits recommended"
                     ;;
                 *)
                     error_msg="Expected RSA private key, got $key_type"
-                    ERROR_HANDLER ${LINENO}
+                    false
                     ;;
             esac
             
             MSG "INFO: Valid RSA private key ($key_bits bits)"
         fi
         
-        if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' >/dev/null 2>&1; then
+        if kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' >&3; then
             kubectl get secret "$priv_secret" -n "$namespace" -o jsonpath='{.data.id_ed25519}' | base64 -d > /home/user/.ssh/id_ed25519
             chmod 600 /home/user/.ssh/id_ed25519
             
@@ -235,11 +235,11 @@ if [[ -n "$priv_secret" ]]; then
             
             key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
             error_msg="Invalid Ed25519 private key format"
-            [[ -z "$key_info" ]] && ERROR_HANDLER ${LINENO}
+            [[ -n "$key_info" ]]
             
             key_type=$(echo "$key_info" | awk '{print $NF}' | tr -d '()')
             error_msg="Expected Ed25519 private key, got $key_type"
-            [[ "$key_type" != "ED25519" ]] && ERROR_HANDLER ${LINENO}
+            [[ "$key_type" == "ED25519" ]]
             
             MSG "INFO: Valid Ed25519 private key"
         fi

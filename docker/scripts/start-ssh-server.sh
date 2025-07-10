@@ -77,7 +77,7 @@ getent group "${USER_GID}" >&3 || {
 }
 
 # ユーザ作成
-id "${USERNAME}" >&3 2>&1 || {
+id "${USERNAME}" >&3 || {
     MSG "Creating user ${USERNAME} with UID ${USER_UID}"
     error_msg="Failed to create user ${USERNAME}"
     useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}"
@@ -155,21 +155,19 @@ RSA_KEY="${DROPBEAR_DIR}/dropbear_rsa_host_key"
 ED25519_KEY="${DROPBEAR_DIR}/dropbear_ed25519_host_key"
 
 error_msg="RSA host key not found at ${RSA_KEY}"
-[[ ! -f "${RSA_KEY}" ]] && ERROR_HANDLER ${LINENO}
+[[ -f "${RSA_KEY}" ]]
 
 error_msg="Ed25519 host key not found at ${ED25519_KEY}"
-[[ ! -f "${ED25519_KEY}" ]] && ERROR_HANDLER ${LINENO}
+[[ -f "${ED25519_KEY}" ]]
 
 MSG "Host keys verified successfully"
 
-# authorized_keys確認
+# authorized_keys確認 (必須)
+PROGRESS "Verifying authorized_keys"
 AUTHORIZED_KEYS="${SSH_DIR}/authorized_keys"
-[[ ! -f "${AUTHORIZED_KEYS}" ]] && {
-    MSG "WARNING: Authorized keys not found at ${AUTHORIZED_KEYS}"
-    MSG "SSH authentication may not work properly"
-} || {
-    MSG "Authorized keys found at ${AUTHORIZED_KEYS}"
-}
+error_msg="Authorized keys not found at ${AUTHORIZED_KEYS}. SSH workspace requires valid authorized_keys for user authentication"
+[[ -f "${AUTHORIZED_KEYS}" ]]
+MSG "Authorized keys found at ${AUTHORIZED_KEYS}"
 
 # Dropbear起動
 PROGRESS "Switching to user ${USERNAME} (${USER_UID}:${USER_GID}) to start Dropbear"
