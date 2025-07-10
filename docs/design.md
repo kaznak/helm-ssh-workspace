@@ -58,7 +58,7 @@ Dropbear SSH の採用により以下の要件が容易に実現できる：
 - ポートフォワーディングのネットワークポリシー制御 [see:N4C7-NETPOL](../README.ja.md#N4C7-NETPOL)
   - Dropbear SSH はデフォルトでローカルホスト (127.0.0.1) にのみバインドする
   - 外部アクセスを許可する `-a` オプションを使用しないことが重要
-- Pod Security Standards の restricted ポリシー完全対応 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
+- Pod Security Standards の baseline ポリシー完全対応 [see:X2K7-RESTRICT](../README.ja.md#X2K7-RESTRICT)
   - 非特権ポート（2222）使用により root 権限不要
   - ケーパビリティ不要でユーザランド完全実行
   - runAsNonRoot、allowPrivilegeEscalation=false 等の制約に対応
