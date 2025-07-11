@@ -196,7 +196,7 @@ e2e-test: tmp/.k3d-image-loaded-sentinel helm-package
 test-clean:
 	@echo "Cleaning test environment..."
 	# Kill any existing port-forward processes
-	@pkill -f "port-forward.*ssh-workspace-test" 2>/dev/null || true
+	-@pkill -f "port-forward.*ssh-workspace-test" 2>/dev/null || true
 	# Remove test namespace
 	$(KUBECTL) delete namespace ssh-workspace-test --ignore-not-found=true
 	@echo "Test environment cleaned"

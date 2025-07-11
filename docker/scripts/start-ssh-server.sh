@@ -135,6 +135,13 @@ PROGRESS "Setting file ownership"
 error_msg="Failed to set file ownership"
 chown -R "${USER_UID}:${USER_GID}" "${SSH_DIR}"
 
+# ホームディレクトリの権限設定（Dropbearのセキュリティ要件）
+PROGRESS "Setting home directory permissions for Dropbear security"
+error_msg="Failed to set home directory permissions"
+chown "${USER_UID}:${USER_GID}" "${HOME_DIR}"
+chmod 755 "${HOME_DIR}"
+MSG "Home directory permissions set to 755 for Dropbear requirements"
+
 # セットアップ検証
 PROGRESS "Setup Verification"
 MSG "SSH directory contents:"

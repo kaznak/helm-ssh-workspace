@@ -106,7 +106,11 @@ resources:
 securityContext: {}
 
 # Pod security context
-podSecurityContext: {}
+podSecurityContext:
+  # Run as non-root user
+  runAsNonRoot: false
+  # Set supplemental groups if needed
+  supplementalGroups: []
 
 # Health check configuration [see:Q1P4-HEALTH]
 healthCheck:
