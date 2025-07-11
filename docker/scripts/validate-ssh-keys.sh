@@ -19,13 +19,12 @@ shopt -s nullglob
 
 # 基本変数の初期化
 stime=$(date +%Y%m%d%H%M%S%Z)
-pname=$(basename $0)
-based=$(readlink -f $(dirname $0)/..)
+pname=$(basename "$0")
 tmpd=$(mktemp -d)
 
 # ログ出力設定
-logd=$tmpd/log
-mkdir -p $logd
+logd="$tmpd/log"
+mkdir -p "$logd"
 exec 3>&2
 
 # エラーハンドリング
@@ -47,7 +46,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $*" >&3
 }
 
 PROGRESS() {
@@ -148,7 +147,7 @@ chmod 600 /home/user/.ssh/authorized_keys
 # Validate each line in authorized_keys using stream processing
 # 前処理とファイル分割を直接パイプで接続
 grep -vE '^[[:space:]]*($|#)' /home/user/.ssh/authorized_keys | awk '{
-    filename = "'$tmpd'/auth_key_" NR
+    filename = "'"$tmpd"'/auth_key_" NR
     print $0 > filename
     close(filename)
     print NR " " filename
@@ -209,17 +208,17 @@ while read -r key_name ; do
     error_msg="Failed to extract private key for $key_name"
     jq ".$key_name" "$tmpd/priv_keys_data.json" |
     base64 -d   |
-    tee $kfile >&3
+    tee "$kfile" >&3
 
     pfile="$kfile.pub"
-    ssh-keygen -y -f $kfile |
-    tee $pfile >&3
+    ssh-keygen -y -f "$kfile" |
+    tee "$pfile" >&3
 
     ifile="$kfile.info"
-    ssh-keygen -lf $pfile   |
-    tee $ifile >&3
+    ssh-keygen -lf "$pfile"   |
+    tee "$ifile" >&3
 
-    echo $key_name $(cat $ifile)
+    echo "$key_name" "$(cat "$ifile")"
 done    |
 awk '
 function MSG(level, msg) {

@@ -87,7 +87,7 @@ helm-test: helm-lint
 markdown-lint:
 	@echo "Checking markdown links..."
 	# lychee --offline --no-progress --verbose **/*.md *.md
-	lychee --no-progress --verbose **/*.md *.md
+	lychee --no-progress --verbose --exclude-path tmp/ **/*.md *.md
 
 .PHONY: docker-test
 docker-test: docker-build
@@ -107,8 +107,25 @@ docker-security:
 
 .PHONY: helm-security
 helm-security:
-	@echo "Running Helm security tests..."
-	helm template test $(HELM_CHART_DIR) | kubesec scan -
+	@echo "Running Helm security check with Kube-score..."
+	@mkdir -p tmp
+	@echo "::group::Kube-score Reports"
+	@helm template test $(HELM_CHART_DIR) > tmp/manifests.yaml; \
+	kube-score score --exit-one-on-warning tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
+	KUBESCORE_EXIT_CODE=$$?; \
+	cat tmp/kube-score_output.txt; \
+	echo "::endgroup::"; \
+	if [ $$KUBESCORE_EXIT_CODE -ne 0 ]; then \
+		echo "❌ kube-score scan failed with exit code: $$KUBESCORE_EXIT_CODE"; \
+		exit 1; \
+	fi; \
+	CRITICAL_COUNT=$$(grep -c "CRITICAL" tmp/kube-score_output.txt || echo "0"); \
+	if [ "$$CRITICAL_COUNT" -gt 0 ]; then \
+		echo "❌ Found $$CRITICAL_COUNT CRITICAL security issues"; \
+		exit 1; \
+	fi; \
+	echo "✅ Kube-score security check completed successfully"
+	@echo "Helm security check completed"
 
 # Package targets
 
