@@ -111,11 +111,14 @@ helm-security:
 	@echo "Running Helm security check with Kubesec..."
 	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
 	echo "$$KUBESEC_OUTPUT"; \
-	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score'); \
-	if [ "$$DEPLOYMENT_SCORE" -ge 5 ] 2>/dev/null; then \
+	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score' 2>/dev/null || echo "0"); \
+	echo "Debug: Extracted score = '$$DEPLOYMENT_SCORE'"; \
+	if [ -n "$$DEPLOYMENT_SCORE" ] && [ "$$DEPLOYMENT_SCORE" -ge 5 ] 2>/dev/null; then \
 		echo "✅ Deployment security check passed with score: $$DEPLOYMENT_SCORE"; \
 	else \
 		echo "❌ Deployment security check failed. Score: $$DEPLOYMENT_SCORE"; \
+		echo "Debug: kubesec output was:"; \
+		echo "$$KUBESEC_OUTPUT"; \
 		exit 1; \
 	fi
 	@echo "Helm security check completed"
