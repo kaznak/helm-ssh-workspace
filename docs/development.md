@@ -251,5 +251,5 @@ GitHub Actions では以下のターゲットが使用されます：
 ## 参考情報
 
 - [Makefile](../Makefile): 完全なターゲット定義
-- [GitHub Actions CI](.github/workflows/ci.yml): CI/CD パイプライン
-- [GitHub Actions PR](.github/workflows/pr.yml): PR 検証パイプライン
+- [GitHub Actions CI](../.github/workflows/ci.yml): CI/CD パイプライン
+- [GitHub Actions PR](../.github/workflows/pr.yml): PR 検証パイプライン
