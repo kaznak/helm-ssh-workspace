@@ -168,6 +168,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: ${{ env.DOCKER_REPO }}:pr-test
           cache-from: type=gha
 

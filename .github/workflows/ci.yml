@@ -79,6 +79,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: ${{ env.DOCKER_REPO }}:security-scan
           cache-from: type=gha
 
@@ -177,6 +178,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: ${{ env.DOCKER_REPO }}:quality-check
           cache-from: type=gha
 
@@ -214,6 +216,7 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: ${{ env.DOCKER_REPO }}:integration-test
           cache-from: type=gha
 
