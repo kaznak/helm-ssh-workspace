@@ -129,7 +129,8 @@ jobs:
           
       - name: Check YAML files
         run: |
-          yamllint helm/
+          # Check only non-template YAML files
+          yamllint helm/Chart.yaml helm/values.yaml
           yamllint .github/workflows/
 
   # [see:U9A4-TEST] PR integration testing
