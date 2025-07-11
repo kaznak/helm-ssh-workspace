@@ -135,10 +135,12 @@ jobs:
 
       - name: Create k3d cluster
         if: steps.list-changed.outputs.changed == 'true'
-        uses: nolar/setup-k3d-k3s@v1
+        uses: AbsaOSS/k3d-action@v2
         with:
-          version: v1.28
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cluster-name: "test-cluster"
+          args: >-
+            --agents 1
+            --wait
 
       - name: Run chart-testing (install)
         if: steps.list-changed.outputs.changed == 'true'
@@ -189,10 +191,13 @@ jobs:
           version: ${{ env.HELM_VERSION }}
 
       - name: Create k3d cluster
-        uses: nolar/setup-k3d-k3s@v1
+        uses: AbsaOSS/k3d-action@v2
         with:
-          version: v1.28
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cluster-name: "test-cluster"
+          args: >-
+            -p "2222:2222@loadbalancer"
+            --agents 1
+            --wait
 
       - name: Build image for integration test
         uses: docker/build-push-action@v5
@@ -208,7 +213,7 @@ jobs:
           k3d image import ${{ env.DOCKER_REPO }}:integration-test
 
       - name: Run integration tests
-        run: make integration-test DOCKER_TAG=integration-test
+        run: make integration-test DOCKER_TAG=integration-test K3D_CLUSTER_MANAGEMENT=external
 
   # [see:H6N4-PACKAGE] Helm chart packaging
   package:

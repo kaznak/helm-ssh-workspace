@@ -226,49 +226,58 @@ integration-test: docker-build
 # k3d cluster configuration for testing
 K3D_CLUSTER_NAME ?= helm-ssh-workspace-test
 K3D_REGISTRY_PORT ?= 5000
+# Set to 'external' in CI/CD environments where cluster is managed externally
+K3D_CLUSTER_MANAGEMENT ?= local
+
+# Sentinel file for k3d cluster
+tmp/.k3d-cluster-created-sentinel:
+	@mkdir -p tmp
+	@if [ "$(K3D_CLUSTER_MANAGEMENT)" = "external" ]; then \
+		echo "Using externally managed k3d cluster"; \
+		touch tmp/.k3d-cluster-created-sentinel; \
+	else \
+		echo "Creating k3d cluster: $(K3D_CLUSTER_NAME)"; \
+		if ! command -v k3d >/dev/null 2>&1; then \
+			echo "ERROR: k3d is not installed. Please install k3d first."; \
+			echo "Visit: https://k3d.io/v5.6.0/#installation"; \
+			exit 1; \
+		fi; \
+		if k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+			echo "k3d cluster $(K3D_CLUSTER_NAME) already exists"; \
+		else \
+			k3d cluster create $(K3D_CLUSTER_NAME) \
+				--port "2222:2222@loadbalancer" \
+				--wait --timeout 60s; \
+			echo "k3d cluster $(K3D_CLUSTER_NAME) created successfully"; \
+		fi; \
+		echo "Cluster context: k3d-$(K3D_CLUSTER_NAME)"; \
+		touch tmp/.k3d-cluster-created-sentinel; \
+	fi
 
 # Create k3d cluster for testing
 .PHONY: create-k3d-cluster
-create-k3d-cluster:
-	@echo "Creating k3d cluster: $(K3D_CLUSTER_NAME)"
-	@if ! command -v k3d >/dev/null 2>&1; then \
-		echo "ERROR: k3d is not installed. Please install k3d first."; \
-		echo "Visit: https://k3d.io/v5.6.0/#installation"; \
-		exit 1; \
-	fi
-	@if k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
-		echo "k3d cluster $(K3D_CLUSTER_NAME) already exists"; \
-	else \
-		k3d cluster create $(K3D_CLUSTER_NAME) \
-			--port "2222:2222@loadbalancer" \
-			--wait --timeout 60s; \
-		echo "k3d cluster $(K3D_CLUSTER_NAME) created successfully"; \
-	fi
-	@echo "Cluster context: k3d-$(K3D_CLUSTER_NAME)"
+create-k3d-cluster: tmp/.k3d-cluster-created-sentinel
 
 # Delete k3d cluster
 .PHONY: delete-k3d-cluster
 delete-k3d-cluster:
-	@echo "Deleting k3d cluster: $(K3D_CLUSTER_NAME)"
-	@if command -v k3d >/dev/null 2>&1 && k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
-		k3d cluster delete $(K3D_CLUSTER_NAME); \
-		echo "k3d cluster $(K3D_CLUSTER_NAME) deleted"; \
+	@if [ "$(K3D_CLUSTER_MANAGEMENT)" = "external" ]; then \
+		echo "Skipping deletion of externally managed k3d cluster"; \
 	else \
-		echo "k3d cluster $(K3D_CLUSTER_NAME) not found"; \
+		echo "Deleting k3d cluster: $(K3D_CLUSTER_NAME)"; \
+		if command -v k3d >/dev/null 2>&1 && k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
+			k3d cluster delete $(K3D_CLUSTER_NAME); \
+			echo "k3d cluster $(K3D_CLUSTER_NAME) deleted"; \
+		else \
+			echo "k3d cluster $(K3D_CLUSTER_NAME) not found"; \
+		fi; \
 	fi
+	@rm -f tmp/.k3d-cluster-created-sentinel tmp/.k3d-image-loaded-sentinel
 
 # Load Docker image to k3d cluster
-tmp/.k3d-image-loaded-sentinel: tmp/.docker-build-sentinel
+tmp/.k3d-image-loaded-sentinel: tmp/.docker-build-sentinel tmp/.k3d-cluster-created-sentinel
 	@echo "Loading Docker image to k3d cluster..."
 	@mkdir -p tmp
-	@if ! command -v k3d >/dev/null 2>&1; then \
-		echo "ERROR: k3d is not installed"; \
-		exit 1; \
-	fi
-	@if ! k3d cluster list | grep -q "^$(K3D_CLUSTER_NAME)"; then \
-		echo "k3d cluster $(K3D_CLUSTER_NAME) not found. Creating..."; \
-		$(MAKE) create-k3d-cluster; \
-	fi
 	k3d image import $(DOCKER_IMAGE) --cluster $(K3D_CLUSTER_NAME)
 	@touch tmp/.k3d-image-loaded-sentinel
 	@echo "Image loaded to k3d cluster successfully"
