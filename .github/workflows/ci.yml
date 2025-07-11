@@ -102,6 +102,7 @@ jobs:
           dockerfile: ./docker/Dockerfile
           format: sarif
           output-file: hadolint-results.sarif
+          failure-threshold: error
 
       - name: Upload Hadolint scan results
         uses: github/codeql-action/upload-sarif@v3
