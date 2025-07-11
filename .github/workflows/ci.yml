@@ -1,7 +1,8 @@
+---
 # [see:G4H7-CICD] GitHub Actions CI/CD pipeline
 name: CI/CD Pipeline
 
-on:
+'on':
   push:
     branches: [main, develop]
   pull_request:
@@ -178,7 +179,8 @@ jobs:
 
       - name: Install Kubesec
         run: |
-          curl -sSX GET https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
+          curl -sSX GET \
+            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
             | grep "browser_download_url.*linux-amd64" \
             | cut -d : -f 2,3 \
             | tr -d \" \
@@ -203,7 +205,9 @@ jobs:
           failure-threshold: error
 
       - name: Run Trivy vulnerability scan
-        run: trivy image --exit-code 1 --severity HIGH,CRITICAL ${{ env.DOCKER_REPO }}:quality-check
+        run: |
+          trivy image --exit-code 1 --severity HIGH,CRITICAL \
+            ${{ env.DOCKER_REPO }}:quality-check
 
       - name: Run Helm security check with Kubesec
         run: |
@@ -247,14 +251,19 @@ jobs:
 
       - name: Load image into k3d
         run: |
-          k3d image import ${{ env.DOCKER_REPO }}:integration-test --cluster test-cluster
+          k3d image import ${{ env.DOCKER_REPO }}:integration-test \
+            --cluster test-cluster
 
       - name: Generate test SSH key
         run: |
           make generate-test-ssh-key
 
       - name: Run integration tests
-        run: make e2e-test DOCKER_IMAGE=${{ env.DOCKER_REPO }}:integration-test K3D_CLUSTER_MANAGEMENT=external K3D_CLUSTER_NAME=test-cluster
+        run: |
+          make e2e-test \
+            DOCKER_IMAGE=${{ env.DOCKER_REPO }}:integration-test \
+            K3D_CLUSTER_MANAGEMENT=external \
+            K3D_CLUSTER_NAME=test-cluster
 
   # [see:H6N4-PACKAGE] Helm chart packaging
   package:
