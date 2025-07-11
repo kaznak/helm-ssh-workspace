@@ -109,30 +109,19 @@ docker-security:
 helm-security:
 	@echo "Running Helm security tests..."
 	@echo "Running Helm security check with Kubesec..."
-	@echo "Debug: Checking if kubesec is available:"; \
-	which kubesec || echo "kubesec not found in PATH"; \
-	ls -la /usr/local/bin/kubesec || echo "kubesec file not found"; \
-	kubesec version || echo "kubesec version failed"; \
-	echo "Debug: Testing simple kubesec command:"; \
-	echo 'apiVersion: v1' | kubesec scan - || echo "Simple kubesec test failed"; \
-	echo "Debug: Testing helm template output:"; \
-	helm template test $(HELM_CHART_DIR) | head -10; \
-	echo "Debug: Running kubesec scan with stderr:"; \
-	KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
+	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
 	KUBESEC_EXIT_CODE=$$?; \
-	echo "Debug: kubesec exit code: $$KUBESEC_EXIT_CODE"; \
-	echo "Debug: kubesec raw output:"; \
-	echo "$$KUBESEC_OUTPUT"; \
 	if [ $$KUBESEC_EXIT_CODE -ne 0 ]; then \
 		echo "❌ kubesec scan failed with exit code: $$KUBESEC_EXIT_CODE"; \
+		echo "kubesec output: $$KUBESEC_OUTPUT"; \
 		exit 1; \
 	fi; \
 	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score' 2>/dev/null || echo "0"); \
-	echo "Debug: Extracted score = '$$DEPLOYMENT_SCORE'"; \
 	if [ -n "$$DEPLOYMENT_SCORE" ] && [ "$$DEPLOYMENT_SCORE" -ge 5 ] 2>/dev/null; then \
 		echo "✅ Deployment security check passed with score: $$DEPLOYMENT_SCORE"; \
 	else \
 		echo "❌ Deployment security check failed. Score: $$DEPLOYMENT_SCORE"; \
+		echo "kubesec output: $$KUBESEC_OUTPUT"; \
 		exit 1; \
 	fi
 	@echo "Helm security check completed"

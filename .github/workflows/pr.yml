@@ -69,14 +69,15 @@ jobs:
 
       - name: Install Kubesec
         run: |
-          curl -sSX GET \
-            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
-            | grep "browser_download_url.*linux-amd64" \
-            | cut -d : -f 2,3 \
-            | tr -d \" \
-            | wget -O kubesec -qi -
+          echo "Downloading kubesec..."
+          KUBESEC_VERSION=$(curl -sSL https://api.github.com/repos/controlplaneio/kubesec/releases/latest | jq -r '.tag_name')
+          echo "Latest kubesec version: $KUBESEC_VERSION"
+          curl -sSL -o kubesec.tar.gz "https://github.com/controlplaneio/kubesec/releases/download/${KUBESEC_VERSION}/kubesec_linux_amd64.tar.gz"
+          tar -xzf kubesec.tar.gz
           chmod +x kubesec
           sudo mv kubesec /usr/local/bin/
+          echo "kubesec installed. Version check:"
+          kubesec version
 
       - name: Run Hadolint on Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
