@@ -189,7 +189,7 @@ jobs:
 
       - name: Load image into k3d
         run: |
-          k3d image import ${{ env.DOCKER_REPO }}:pr-test
+          k3d image import ${{ env.DOCKER_REPO }}:pr-test --cluster pr-test-cluster
 
       - name: Test deployment
         run: |

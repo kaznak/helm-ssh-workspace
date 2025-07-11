@@ -298,18 +298,18 @@ load-image-to-k3d: tmp/.k3d-image-loaded-sentinel
 TEST_SSH_PUBKEY ?= 
 TEST_SSH_KEY_FILE ?= tmp/test_ssh_key
 
-.PHONY: generate-test-ssh-key
-generate-test-ssh-key:
+# Sentinel file for test SSH key generation
+tmp/.test-ssh-key-generated-sentinel:
 	@echo "Generating test SSH key pair..."
 	@mkdir -p tmp
-	@if [ -f "$(TEST_SSH_KEY_FILE)" ]; then \
-		echo "Test SSH key already exists: $(TEST_SSH_KEY_FILE)"; \
-	else \
-		ssh-keygen -t rsa -b 2048 -f $(TEST_SSH_KEY_FILE) -N "" -C "test@ssh-workspace.local"; \
-		echo "Test SSH key pair generated:"; \
-		echo "  Private key: $(TEST_SSH_KEY_FILE)"; \
-		echo "  Public key:  $(TEST_SSH_KEY_FILE).pub"; \
-	fi
+	@ssh-keygen -t rsa -b 2048 -f $(TEST_SSH_KEY_FILE) -N "" -C "test@ssh-workspace.local"
+	@echo "Test SSH key pair generated:"
+	@echo "  Private key: $(TEST_SSH_KEY_FILE)"
+	@echo "  Public key:  $(TEST_SSH_KEY_FILE).pub"
+	@touch tmp/.test-ssh-key-generated-sentinel
+
+.PHONY: generate-test-ssh-key
+generate-test-ssh-key: tmp/.test-ssh-key-generated-sentinel
 
 .PHONY: prepare-test-env
 prepare-test-env:
