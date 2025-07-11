@@ -110,13 +110,18 @@ helm-security:
 	@echo "Running Helm security check with Kube-score..."
 	@mkdir -p tmp
 	@echo "::group::Kube-score Reports"
-	@helm template test $(HELM_CHART_DIR) | kube-score score --exit-one-on-warning - 2>&1 | tee tmp/kube-score_output.txt; \
+	@helm template test $(HELM_CHART_DIR) > tmp/manifests.yaml; \
+	kube-score score --exit-one-on-warning tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
 	KUBESCORE_EXIT_CODE=$$?; \
+	cat tmp/kube-score_output.txt; \
 	echo "::endgroup::"; \
-	KUBESCORE_OUTPUT=$$(cat tmp/kube-score_output.txt); \
 	if [ $$KUBESCORE_EXIT_CODE -ne 0 ]; then \
 		echo "❌ kube-score scan failed with exit code: $$KUBESCORE_EXIT_CODE"; \
-		echo "kube-score output: $$KUBESCORE_OUTPUT"; \
+		exit 1; \
+	fi; \
+	CRITICAL_COUNT=$$(grep -c "CRITICAL" tmp/kube-score_output.txt || echo "0"); \
+	if [ "$$CRITICAL_COUNT" -gt 0 ]; then \
+		echo "❌ Found $$CRITICAL_COUNT CRITICAL security issues"; \
 		exit 1; \
 	fi; \
 	echo "✅ Kube-score security check completed successfully"
