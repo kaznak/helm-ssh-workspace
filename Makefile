@@ -109,7 +109,14 @@ docker-security:
 helm-security:
 	@echo "Running Helm security tests..."
 	@echo "Running Helm security check with Kubesec..."
-	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
+	@echo "Debug: Checking if kubesec is available:"; \
+	which kubesec || echo "kubesec not found in PATH"; \
+	kubesec version || echo "kubesec version failed"; \
+	echo "Debug: Testing helm template output:"; \
+	helm template test $(HELM_CHART_DIR) | head -10; \
+	echo "Debug: Running full kubesec scan:"; \
+	KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
+	echo "Debug: kubesec raw output:"; \
 	echo "$$KUBESEC_OUTPUT"; \
 	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score' 2>/dev/null || echo "0"); \
 	echo "Debug: Extracted score = '$$DEPLOYMENT_SCORE'"; \
@@ -117,8 +124,6 @@ helm-security:
 		echo "✅ Deployment security check passed with score: $$DEPLOYMENT_SCORE"; \
 	else \
 		echo "❌ Deployment security check failed. Score: $$DEPLOYMENT_SCORE"; \
-		echo "Debug: kubesec output was:"; \
-		echo "$$KUBESEC_OUTPUT"; \
 		exit 1; \
 	fi
 	@echo "Helm security check completed"
