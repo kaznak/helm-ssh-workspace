@@ -110,9 +110,10 @@ helm-security:
 	@echo "Running Helm security check with Kubesec..."
 	@mkdir -p tmp
 	@echo "::group::Kubesec Reports"
-	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1 | tee tmp/kubesec_output.txt); \
+	@helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1 | tee tmp/kubesec_output.txt; \
 	KUBESEC_EXIT_CODE=$$?; \
 	echo "::endgroup::"; \
+	KUBESEC_OUTPUT=$$(cat tmp/kubesec_output.txt); \
 	if [ $$KUBESEC_EXIT_CODE -ne 0 ] && [ $$KUBESEC_EXIT_CODE -ne 2 ]; then \
 		echo "❌ kubesec scan failed with exit code: $$KUBESEC_EXIT_CODE"; \
 		exit 1; \
