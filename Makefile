@@ -110,7 +110,7 @@ helm-security:
 	@echo "Running Helm security check with Kube-score..."
 	@mkdir -p tmp
 	@echo "::group::Kube-score Reports"
-	@helm template test $(HELM_CHART_DIR) | kube-score score - 2>&1 | tee tmp/kube-score_output.txt; \
+	@helm template test $(HELM_CHART_DIR) | kube-score score --exit-one-on-warning - 2>&1 | tee tmp/kube-score_output.txt; \
 	KUBESCORE_EXIT_CODE=$$?; \
 	echo "::endgroup::"; \
 	KUBESCORE_OUTPUT=$$(cat tmp/kube-score_output.txt); \
