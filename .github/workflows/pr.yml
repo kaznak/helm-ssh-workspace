@@ -67,17 +67,17 @@ jobs:
         with:
           version: 3.12.0
 
-      - name: Install Kubesec
+      - name: Install Kube-score
         run: |
-          echo "Downloading kubesec..."
-          KUBESEC_VERSION=$(curl -sSL https://api.github.com/repos/controlplaneio/kubesec/releases/latest | jq -r '.tag_name')
-          echo "Latest kubesec version: $KUBESEC_VERSION"
-          curl -sSL -o kubesec.tar.gz "https://github.com/controlplaneio/kubesec/releases/download/${KUBESEC_VERSION}/kubesec_linux_amd64.tar.gz"
-          tar -xzf kubesec.tar.gz
-          chmod +x kubesec
-          sudo mv kubesec /usr/local/bin/
-          echo "kubesec installed. Version check:"
-          kubesec version
+          echo "Downloading kube-score..."
+          KUBESCORE_VERSION=$(curl -sSL https://api.github.com/repos/zegl/kube-score/releases/latest | jq -r '.tag_name')
+          echo "Latest kube-score version: $KUBESCORE_VERSION"
+          curl -sSL -o kube-score.tar.gz "https://github.com/zegl/kube-score/releases/download/${KUBESCORE_VERSION}/kube-score_${KUBESCORE_VERSION#v}_linux_amd64.tar.gz"
+          tar -xzf kube-score.tar.gz
+          chmod +x kube-score
+          sudo mv kube-score /usr/local/bin/
+          echo "kube-score installed. Version check:"
+          kube-score version
 
       - name: Run Hadolint on Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
@@ -95,10 +95,10 @@ jobs:
       - name: Kubernetes security check
         run: |
           # Check for security anti-patterns in Kubernetes manifests
-          if command -v kubesec >/dev/null 2>&1; then
+          if command -v kube-score >/dev/null 2>&1; then
             make helm-security
           else
-            echo "Kubesec not available, skipping security scan"
+            echo "Kube-score not available, skipping security scan"
           fi
 
   # [see:Q3L8-QUALTEST] Documentation quality checks

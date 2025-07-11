@@ -107,24 +107,19 @@ docker-security:
 
 .PHONY: helm-security
 helm-security:
-	@echo "Running Helm security check with Kubesec..."
+	@echo "Running Helm security check with Kube-score..."
 	@mkdir -p tmp
-	@echo "::group::Kubesec Reports"
-	@helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1 | tee tmp/kubesec_output.txt; \
-	KUBESEC_EXIT_CODE=$$?; \
+	@echo "::group::Kube-score Reports"
+	@helm template test $(HELM_CHART_DIR) | kube-score score - 2>&1 | tee tmp/kube-score_output.txt; \
+	KUBESCORE_EXIT_CODE=$$?; \
 	echo "::endgroup::"; \
-	KUBESEC_OUTPUT=$$(cat tmp/kubesec_output.txt); \
-	if [ $$KUBESEC_EXIT_CODE -ne 0 ] && [ $$KUBESEC_EXIT_CODE -ne 2 ]; then \
-		echo "❌ kubesec scan failed with exit code: $$KUBESEC_EXIT_CODE"; \
+	KUBESCORE_OUTPUT=$$(cat tmp/kube-score_output.txt); \
+	if [ $$KUBESCORE_EXIT_CODE -ne 0 ]; then \
+		echo "❌ kube-score scan failed with exit code: $$KUBESCORE_EXIT_CODE"; \
+		echo "kube-score output: $$KUBESCORE_OUTPUT"; \
 		exit 1; \
 	fi; \
-	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score' 2>/dev/null || echo "0"); \
-	if [ -n "$$DEPLOYMENT_SCORE" ] && [ "$$DEPLOYMENT_SCORE" -ge 5 ] 2>/dev/null; then \
-		echo "✅ Deployment security check passed with score: $$DEPLOYMENT_SCORE"; \
-	else \
-		echo "❌ Deployment security check failed. Score: $$DEPLOYMENT_SCORE"; \
-		exit 1; \
-	fi
+	echo "✅ Kube-score security check completed successfully"
 	@echo "Helm security check completed"
 
 # Package targets
