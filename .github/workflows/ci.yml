@@ -180,7 +180,7 @@ jobs:
       - name: Install Kubesec
         run: |
           curl -sSX GET \
-            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
+            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \  # yamllint disable-line rule:line-length
             | grep "browser_download_url.*linux-amd64" \
             | cut -d : -f 2,3 \
             | tr -d \" \

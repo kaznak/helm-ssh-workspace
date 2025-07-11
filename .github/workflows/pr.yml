@@ -70,7 +70,7 @@ jobs:
       - name: Install Kubesec
         run: |
           curl -sSX GET \
-            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
+            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \  # yamllint disable-line rule:line-length
             | grep "browser_download_url.*linux-amd64" \
             | cut -d : -f 2,3 \
             | tr -d \" \
@@ -216,7 +216,7 @@ jobs:
             -o jsonpath="{.items[0].metadata.name}")
 
           # Test port forward
-          kubectl port-forward "$POD_NAME" 2222:2222 &
+          kubectl port-forward "$POD_NAME" 2223:2222 &
           PF_PID=$!
 
           # Wait for port forward to be ready
@@ -224,7 +224,7 @@ jobs:
 
           # Test SSH connection (should fail with authentication but port
           # should be accessible)
-          nc -z localhost 2222 || exit 1
+          nc -z localhost 2223 || exit 1
           echo "SSH port is accessible"
           kill $PF_PID
 
