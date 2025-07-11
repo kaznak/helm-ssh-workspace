@@ -107,13 +107,14 @@ docker-security:
 
 .PHONY: helm-security
 helm-security:
-	@echo "Running Helm security tests..."
 	@echo "Running Helm security check with Kubesec..."
-	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
+	@mkdir -p tmp
+	@echo "::group::Kubesec Reports"
+	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1 | tee tmp/kubesec_output.txt); \
 	KUBESEC_EXIT_CODE=$$?; \
+	echo "::endgroup::"; \
 	if [ $$KUBESEC_EXIT_CODE -ne 0 ] && [ $$KUBESEC_EXIT_CODE -ne 2 ]; then \
 		echo "❌ kubesec scan failed with exit code: $$KUBESEC_EXIT_CODE"; \
-		echo "kubesec output: $$KUBESEC_OUTPUT"; \
 		exit 1; \
 	fi; \
 	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score' 2>/dev/null || echo "0"); \
@@ -121,7 +122,6 @@ helm-security:
 		echo "✅ Deployment security check passed with score: $$DEPLOYMENT_SCORE"; \
 	else \
 		echo "❌ Deployment security check failed. Score: $$DEPLOYMENT_SCORE"; \
-		echo "kubesec output: $$KUBESEC_OUTPUT"; \
 		exit 1; \
 	fi
 	@echo "Helm security check completed"
