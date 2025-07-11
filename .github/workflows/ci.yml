@@ -57,7 +57,9 @@ jobs:
 
       - name: Test Docker image
         run: |
-          make docker-test DOCKER_TAG=${{ github.sha }}
+          # Use the first tag created by the build
+          DOCKER_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1 | cut -d: -f2)
+          make docker-test DOCKER_TAG=$DOCKER_TAG
 
   # [see:T9K5-SECTEST] Security testing pipeline
   security:
@@ -261,7 +263,8 @@ jobs:
       - name: Run integration tests
         run: |
           make e2e-test \
-            DOCKER_IMAGE=${{ env.DOCKER_REPO }}:integration-test \
+            DOCKER_REPO=${{ env.DOCKER_REPO }} \
+            DOCKER_TAG=integration-test \
             K3D_CLUSTER_MANAGEMENT=external \
             K3D_CLUSTER_NAME=test-cluster
 

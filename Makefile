@@ -166,6 +166,7 @@ e2e-test: tmp/.k3d-image-loaded-sentinel helm-package
 		--namespace ssh-workspace-test \
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--set image.repository=$(DOCKER_REPO) \
+		--set image.tag=$(DOCKER_TAG) \
 		--set image.pullPolicy=Never \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_PUBKEY" \
 		--wait --timeout=120s; \
