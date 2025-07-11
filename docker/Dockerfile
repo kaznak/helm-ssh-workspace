@@ -14,6 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Download and build latest Dropbear [see:K4R9-DROPBEAR]
 WORKDIR /tmp
+# hadolint ignore=DL3003
 RUN wget --progress=dot:giga https://matt.ucc.asn.au/dropbear/releases/dropbear-2025.88.tar.bz2 \
     && tar -xjf dropbear-2025.88.tar.bz2 \
     && cd dropbear-2025.88 \
