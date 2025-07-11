@@ -219,7 +219,7 @@ jobs:
 
       - name: Load image into k3d
         run: |
-          k3d image import ${{ env.DOCKER_REPO }}:integration-test
+          k3d image import ${{ env.DOCKER_REPO }}:integration-test --cluster test-cluster
 
       - name: Run integration tests
         run: make integration-test DOCKER_TAG=integration-test K3D_CLUSTER_MANAGEMENT=external
