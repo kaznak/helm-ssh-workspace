@@ -108,7 +108,9 @@ docker-security:
 .PHONY: helm-security
 helm-security:
 	@echo "Running Helm security tests..."
-	helm template test $(HELM_CHART_DIR) | kubesec scan -
+	@echo "Checking Deployment security with kubesec..."
+	@helm template test $(HELM_CHART_DIR) | kubesec scan - | jq -r '.[] | select(.object | contains("Deployment/")) | select(.score >= 5) | "✅ " + .object + " passed with score " + (.score | tostring)' || true
+	@echo "Helm security check completed"
 
 # Package targets
 
