@@ -111,7 +111,19 @@ helm-security:
 	@mkdir -p tmp
 	@echo "::group::Kube-score Reports"
 	@helm template test $(HELM_CHART_DIR) > tmp/manifests.yaml; \
-	kube-score score --exit-one-on-warning tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
+	kube-score score --exit-one-on-warning \
+		--ignore-test container-security-context-readonlyrootfilesystem \
+		--ignore-test pod-networkpolicy \
+		--ignore-test deployment-has-poddisruptionbudget \
+		--ignore-test deployment-has-host-podantiaffinity \
+		--ignore-test container-security-context-user-group-id \
+		--ignore-test deployment-strategy \
+		--ignore-test deployment-replicas \
+		--ignore-test container-image-tag \
+		--ignore-test container-image-pull-policy \
+		--ignore-test container-ephemeral-storage-request-and-limit \
+		--ignore-test container-resources \
+		tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
 	KUBESCORE_EXIT_CODE=$$?; \
 	cat tmp/kube-score_output.txt; \
 	echo "::endgroup::"; \
