@@ -87,7 +87,7 @@ helm-test: helm-lint
 markdown-lint:
 	@echo "Checking markdown links..."
 	# lychee --offline --no-progress --verbose **/*.md *.md
-	lychee --no-progress --verbose **/*.md *.md
+	lychee --no-progress --verbose --exclude-path tmp/ **/*.md *.md
 
 .PHONY: docker-test
 docker-test: docker-build
@@ -108,8 +108,16 @@ docker-security:
 .PHONY: helm-security
 helm-security:
 	@echo "Running Helm security tests..."
-	@echo "Checking Deployment security with kubesec..."
-	@helm template test $(HELM_CHART_DIR) | kubesec scan - | jq -r '.[] | select(.object | contains("Deployment/")) | select(.score >= 5) | "✅ " + .object + " passed with score " + (.score | tostring)' || true
+	@echo "Running Helm security check with Kubesec..."
+	@KUBESEC_OUTPUT=$$(helm template test $(HELM_CHART_DIR) | kubesec scan - 2>&1); \
+	echo "$$KUBESEC_OUTPUT"; \
+	DEPLOYMENT_SCORE=$$(echo "$$KUBESEC_OUTPUT" | jq -r '.[] | select(.object | contains("Deployment/")) | .score'); \
+	if [ "$$DEPLOYMENT_SCORE" -ge 5 ] 2>/dev/null; then \
+		echo "✅ Deployment security check passed with score: $$DEPLOYMENT_SCORE"; \
+	else \
+		echo "❌ Deployment security check failed. Score: $$DEPLOYMENT_SCORE"; \
+		exit 1; \
+	fi
 	@echo "Helm security check completed"
 
 # Package targets

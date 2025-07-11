@@ -220,7 +220,7 @@ jobs:
       - name: Run Helm security check with Kubesec
         run: |
           echo "Running Helm security check with Kubesec..."
-          helm template test helm/ | kubesec scan -
+          make helm-security
 
   # [see:U9A4-TEST] Integration testing
   integration:
