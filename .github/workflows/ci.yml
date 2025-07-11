@@ -58,6 +58,10 @@ jobs:
   security:
     runs-on: ubuntu-latest
     needs: [docker-build]
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -82,7 +86,7 @@ jobs:
           output: trivy-results.sarif
 
       - name: Upload Trivy scan results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: trivy-results.sarif
@@ -95,7 +99,7 @@ jobs:
           output-file: hadolint-results.sarif
 
       - name: Upload Hadolint scan results
-        uses: github/codeql-action/upload-sarif@v2
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: hadolint-results.sarif
@@ -119,7 +123,7 @@ jobs:
         run: make helm-test
 
       - name: Install chart-testing
-        uses: helm/chart-testing-action@v2.4.0
+        uses: helm/chart-testing-action@v2.6.1
 
       - name: Run chart-testing (list-changed)
         id: list-changed
