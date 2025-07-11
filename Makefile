@@ -70,7 +70,7 @@ docker-build: tmp/.docker-build-sentinel
 test: lint helm-test docker-test
 
 .PHONY: lint
-lint: helm-lint
+lint: helm-lint markdown-lint
 
 .PHONY: helm-lint
 helm-lint:
@@ -82,6 +82,12 @@ helm-test: helm-lint
 	@echo "Testing Helm chart..."
 	helm template test $(HELM_CHART_DIR) --debug --dry-run > /dev/null
 	@echo "Helm template test passed"
+
+.PHONY: markdown-lint
+markdown-lint:
+	@echo "Checking markdown links..."
+	# lychee --offline --no-progress --verbose **/*.md *.md
+	lychee --no-progress --verbose **/*.md *.md
 
 .PHONY: docker-test
 docker-test: docker-build

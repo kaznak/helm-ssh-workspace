@@ -179,6 +179,12 @@ jobs:
       - name: Install Trivy
         uses: aquasecurity/setup-trivy@v0.2.0
 
+      - name: Install lychee
+        uses: lycheeverse/lychee-action@v1.10.0
+        with:
+          args: --no-progress --verbose **/*.md *.md
+          fail: true
+
       - name: Install Kubesec
         run: |
           curl -sSX GET \

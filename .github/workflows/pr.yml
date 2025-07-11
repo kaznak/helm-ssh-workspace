@@ -107,15 +107,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install markdown-link-check
-        run: |
-          npm install -g markdown-link-check
-
-      - name: Check documentation links
-        run: |
-          # Check for broken internal links in documentation
-          markdown-link-check README.ja.md
-          markdown-link-check docs/design.md
+      - name: Install lychee
+        uses: lycheeverse/lychee-action@v1.10.0
+        with:
+          args: --no-progress --verbose **/*.md *.md
+          fail: true
 
       - name: Validate design document references
         run: |
