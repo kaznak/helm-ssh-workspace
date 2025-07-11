@@ -13,10 +13,10 @@
 この決定は以下の要件を満たすためである：
 
 **採用理由：**
-- linuxbrew 対応要件 [[see:M4J7-BREW]](requirements.md#M4J7-BREW) を満たすため
+- linuxbrew 対応要件 [see:M4J7-BREW](requirements.md#M4J7-BREW) を満たすため
   - linuxbrew は Ubuntu/Debian 系での動作が最も安定している
   - 豊富な開発ツール群のサポート
-- 基本開発ツール要件 [[see:Q2N5-TOOLS]](requirements.md#Q2N5-TOOLS) への対応
+- 基本開発ツール要件 [see:Q2N5-TOOLS](requirements.md#Q2N5-TOOLS) への対応
   - git, curl, vim 等の標準ツールが充実
   - 開発者にとって馴染みやすい環境
 - 非特権実行環境での安定性
@@ -296,8 +296,8 @@ Helm テンプレートでは表現が困難な複雑な処理や、テンプレ
 - マトリクスパラメータを活用して異なる環境でのテストを効率化する
 
 **対応要件：**
-- GitHub ActionsでのCI/CD実行 [[see:G4H7-CICD]](requirements.md#G4H7-CICD)
-- ビルド・パッケージング・公開の自動化 [[see:B2M7-BUILD]](requirements.md#B2M7-BUILD), [[see:H6N4-PACKAGE]](requirements.md#H6N4-PACKAGE), [[see:P1W9-PUBLISH]](requirements.md#P1W9-PUBLISH)
-- 品質保証・セキュリティテストの統合 [[see:Q3L8-QUALTEST]](requirements.md#Q3L8-QUALTEST), [[see:T9K5-SECTEST]](requirements.md#T9K5-SECTEST)
+- GitHub ActionsでのCI/CD実行 [see:G4H7-CICD](requirements.md#G4H7-CICD)
+- ビルド・パッケージング・公開の自動化 [see:B2M7-BUILD]](requirements.md#B2M7-BUILD), [see:H6N4-PACKAGE](requirements.md#H6N4-PACKAGE), [[see:P1W9-PUBLISH](requirements.md#P1W9-PUBLISH)
+- 品質保証・セキュリティテストの統合 [see:Q3L8-QUALTEST]](requirements.md#Q3L8-QUALTEST), [[see:T9K5-SECTEST](requirements.md#T9K5-SECTEST)
 
 この実装により、複雑な処理を段階的に実行し、開発者とCI環境で一貫した品質保証を提供する。
