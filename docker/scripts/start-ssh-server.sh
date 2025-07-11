@@ -170,8 +170,8 @@ MSG "Authorized keys found at ${AUTHORIZED_KEYS}"
 
 # Dropbear起動
 PROGRESS "Switching to user ${USERNAME} (${USER_UID}:${USER_GID}) to start Dropbear"
-MSG "Command: dropbear -F -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY}"
+MSG "Command: dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}"
 
 # 指定ユーザでdropbear実行
 error_msg="Failed to start Dropbear SSH server"
-exec su -c "exec dropbear -F -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY}" "${USERNAME}"
+exec su -c "exec dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}" "${USERNAME}"

@@ -55,10 +55,15 @@ help:
 
 # Build targets
 
-.PHONY: docker-build
-docker-build:
+# Sentinel file to track when Docker image needs rebuilding
+tmp/.docker-build-sentinel: $(DOCKER_BUILD_DIR)/Dockerfile $(wildcard $(DOCKER_BUILD_DIR)/scripts/*)
 	@echo "Building Docker image: $(DOCKER_IMAGE)"
+	@mkdir -p tmp
 	docker build -t $(DOCKER_IMAGE) -f $(DOCKER_BUILD_DIR)/Dockerfile .
+	@touch tmp/.docker-build-sentinel
+
+.PHONY: docker-build
+docker-build: tmp/.docker-build-sentinel
 
 # Test targets
 .PHONY: test
@@ -113,7 +118,7 @@ helm-package: helm-test
 publish: docker-push helm-publish
 
 .PHONY: docker-push
-docker-push: docker-build docker-test
+docker-push: tmp/.docker-build-sentinel docker-test
 	@echo "Pushing Docker image: $(DOCKER_IMAGE)"
 	docker push $(DOCKER_IMAGE)
 
@@ -129,20 +134,72 @@ quality: lint security
 
 # Development targets
 
-.PHONY: dev-test
-dev-test: docker-build
-	@echo "Running development tests..."
-	$(KUBECTL) create namespace ssh-workspace-test --dry-run=client -o yaml | $(KUBECTL) apply -f -
-	@echo "ERROR: SSH public key required for testing"
-	@echo "Usage: make dev-test SSH_PUBKEY=\"\$$(cat ~/.ssh/id_rsa.pub)\""
-	@exit 1
+.PHONY: e2e-test
+e2e-test: tmp/.k3d-image-loaded-sentinel helm-package
+	@echo "Running end-to-end SSH connection tests..."
+	@if [ -z "$(SSH_PUBKEY)" ]; then \
+		if [ -f "$(TEST_SSH_KEY_FILE).pub" ]; then \
+			SSH_PUBKEY="$$(cat $(TEST_SSH_KEY_FILE).pub)"; \
+			echo "Using test SSH key: $$SSH_PUBKEY"; \
+		else \
+			echo "ERROR: SSH public key required for testing"; \
+			echo "Usage: make e2e-test SSH_PUBKEY=\"\$$(cat ~/.ssh/id_rsa.pub)\""; \
+			echo "Or generate test key with: make generate-test-ssh-key"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "Using provided SSH key: $(SSH_PUBKEY)"; \
+	fi; \
+	echo "Creating test namespace..."; \
+	$(KUBECTL) create namespace ssh-workspace-test --dry-run=client -o yaml | $(KUBECTL) apply -f -; \
+	echo "Installing SSH workspace for testing..."; \
+	helm install ssh-workspace-dev-test $(HELM_CHART_DIR) \
+		--namespace ssh-workspace-test \
+		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
+		--set image.repository=$(DOCKER_REPO) \
+		--set image.pullPolicy=Never \
+		--set ssh.publicKeys.authorizedKeys="$$SSH_PUBKEY" \
+		--wait --timeout=120s; \
+	echo "Waiting for pod to be ready..."; \
+	$(KUBECTL) wait --for=condition=ready pod -l app.kubernetes.io/name=ssh-workspace --timeout=60s -n ssh-workspace-test; \
+	echo "Testing SSH connection..."; \
+	POD_NAME=$$($(KUBECTL) get pods -n ssh-workspace-test -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}'); \
+	echo "Starting port-forward for pod: $$POD_NAME"; \
+	$(KUBECTL) port-forward -n ssh-workspace-test $$POD_NAME 12222:2222 & \
+	PF_PID=$$!; \
+	echo "Port-forward PID: $$PF_PID"; \
+	echo "Waiting for port-forward to establish..."; \
+	for i in $$(seq 1 30); do \
+		if nc -z localhost 12222 2>/dev/null; then \
+			echo "Port 12222 is ready after $$i seconds"; \
+			break; \
+		fi; \
+		sleep 1; \
+	done; \
+	echo "Testing SSH connection on port 12222..."; \
+	echo "Debug: SSH command: ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -i $(TEST_SSH_KEY_FILE) -p 12222 developer@localhost 'echo SSH connection successful'"; \
+	if timeout 30 ssh -v -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -i $(TEST_SSH_KEY_FILE) -p 12222 developer@localhost 'echo "SSH connection successful"'; then \
+		echo "✅ SSH connection test passed"; \
+		kill $$PF_PID 2>/dev/null || true; \
+	else \
+		echo "❌ SSH connection test failed"; \
+		echo "Checking pod logs for debugging:"; \
+		$(KUBECTL) logs -n ssh-workspace-test $$POD_NAME --tail=20; \
+		kill $$PF_PID 2>/dev/null || true; \
+		exit 1; \
+	fi; \
+	echo "Cleaning up test deployment..."; \
+	helm uninstall ssh-workspace-dev-test --namespace ssh-workspace-test $(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) --wait; \
+	echo "✅ End-to-end SSH connection test completed successfully"
 
-.PHONY: dev-clean
-dev-clean:
-	@echo "Cleaning development environment..."
+.PHONY: test-clean
+test-clean:
+	@echo "Cleaning test environment..."
+	# Kill any existing port-forward processes
+	@pkill -f "port-forward.*ssh-workspace-test" 2>/dev/null || true
 	# Remove test namespace
 	$(KUBECTL) delete namespace ssh-workspace-test --ignore-not-found=true
-	@echo "Development environment cleaned"
+	@echo "Test environment cleaned"
 
 # Clean targets
 .PHONY: clean
@@ -160,8 +217,8 @@ clean:
 .PHONY: integration-test
 integration-test: docker-build
 	@echo "Running integration tests..."
-	$(MAKE) dev-test KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
-	$(MAKE) dev-clean KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) e2e-test KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) test-clean KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "Integration tests passed"
 
 # Helm lifecycle management targets
@@ -201,9 +258,9 @@ delete-k3d-cluster:
 	fi
 
 # Load Docker image to k3d cluster
-.PHONY: load-image-to-k3d
-load-image-to-k3d: docker-build
+tmp/.k3d-image-loaded-sentinel: tmp/.docker-build-sentinel
 	@echo "Loading Docker image to k3d cluster..."
+	@mkdir -p tmp
 	@if ! command -v k3d >/dev/null 2>&1; then \
 		echo "ERROR: k3d is not installed"; \
 		exit 1; \
@@ -213,7 +270,11 @@ load-image-to-k3d: docker-build
 		$(MAKE) create-k3d-cluster; \
 	fi
 	k3d image import $(DOCKER_IMAGE) --cluster $(K3D_CLUSTER_NAME)
+	@touch tmp/.k3d-image-loaded-sentinel
 	@echo "Image loaded to k3d cluster successfully"
+
+.PHONY: load-image-to-k3d
+load-image-to-k3d: tmp/.k3d-image-loaded-sentinel
 
 # Test environment preparation
 TEST_SSH_PUBKEY ?= 

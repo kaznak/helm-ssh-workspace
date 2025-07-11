@@ -1,22 +1,40 @@
-# Ubuntu base image for helm-ssh-workspace
-# Design reference: [see:R8M5-UBUNTU]
+# Build stage for Dropbear SSH server
+FROM ubuntu:22.04 AS dropbear-builder
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Download and build latest Dropbear [see:K4R9-DROPBEAR]
+RUN cd /tmp \
+    && wget https://matt.ucc.asn.au/dropbear/releases/dropbear-2025.88.tar.bz2 \
+    && tar -xjf dropbear-2025.88.tar.bz2 \
+    && cd dropbear-2025.88 \
+    && ./configure --prefix=/usr/local --enable-static \
+    && make \
+    && make install \
+    && strip /usr/local/sbin/dropbear /usr/local/bin/dropbearkey /usr/local/bin/dropbearconvert
+
+# Runtime stage
 FROM ubuntu:22.04
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essential packages
+# Install essential packages (without dropbear)
 RUN apt-get update && apt-get install -y \
-    # Dropbear SSH server [see:K4R9-DROPBEAR]
-    dropbear \
-    dropbear-bin \
     # Basic development tools [see:Q2N5-TOOLS]
     git \
     curl \
     wget \
     vim \
     nano \
-    build-essential \
     python3 \
     python3-pip \
     # For SSH key generation and validation
@@ -32,8 +50,20 @@ RUN apt-get update && apt-get install -y \
     tzdata \
     # For hook operations
     jq \
+    # Runtime dependencies for Dropbear
+    zlib1g \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
+
+# Copy compiled Dropbear binaries from builder stage
+COPY --from=dropbear-builder /usr/local/sbin/dropbear /usr/local/bin/dropbear
+COPY --from=dropbear-builder /usr/local/bin/dropbearkey /usr/local/bin/dropbearkey
+COPY --from=dropbear-builder /usr/local/bin/dropbearconvert /usr/local/bin/dropbearconvert
+
+# Make Dropbear binaries available in PATH
+RUN ln -s /usr/local/bin/dropbear /usr/bin/dropbear \
+    && ln -s /usr/local/bin/dropbearkey /usr/bin/dropbearkey \
+    && ln -s /usr/local/bin/dropbearconvert /usr/bin/dropbearconvert
 
 # Install kubectl for hook operations
 RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
