@@ -122,11 +122,20 @@ docker-push: tmp/.docker-build-sentinel docker-test
 	@echo "Pushing Docker image: $(DOCKER_IMAGE)"
 	docker push $(DOCKER_IMAGE)
 
+# Helm OCI registry configuration
+HELM_REGISTRY ?= ghcr.io
+HELM_REGISTRY_PATH ?= $(HELM_REGISTRY)/$(shell git config --get remote.origin.url | sed 's/.*github.com[:/]\([^/]*\/[^.]*\).*/\1/')/charts
+
 .PHONY: helm-publish
 helm-publish: helm-package
-	@echo "Publishing Helm chart..."
-	@echo "ERROR: Helm publishing not implemented"
-	@exit 1
+	@echo "Publishing Helm chart to OCI registry..."
+	@if [ -z "$(HELM_REGISTRY_TOKEN)" ]; then \
+		echo "ERROR: HELM_REGISTRY_TOKEN environment variable is required"; \
+		exit 1; \
+	fi
+	@echo "$$HELM_REGISTRY_TOKEN" | helm registry login $(HELM_REGISTRY) -u "$(HELM_REGISTRY_USER)" --password-stdin
+	@helm push dist/ssh-workspace-*.tgz oci://$(HELM_REGISTRY_PATH)
+	@echo "✅ Helm chart published to oci://$(HELM_REGISTRY_PATH)/ssh-workspace"
 
 # Quality assurance targets
 .PHONY: quality

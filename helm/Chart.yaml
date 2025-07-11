@@ -17,3 +17,10 @@ maintainers:
     email: kaznak@example.com
 annotations:
   category: Development
+  # OCI annotations
+  org.opencontainers.image.title: "SSH Workspace Helm Chart"
+  org.opencontainers.image.description: "Secure SSH workspace using Dropbear SSH for Kubernetes"
+  org.opencontainers.image.vendor: "kaznak"
+  org.opencontainers.image.source: "https://github.com/kaznak/helm-ssh-workspace"
+  org.opencontainers.image.documentation: "https://github.com/kaznak/helm-ssh-workspace/blob/main/README.md"
+  org.opencontainers.image.licenses: "MIT"
