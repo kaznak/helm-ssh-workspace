@@ -19,13 +19,12 @@ shopt -s nullglob
 
 # 基本変数の初期化
 stime=$(date +%Y%m%d%H%M%S%Z)
-pname=$(basename $0)
-based=$(readlink -f $(dirname $0)/..)
+pname=$(basename "$0")
 tmpd=$(mktemp -d)
 
 # ログ出力設定
-logd=$tmpd/log
-mkdir -p $logd
+logd="$tmpd/log"
+mkdir -p "$logd"
 exec 3>&2
 
 # エラーハンドリング
@@ -47,7 +46,7 @@ trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # ログ関数
 MSG() { 
-    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $*" >&3
 }
 
 PROGRESS() {
