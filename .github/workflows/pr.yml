@@ -6,6 +6,10 @@ on:
     branches: [main, develop]
     types: [opened, synchronize, reopened]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DOCKER_REPO: ssh-workspace
 
@@ -165,7 +169,9 @@ jobs:
           file: ./docker/Dockerfile
           push: false
           tags: ${{ env.DOCKER_REPO }}:pr-test
-          cache-from: type=gha
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
 
       - name: Load image into k3d
         run: |

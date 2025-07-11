@@ -9,6 +9,10 @@ on:
   release:
     types: [published]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   DOCKER_REPO: ssh-workspace
   HELM_VERSION: 3.12.0
@@ -47,8 +51,12 @@ jobs:
           push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
 
       - name: Test Docker image
         run: |
@@ -76,7 +84,9 @@ jobs:
           file: ./docker/Dockerfile
           push: false
           tags: ${{ env.DOCKER_REPO }}:security-scan
-          cache-from: type=gha
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
@@ -174,7 +184,9 @@ jobs:
           file: ./docker/Dockerfile
           push: false
           tags: ${{ env.DOCKER_REPO }}:quality-check
-          cache-from: type=gha
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
 
       - name: Run quality checks
         run: make quality DOCKER_TAG=quality-check
@@ -211,7 +223,9 @@ jobs:
           file: ./docker/Dockerfile
           push: false
           tags: ${{ env.DOCKER_REPO }}:integration-test
-          cache-from: type=gha
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
 
       - name: Load image into k3d
         run: |
@@ -284,8 +298,12 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: |
+            type=gha
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-to: |
+            type=gha,mode=max
+            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache,mode=max
 
       - name: Package and publish Helm chart to OCI
         env:
