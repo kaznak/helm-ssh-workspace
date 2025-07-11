@@ -45,10 +45,9 @@ jobs:
       - name: Check script syntax
         run: |
           # Check bash script syntax
-          bash -n scripts/entrypoint.sh
-          bash -n scripts/health-check.sh
-          bash -n scripts/validate-ssh-keys.sh
-          bash -n scripts/generate-host-keys.sh
+          bash -n docker/scripts/start-ssh-server.sh
+          bash -n docker/scripts/validate-ssh-keys.sh
+          bash -n docker/scripts/generate-host-keys.sh
           echo "Script syntax check passed"
 
   # [see:T9K5-SECTEST] PR security validation
@@ -87,6 +86,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install markdown-link-check
+        run: |
+          npm install -g markdown-link-check
+          
       - name: Check documentation links
         run: |
           # Check for broken internal links in documentation
@@ -118,8 +121,12 @@ jobs:
 
       - name: Check shell scripts with shellcheck
         run: |
-          find scripts/ -name "*.sh" -exec shellcheck {} \;
+          find docker/scripts/ -name "*.sh" -exec shellcheck {} \;
 
+      - name: Install yamllint
+        run: |
+          pip install yamllint
+          
       - name: Check YAML files
         run: |
           yamllint helm/
@@ -142,10 +149,13 @@ jobs:
           version: 3.12.0
 
       - name: Create k3d cluster
-        uses: nolar/setup-k3d-k3s@v1
+        uses: AbsaOSS/k3d-action@v2
         with:
-          version: v1.28
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cluster-name: "pr-test-cluster"
+          args: >-
+            -p "2222:2222@loadbalancer"
+            --agents 1
+            --wait
 
       - name: Build test image
         uses: docker/build-push-action@v5
