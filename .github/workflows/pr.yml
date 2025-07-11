@@ -169,9 +169,7 @@ jobs:
           file: ./docker/Dockerfile
           push: false
           tags: ${{ env.DOCKER_REPO }}:pr-test
-          cache-from: |
-            type=gha
-            type=registry,ref=ghcr.io/${{ github.repository }}:buildcache
+          cache-from: type=gha
 
       - name: Load image into k3d
         run: |
