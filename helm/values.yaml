@@ -99,9 +99,35 @@ resources:
   limits:
     cpu: 500m
     memory: 512Mi
+    ephemeral-storage: 1Gi
   requests:
     cpu: 100m
     memory: 128Mi
+    ephemeral-storage: 100Mi
+
+# Job resources
+jobResources:
+  # Host key generation job
+  hostKeyGeneration:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+      ephemeral-storage: 500Mi
+    requests:
+      cpu: 50m
+      memory: 64Mi
+      ephemeral-storage: 50Mi
+  
+  # Key validation job
+  keyValidation:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+      ephemeral-storage: 500Mi
+    requests:
+      cpu: 25m
+      memory: 32Mi
+      ephemeral-storage: 50Mi
 
 # Security context
 securityContext: {}

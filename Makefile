@@ -130,10 +130,6 @@ helm-security:
 		--ignore-test container-image-tag \
 		`# 開発環境制約: ローカル開発で IfNotPresent 使用` \
 		--ignore-test container-image-pull-policy \
-		`# 設定範囲外: ephemeral-storage は現行 values.yaml 設定範囲外` \
-		--ignore-test container-ephemeral-storage-request-and-limit \
-		`# 設定範囲外: ジョブリソース制限は現行テンプレート設定範囲外` \
-		--ignore-test container-resources \
 		tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
 	KUBESCORE_EXIT_CODE=$$?; \
 	cat tmp/kube-score_output.txt; \

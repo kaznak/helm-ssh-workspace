@@ -78,6 +78,8 @@ spec:
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
           {{- toYaml .Values.securityContext | nindent 10 }}
+        resources:
+          {{- toYaml .Values.jobResources.keyValidation | nindent 10 }}
         command:
         - /opt/ssh-workspace/bin/validate-ssh-keys.sh
         - "{{ .Release.Namespace }}"
