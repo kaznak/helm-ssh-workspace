@@ -112,16 +112,27 @@ helm-security:
 	@echo "::group::Kube-score Reports"
 	@helm template test $(HELM_CHART_DIR) > tmp/manifests.yaml; \
 	kube-score score --exit-one-on-warning \
+		`# SSH動作要件: SSH サーバは /var/run, /var/log, /tmp への書き込みが必要` \
 		--ignore-test container-security-context-readonlyrootfilesystem \
+		`# 要件 [I2M6-NETPOL][B7X5-NONP]: NetworkPolicy は外付けで運用、本チャートでは提供しない` \
 		--ignore-test pod-networkpolicy \
+		`# 要件 [J8R2-DEPLOY]: 単一レプリカ運用のため PodDisruptionBudget は不適用` \
 		--ignore-test deployment-has-poddisruptionbudget \
+		`# 要件 [J8R2-DEPLOY]: 単一レプリカ運用のため PodAntiAffinity は不適用` \
 		--ignore-test deployment-has-host-podantiaffinity \
+		`# 要件 [Z2S7-UID][A9T3-GID]: SSH 要件により UID/GID 1000 が必須` \
 		--ignore-test container-security-context-user-group-id \
+		`# 要件 [Y3S2-DOWN]: ダウンタイム許容、Recreate 戦略が要求仕様` \
 		--ignore-test deployment-strategy \
+		`# 要件 [J8R2-DEPLOY]: 単一レプリカ固定運用` \
 		--ignore-test deployment-replicas \
+		`# 開発環境制約: ローカル開発で latest タグ使用` \
 		--ignore-test container-image-tag \
+		`# 開発環境制約: ローカル開発で IfNotPresent 使用` \
 		--ignore-test container-image-pull-policy \
+		`# 設定範囲外: ephemeral-storage は現行 values.yaml 設定範囲外` \
 		--ignore-test container-ephemeral-storage-request-and-limit \
+		`# 設定範囲外: ジョブリソース制限は現行テンプレート設定範囲外` \
 		--ignore-test container-resources \
 		tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
 	KUBESCORE_EXIT_CODE=$$?; \
