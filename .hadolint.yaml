@@ -1,11 +1,3 @@
 ignored:
   - DL3008  # Pin versions in apt get install
   - DL3015  # Avoid additional packages by specifying --no-install-recommends
-
-rules:
-  DL3003:
-    level: warning
-  DL3047:
-    level: warning
-  DL3059:
-    level: info
