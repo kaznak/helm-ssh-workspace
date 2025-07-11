@@ -96,16 +96,8 @@ security: docker-security helm-security
 .PHONY: docker-security
 docker-security:
 	@echo "Running Docker security tests..."
-	@if command -v trivy >/dev/null 2>&1; then \
-		trivy image --exit-code 1 --severity HIGH,CRITICAL $(DOCKER_IMAGE); \
-	else \
-		echo "Trivy not installed, skipping vulnerability scan"; \
-	fi
-	@if command -v hadolint >/dev/null 2>&1; then \
-		hadolint $(DOCKER_BUILD_DIR)/Dockerfile; \
-	else \
-		echo "Hadolint not installed, skipping Dockerfile lint"; \
-	fi
+	trivy image --exit-code 1 --severity HIGH,CRITICAL $(DOCKER_IMAGE)
+	hadolint $(DOCKER_BUILD_DIR)/Dockerfile
 
 .PHONY: helm-security
 helm-security:

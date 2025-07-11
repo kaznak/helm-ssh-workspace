@@ -172,6 +172,9 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
+      - name: Install Trivy
+        uses: aquasecurity/setup-trivy@v0.2.0
+
       - name: Install Kubesec
         run: |
           curl -sSX GET https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
@@ -192,8 +195,17 @@ jobs:
           tags: ${{ env.DOCKER_REPO }}:quality-check
           cache-from: type=gha
 
-      - name: Run quality checks
-        run: make quality DOCKER_TAG=quality-check
+      - name: Run Hadolint on Dockerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ./docker/Dockerfile
+          failure-threshold: error
+
+      - name: Run Trivy vulnerability scan
+        run: trivy image --exit-code 1 --severity HIGH,CRITICAL ${{ env.DOCKER_REPO }}:quality-check
+
+      - name: Run Helm security check with Kubesec
+        run: helm template test helm/ | kubesec scan -
 
   # [see:U9A4-TEST] Integration testing
   integration:
