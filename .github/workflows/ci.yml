@@ -172,6 +172,16 @@ jobs:
         with:
           version: ${{ env.HELM_VERSION }}
 
+      - name: Install Kubesec
+        run: |
+          curl -sSX GET https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
+            | grep "browser_download_url.*linux-amd64" \
+            | cut -d : -f 2,3 \
+            | tr -d \" \
+            | wget -O kubesec -qi -
+          chmod +x kubesec
+          sudo mv kubesec /usr/local/bin/
+
       - name: Build image for quality check
         uses: docker/build-push-action@v5
         with:

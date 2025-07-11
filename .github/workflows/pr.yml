@@ -61,6 +61,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 3.12.0
+
+      - name: Install Kubesec
+        run: |
+          curl -sSX GET https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
+            | grep "browser_download_url.*linux-amd64" \
+            | cut -d : -f 2,3 \
+            | tr -d \" \
+            | wget -O kubesec -qi -
+          chmod +x kubesec
+          sudo mv kubesec /usr/local/bin/
+
       - name: Run Hadolint on Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
