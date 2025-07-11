@@ -205,7 +205,9 @@ jobs:
         run: trivy image --exit-code 1 --severity HIGH,CRITICAL ${{ env.DOCKER_REPO }}:quality-check
 
       - name: Run Helm security check with Kubesec
-        run: helm template test helm/ | kubesec scan -
+        run: |
+          echo "Running Helm security check with Kubesec..."
+          helm template test helm/ | kubesec scan -
 
   # [see:U9A4-TEST] Integration testing
   integration:
@@ -247,7 +249,7 @@ jobs:
           k3d image import ${{ env.DOCKER_REPO }}:integration-test --cluster test-cluster
 
       - name: Run integration tests
-        run: make e2e-test DOCKER_IMAGE=${{ env.DOCKER_REPO }}:integration-test K3D_CLUSTER_MANAGEMENT=external
+        run: make e2e-test DOCKER_IMAGE=${{ env.DOCKER_REPO }}:integration-test K3D_CLUSTER_MANAGEMENT=external K3D_CLUSTER_NAME=test-cluster
 
   # [see:H6N4-PACKAGE] Helm chart packaging
   package:
