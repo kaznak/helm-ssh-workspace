@@ -1,10 +1,15 @@
+---
 # [see:Q3L8-QUALTEST] Pull Request validation pipeline
 name: Pull Request Validation
 
-on:
+'on':
   pull_request:
     branches: [main, develop]
     types: [opened, synchronize, reopened]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   DOCKER_REPO: ssh-workspace
@@ -45,10 +50,9 @@ jobs:
       - name: Check script syntax
         run: |
           # Check bash script syntax
-          bash -n scripts/entrypoint.sh
-          bash -n scripts/health-check.sh
-          bash -n scripts/validate-ssh-keys.sh
-          bash -n scripts/generate-host-keys.sh
+          bash -n docker/scripts/start-ssh-server.sh
+          bash -n docker/scripts/validate-ssh-keys.sh
+          bash -n docker/scripts/generate-host-keys.sh
           echo "Script syntax check passed"
 
   # [see:T9K5-SECTEST] PR security validation
@@ -57,6 +61,22 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: 3.12.0
+
+      - name: Install Kubesec
+        run: |
+          curl -sSX GET \
+            https://api.github.com/repos/controlplaneio/kubesec/releases/latest \
+            | grep "browser_download_url.*linux-amd64" \
+            | cut -d : -f 2,3 \
+            | tr -d \" \
+            | wget -O kubesec -qi -
+          chmod +x kubesec
+          sudo mv kubesec /usr/local/bin/
 
       - name: Run Hadolint on Dockerfile
         uses: hadolint/hadolint-action@v3.1.0
@@ -87,6 +107,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install markdown-link-check
+        run: |
+          npm install -g markdown-link-check
+
       - name: Check documentation links
         run: |
           # Check for broken internal links in documentation
@@ -96,9 +120,11 @@ jobs:
       - name: Validate design document references
         run: |
           # Check that design document IDs are properly formatted and referenced
-          grep -E '\[([A-Z0-9]{4}-[A-Z0-9]+)\]' docs/design.md > /tmp/design_ids.txt || true
-          grep -E '#([A-Z0-9]{4}-[A-Z0-9]+)' docs/design.md > /tmp/design_anchors.txt || true
-          
+          grep -E '\[([A-Z0-9]{4}-[A-Z0-9]+)\]' docs/design.md \
+            > /tmp/design_ids.txt || true
+          grep -E '#([A-Z0-9]{4}-[A-Z0-9]+)' docs/design.md \
+            > /tmp/design_anchors.txt || true
+
           if [ -s /tmp/design_ids.txt ]; then
             echo "Found design document IDs - checking format..."
             # Validate ID format: 4 alphanumeric chars + hyphen + alphanumeric
@@ -118,11 +144,16 @@ jobs:
 
       - name: Check shell scripts with shellcheck
         run: |
-          find scripts/ -name "*.sh" -exec shellcheck {} \;
+          find docker/scripts/ -name "*.sh" -exec shellcheck {} \;
+
+      - name: Install yamllint
+        run: |
+          pip install yamllint
 
       - name: Check YAML files
         run: |
-          yamllint helm/
+          # Check only non-template YAML files
+          yamllint helm/Chart.yaml helm/values.yaml
           yamllint .github/workflows/
 
   # [see:U9A4-TEST] PR integration testing
@@ -142,10 +173,13 @@ jobs:
           version: 3.12.0
 
       - name: Create k3d cluster
-        uses: nolar/setup-k3d-k3s@v1
+        uses: AbsaOSS/k3d-action@v2
         with:
-          version: v1.28
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cluster-name: "pr-test-cluster"
+          args: >-
+            -p "2222:2222@loadbalancer"
+            --agents 1
+            --wait
 
       - name: Build test image
         uses: docker/build-push-action@v5
@@ -153,18 +187,20 @@ jobs:
           context: .
           file: ./docker/Dockerfile
           push: false
+          load: true
           tags: ${{ env.DOCKER_REPO }}:pr-test
           cache-from: type=gha
 
       - name: Load image into k3d
         run: |
-          k3d image import ${{ env.DOCKER_REPO }}:pr-test
+          k3d image import ${{ env.DOCKER_REPO }}:pr-test \
+            --cluster pr-test-cluster
 
       - name: Test deployment
         run: |
           # Create test SSH keys
           ssh-keygen -t ed25519 -f /tmp/test_key -N "" -C "test@example.com"
-          
+
           # Deploy with test configuration
           helm upgrade --install ssh-workspace-pr-test helm/ \
             --set image.repository=${{ env.DOCKER_REPO }} \
@@ -175,17 +211,20 @@ jobs:
       - name: Test SSH connectivity
         run: |
           # Get pod name
-          POD_NAME=$(kubectl get pods -l "app.kubernetes.io/name=ssh-workspace" -o jsonpath="{.items[0].metadata.name}")
-          
+          POD_NAME=$(kubectl get pods \
+            -l "app.kubernetes.io/name=ssh-workspace" \
+            -o jsonpath="{.items[0].metadata.name}")
+
           # Test port forward
-          kubectl port-forward "$POD_NAME" 2222:2222 &
+          kubectl port-forward "$POD_NAME" 2223:2222 &
           PF_PID=$!
-          
+
           # Wait for port forward to be ready
           sleep 5
-          
-          # Test SSH connection (should fail with authentication but port should be accessible)
-          nc -z localhost 2222 || exit 1
+
+          # Test SSH connection (should fail with authentication but port
+          # should be accessible)
+          nc -z localhost 2223 || exit 1
           echo "SSH port is accessible"
           kill $PF_PID
 

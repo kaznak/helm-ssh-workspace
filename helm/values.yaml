@@ -1,3 +1,4 @@
+---
 # Default values for ssh-workspace
 # This is a YAML-formatted file.
 # Declare variables to be passed into your templates.
@@ -19,7 +20,7 @@ fullnameOverride: ""
 ssh:
   # SSH server port [see:B3Q8-PORT]
   port: 2222
-  
+
   # SSH host keys configuration [see:V4J1-HOSTKEY]
   hostKeys:
     # Secret name for SSH host keys [see:W5X2-SECRET]
@@ -27,7 +28,7 @@ ssh:
     secretName: ""
     # Auto-generate host keys if secret doesn't exist [see:T8Q4-AUTOGEN]
     autoGenerate: true
-  
+
   # SSH user public keys configuration [see:K9T4-PUBKEY]
   publicKeys:
     # Secret name for SSH public keys [see:P5Q8-PUBKEY]
@@ -35,7 +36,7 @@ ssh:
     secretName: ""
     # Direct specification of authorized_keys content [see:M6L5-MULTIKEY]
     authorizedKeys: ""
-  
+
   # SSH user private keys configuration [see:W7N2-PRIVKEY]
   privateKeys:
     # Secret name for SSH private keys [see:R2L7-PRIVKEY]
@@ -76,11 +77,11 @@ service:
 homeDirectory:
   # Storage type: "emptyDir" or "persistentVolume" [see:T1H8-EMPTY]
   type: emptyDir
-  
+
   # EmptyDir configuration
   emptyDir:
     sizeLimit: 1Gi
-  
+
   # PersistentVolume configuration [see:R7P4-STORAGE]
   persistentVolume:
     # Storage class [see:R7P4-STORAGE]
@@ -122,7 +123,7 @@ healthCheck:
     timeoutSeconds: 5
     failureThreshold: 3
     successThreshold: 1
-  
+
   # Readiness probe [see:R6Q9-READINESS]
   readinessProbe:
     enabled: true
@@ -139,7 +140,8 @@ serviceAccount:
   # Annotations to add to the service account
   annotations: {}
   # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
+  # If not set and create is true, a name is generated using the fullname
+  # template
   name: ""
 
 # Pod annotations
