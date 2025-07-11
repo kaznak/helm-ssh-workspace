@@ -5,7 +5,8 @@
 ユーザの許可なく編集しないこと。
 
 - CLAUDE.md
-- README.ja.md
+- README.md
+- docs/requirements.md
 - docs/design.md
 
 以下のディレクトリはユーザの参考用のファイルを格納しているので、あなたの読み込み・編集対象から外してください。
@@ -49,6 +50,7 @@
 - シェルスクリプトは docs/bash-scripting-guidelines.ja.md に従って記述すること。
 - Makefile の .PHONY ターゲットには必ず sentry file パターンを使用すること。
 - ビルド、テスト、デプロイ等のタスクは必ず Makefile に定義し、依存関係を sentry file パターンで明示すること。
+- 開発の流れは docs/development.md を参照すること
 
 # 削除すべきコード
 
