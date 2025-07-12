@@ -202,6 +202,7 @@ jobs:
           helm upgrade --install ssh-workspace-pr-test helm/ \
             --set image.repository=${{ env.DOCKER_REPO }} \
             --set image.tag=pr-test \
+            --set image.pullPolicy=Never \
             --set ssh.publicKeys.authorizedKeys="$(cat /tmp/test_key.pub)" \
             --wait --timeout=300s
 
