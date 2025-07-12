@@ -358,12 +358,33 @@ jobs:
         run: |
           make helm-publish
 
-      - name: Create GitHub Release assets
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Upload Helm chart to GitHub Release
+        uses: actions/github-script@v7
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/ssh-workspace-*.tgz
-          asset_name: ssh-workspace-${{ github.event.release.tag_name }}.tgz
-          asset_content_type: application/gzip
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Find the Helm chart file
+            const distDir = './dist';
+            const files = fs.readdirSync(distDir);
+            const chartFile = files.find(file => file.startsWith('ssh-workspace-') && file.endsWith('.tgz'));
+            
+            if (!chartFile) {
+              throw new Error('Helm chart file not found in dist directory');
+            }
+            
+            const filePath = path.join(distDir, chartFile);
+            const fileName = `ssh-workspace-${{ github.event.release.tag_name }}.tgz`;
+            
+            // Upload the asset
+            const uploadResponse = await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: ${{ github.event.release.id }},
+              name: fileName,
+              data: fs.readFileSync(filePath)
+            });
+            
+            console.log(`Successfully uploaded ${fileName}`);
+            console.log(`Download URL: ${uploadResponse.data.browser_download_url}`);
