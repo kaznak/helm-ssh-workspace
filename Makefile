@@ -9,6 +9,12 @@ HELM_CHART_DIR = helm
 HELM_PACKAGE_DIR = dist
 DOCKER_BUILD_DIR = docker
 
+# Environment-based image pull policy
+# Set LOCAL_DEV=true for local development (uses IfNotPresent)
+# Otherwise uses Always for production
+LOCAL_DEV ?= false
+IMAGE_PULL_POLICY := $(shell if [ "$(LOCAL_DEV)" = "true" ]; then echo "IfNotPresent"; else echo "Always"; fi)
+
 # Kubernetes configuration
 KUBE_CONTEXT ?= 
 KUBE_NAMESPACE ?= default
@@ -52,6 +58,7 @@ help:
 	@echo "  HELM_RELEASE_NAME  - Helm release name (default: ssh-workspace-test)"
 	@echo "  KIND_CLUSTER_NAME  - Kind cluster name (default: helm-ssh-workspace-test)"
 	@echo "  TEST_SSH_PUBKEY    - SSH public key for testing (required for helm operations)"
+	@echo "  LOCAL_DEV          - Set to 'true' for local development (uses IfNotPresent pullPolicy)"
 
 # Build targets
 
@@ -128,8 +135,6 @@ helm-security:
 		--ignore-test deployment-replicas \
 		`# 開発環境制約: ローカル開発で latest タグ使用` \
 		--ignore-test container-image-tag \
-		`# 開発環境制約: ローカル開発で IfNotPresent 使用` \
-		--ignore-test container-image-pull-policy \
 		tmp/manifests.yaml > tmp/kube-score_output.txt 2>&1; \
 	KUBESCORE_EXIT_CODE=$$?; \
 	cat tmp/kube-score_output.txt; \
@@ -374,7 +379,7 @@ HELM_RELEASE_NAME ?= ssh-workspace-test
 HELM_NAMESPACE ?= $(KUBE_NAMESPACE)
 HELM_VALUES_FILE ?= helm/values.yaml
 HELM_IMAGE_REPO ?= $(DOCKER_REPO)
-HELM_IMAGE_PULL_POLICY ?= Never
+HELM_IMAGE_PULL_POLICY ?= $(IMAGE_PULL_POLICY)
 
 .PHONY: helm-install
 helm-install: helm-package prepare-test-env

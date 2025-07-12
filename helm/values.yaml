@@ -6,7 +6,7 @@
 # Image configuration
 image:
   repository: ssh-workspace
-  pullPolicy: IfNotPresent
+  pullPolicy: Always  # Default for production, overridden locally
   tag: "latest"
 
 # Image pull secrets

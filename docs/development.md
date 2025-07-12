@@ -121,11 +121,11 @@ make create-k3d-cluster
 # 2. Docker イメージをビルドしてk3dに読み込み
 make load-image-to-k3d
 
-# 3. エンドツーエンドテスト
-make e2e-test
+# 3. エンドツーエンドテスト（ローカル開発環境設定）
+LOCAL_DEV=true make e2e-test
 
-# 4. Helm ライフサイクルテスト
-make helm-lifecycle-test
+# 4. Helm ライフサイクルテスト（ローカル開発環境設定）
+LOCAL_DEV=true make helm-lifecycle-test
 
 # 5. クリーンアップ
 make delete-k3d-cluster
@@ -169,6 +169,7 @@ make helm-package
 
 - `TEST_SSH_PUBKEY`: テスト用 SSH 公開鍵
 - `TEST_SSH_KEY_FILE`: テスト用 SSH キーファイルパス（デフォルト: `tmp/test_ssh_key`）
+- `LOCAL_DEV`: ローカル開発環境フラグ（`true` で IfNotPresent、`false` で Always）
 
 ### 公開関連
 
