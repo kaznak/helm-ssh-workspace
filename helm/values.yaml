@@ -5,9 +5,9 @@
 
 # Image configuration
 image:
-  repository: ssh-workspace
+  repository: ghcr.io/kaznak/ssh-workspace
   pullPolicy: Always  # Default for production, overridden locally
-  tag: "latest"
+  tag: "v0.7.0"
 
 # Image pull secrets
 imagePullSecrets: []
