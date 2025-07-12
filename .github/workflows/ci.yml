@@ -364,19 +364,19 @@ jobs:
           script: |
             const fs = require('fs');
             const path = require('path');
-            
+
             // Find the Helm chart file
             const distDir = './dist';
             const files = fs.readdirSync(distDir);
             const chartFile = files.find(file => file.startsWith('ssh-workspace-') && file.endsWith('.tgz'));
-            
+
             if (!chartFile) {
               throw new Error('Helm chart file not found in dist directory');
             }
-            
+
             const filePath = path.join(distDir, chartFile);
             const fileName = `ssh-workspace-${{ github.event.release.tag_name }}.tgz`;
-            
+
             // Upload the asset
             const uploadResponse = await github.rest.repos.uploadReleaseAsset({
               owner: context.repo.owner,
@@ -385,6 +385,6 @@ jobs:
               name: fileName,
               data: fs.readFileSync(filePath)
             });
-            
+
             console.log(`Successfully uploaded ${fileName}`);
             console.log(`Download URL: ${uploadResponse.data.browser_download_url}`);

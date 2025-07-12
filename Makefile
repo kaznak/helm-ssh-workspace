@@ -71,12 +71,19 @@ docker-build: tmp/.docker-build-sentinel
 test: lint helm-test docker-test
 
 .PHONY: lint
-lint: helm-lint markdown-lint
+lint: helm-lint yaml-lint markdown-lint
 
 .PHONY: helm-lint
 helm-lint:
 	@echo "Linting Helm chart..."
 	helm lint $(HELM_CHART_DIR)
+
+.PHONY: yaml-lint
+yaml-lint:
+	@echo "Linting YAML files..."
+	@echo "Checking only non-template YAML files"
+	yamllint helm/Chart.yaml helm/values.yaml
+	yamllint .github/workflows/
 
 .PHONY: helm-test
 helm-test: helm-lint
