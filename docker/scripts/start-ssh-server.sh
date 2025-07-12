@@ -69,18 +69,21 @@ PROGRESS "Phase 1: User and Environment Setup"
 
 # グループ作成
 PROGRESS "Creating user and group"
-getent group "${USER_GID}" >&3 || {
-    MSG "Creating group ${USERNAME} with GID ${USER_GID}"
-    error_msg="Failed to create group ${USERNAME}"
-    groupadd -g "${USER_GID}" "${USERNAME}"
-}
+MSG "Creating group ${USERNAME} with GID ${USER_GID}"
+error_msg="Failed to create group ${USERNAME}"
+groupadd -g "${USER_GID}" "${USERNAME}"
 
 # ユーザ作成
-id "${USERNAME}" >&3 || {
-    MSG "Creating user ${USERNAME} with UID ${USER_UID}"
-    error_msg="Failed to create user ${USERNAME}"
+MSG "Creating user ${USERNAME} with UID ${USER_UID}"
+error_msg="Failed to create user ${USERNAME}"
+# ホームディレクトリの存在確認
+if [[ -d "${HOME_DIR}" ]] && [[ -n "$(ls -A "${HOME_DIR}" 2>/dev/null || true)" ]]; then
+    MSG "Home directory exists with files, creating user without -m option"
     useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}"
-}
+else
+    MSG "Home directory empty or non-existent, creating user with -m option to copy skeleton files"
+    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash -m "${USERNAME}"
+fi
 
 # SSHディレクトリ作成
 PROGRESS "Creating SSH directories"
