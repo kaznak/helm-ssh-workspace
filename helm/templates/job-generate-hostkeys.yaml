@@ -71,13 +71,13 @@ spec:
       serviceAccountName: {{ include "ssh-workspace.fullname" . }}-hostkey-generator
       restartPolicy: OnFailure
       securityContext:
-        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+        {{- toYaml .Values.jobPodSecurityContext | nindent 8 }}
       containers:
       - name: hostkey-generator
         image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         securityContext:
-          {{- toYaml .Values.securityContext | nindent 10 }}
+          {{- toYaml .Values.jobSecurityContext | nindent 10 }}
         resources:
           {{- toYaml .Values.jobResources.hostKeyGeneration | nindent 10 }}
         command:

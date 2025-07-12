@@ -71,12 +71,19 @@ docker-build: tmp/.docker-build-sentinel
 test: lint helm-test docker-test
 
 .PHONY: lint
-lint: helm-lint markdown-lint
+lint: helm-lint yaml-lint markdown-lint
 
 .PHONY: helm-lint
 helm-lint:
 	@echo "Linting Helm chart..."
 	helm lint $(HELM_CHART_DIR)
+
+.PHONY: yaml-lint
+yaml-lint:
+	@echo "Linting YAML files..."
+	@echo "Checking only non-template YAML files"
+	yamllint helm/Chart.yaml helm/values.yaml
+	yamllint .github/workflows/
 
 .PHONY: helm-test
 helm-test: helm-lint
@@ -389,6 +396,7 @@ helm-install: helm-package prepare-test-env
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
+		--set image.tag=latest \
 		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--wait --timeout=60s

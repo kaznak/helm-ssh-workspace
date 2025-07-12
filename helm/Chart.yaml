@@ -3,8 +3,8 @@ apiVersion: v2
 name: ssh-workspace
 description: A Helm chart for secure SSH workspace using Dropbear SSH
 type: application
-version: 0.7.0
-appVersion: "0.7.0"
+version: 0.7.1
+appVersion: "0.7.1"
 home: https://github.com/kaznak/helm-ssh-workspace
 sources:
   - https://github.com/kaznak/helm-ssh-workspace

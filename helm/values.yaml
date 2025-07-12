@@ -7,7 +7,7 @@
 image:
   repository: ghcr.io/kaznak/ssh-workspace
   pullPolicy: Always  # Default for production, overridden locally
-  tag: "v0.7.0"
+  tag: "v0.7.1"
 
 # Image pull secrets
 imagePullSecrets: []
@@ -129,14 +129,32 @@ jobResources:
       memory: 32Mi
       ephemeral-storage: 50Mi
 
-# Security context
-securityContext: {}
-
-# Pod security context
-podSecurityContext:
-  # Run as non-root user
+# Security context for main SSH workspace container (requires root for user management)
+mainSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
   runAsNonRoot: false
-  # Set supplemental groups if needed
+  allowPrivilegeEscalation: true
+  capabilities:
+    add: ["CHOWN", "DAC_OVERRIDE"]
+
+# Security context for job containers (temporarily using root for Dropbear key operations)
+jobSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  allowPrivilegeEscalation: true
+  capabilities:
+    add: ["CHOWN", "DAC_OVERRIDE"]
+
+# Pod security context for main deployment (requires root)
+mainPodSecurityContext:
+  runAsNonRoot: false
+  supplementalGroups: []
+
+# Pod security context for jobs (temporarily using root for Dropbear key operations)
+jobPodSecurityContext:
+  runAsNonRoot: false
   supplementalGroups: []
 
 # Health check configuration [see:Q1P4-HEALTH]
