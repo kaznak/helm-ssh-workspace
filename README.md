@@ -30,9 +30,10 @@ CLI 型の AI エージェントと共同開発を行うためには、シェル
 ssh-keygen -t ed25519 -f ~/.ssh/workspace_key -N ""
 ```
 
-2. Helmチャートをインストール
+2. OCI形式のHelmチャートをインストール
 ```bash
-helm install my-workspace ./helm \
+helm install my-workspace oci://ghcr.io/kaznak/charts/ssh-workspace \
+  --version v0.7.0 \
   --set ssh.publicKeys.authorizedKeys="$(cat ~/.ssh/workspace_key.pub)"
 ```
 
