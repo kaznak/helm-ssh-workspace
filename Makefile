@@ -9,11 +9,6 @@ HELM_CHART_DIR = helm
 HELM_PACKAGE_DIR = dist
 DOCKER_BUILD_DIR = docker
 
-# Environment-based image pull policy
-# Set LOCAL_DEV=true for local development (uses IfNotPresent)
-# Otherwise uses Always for production
-LOCAL_DEV ?= false
-IMAGE_PULL_POLICY := $(shell if [ "$(LOCAL_DEV)" = "true" ]; then echo "IfNotPresent"; else echo "Always"; fi)
 
 # Kubernetes configuration
 KUBE_CONTEXT ?= 
@@ -58,7 +53,6 @@ help:
 	@echo "  HELM_RELEASE_NAME  - Helm release name (default: ssh-workspace-test)"
 	@echo "  KIND_CLUSTER_NAME  - Kind cluster name (default: helm-ssh-workspace-test)"
 	@echo "  TEST_SSH_PUBKEY    - SSH public key for testing (required for helm operations)"
-	@echo "  LOCAL_DEV          - Set to 'true' for local development (uses IfNotPresent pullPolicy)"
 
 # Build targets
 
@@ -214,7 +208,7 @@ e2e-test: tmp/.k3d-image-loaded-sentinel helm-package
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--set image.repository=$(DOCKER_REPO) \
 		--set image.tag=$(DOCKER_TAG) \
-		--set image.pullPolicy=Never \
+		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_PUBKEY" \
 		--wait --timeout=120s; \
 	echo "Waiting for pod to be ready..."; \
@@ -379,7 +373,6 @@ HELM_RELEASE_NAME ?= ssh-workspace-test
 HELM_NAMESPACE ?= $(KUBE_NAMESPACE)
 HELM_VALUES_FILE ?= helm/values.yaml
 HELM_IMAGE_REPO ?= $(DOCKER_REPO)
-HELM_IMAGE_PULL_POLICY ?= $(IMAGE_PULL_POLICY)
 
 .PHONY: helm-install
 helm-install: helm-package prepare-test-env
@@ -396,7 +389,7 @@ helm-install: helm-package prepare-test-env
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
-		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--wait --timeout=60s
 	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully"
@@ -414,7 +407,7 @@ helm-upgrade: helm-package prepare-test-env
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
-		--set image.pullPolicy=$(HELM_IMAGE_PULL_POLICY) \
+		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--set image.tag=latest \
 		--wait --timeout=60s

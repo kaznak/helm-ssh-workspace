@@ -121,11 +121,11 @@ make create-k3d-cluster
 # 2. Docker イメージをビルドしてk3dに読み込み
 make load-image-to-k3d
 
-# 3. エンドツーエンドテスト（ローカル開発環境設定）
-LOCAL_DEV=true make e2e-test
+# 3. エンドツーエンドテスト
+make e2e-test
 
-# 4. Helm ライフサイクルテスト（ローカル開発環境設定）
-LOCAL_DEV=true make helm-lifecycle-test
+# 4. Helm ライフサイクルテスト
+make helm-lifecycle-test
 
 # 5. クリーンアップ
 make delete-k3d-cluster
@@ -169,7 +169,6 @@ make helm-package
 
 - `TEST_SSH_PUBKEY`: テスト用 SSH 公開鍵
 - `TEST_SSH_KEY_FILE`: テスト用 SSH キーファイルパス（デフォルト: `tmp/test_ssh_key`）
-- `LOCAL_DEV`: ローカル開発環境フラグ（`true` で IfNotPresent、`false` で Always）
 
 ### 公開関連
 
@@ -248,6 +247,7 @@ GitHub Actions では以下のターゲットが使用されます：
 2. **完全テスト**: 重要な変更後は `make integration-test` を実行
 3. **クリーンアップ**: 作業完了後は `make clean` でクリーンアップ
 4. **sentry file 確認**: 問題発生時は `tmp/` ディレクトリで実行状態を確認
+5. **イメージ取得ポリシー**: テスト実行時は常に `imagePullPolicy: Never` が使用され、ローカルでビルドした正確なイメージでテストされます
 
 ## 参考情報
 
