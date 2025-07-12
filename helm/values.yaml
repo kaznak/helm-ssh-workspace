@@ -117,7 +117,7 @@ jobResources:
       cpu: 50m
       memory: 64Mi
       ephemeral-storage: 50Mi
-  
+
   # Key validation job
   keyValidation:
     limits:
