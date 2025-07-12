@@ -389,6 +389,7 @@ helm-install: helm-package prepare-test-env
 		$(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) \
 		--values $(HELM_VALUES_FILE) \
 		--set image.repository=$(HELM_IMAGE_REPO) \
+		--set image.tag=latest \
 		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
 		--wait --timeout=60s
