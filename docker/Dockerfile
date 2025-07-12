@@ -59,6 +59,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     xz-utils \
     coreutils \
     openssl \
+    # Network and diagnostic tools
+    iputils-ping \
+    dnsutils \
+    net-tools \
+    # Security and authentication
+    gnupg \
+    # System information
+    lsb-release \
+    # Development tools (runtime stage needs its own build-essential)
+    build-essential \
+    # File operations
+    unzip \
+    zip \
+    rsync \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
 
