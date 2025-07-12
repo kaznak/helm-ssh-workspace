@@ -165,7 +165,7 @@ docker-push: tmp/.docker-build-sentinel docker-test
 
 # Helm OCI registry configuration
 HELM_REGISTRY ?= ghcr.io
-HELM_REGISTRY_PATH ?= $(HELM_REGISTRY)/$(shell git config --get remote.origin.url | sed 's/.*github.com[:/]\([^/]*\/[^.]*\).*/\1/')/charts
+HELM_REGISTRY_PATH ?= $(HELM_REGISTRY)/$(shell git config --get remote.origin.url | sed 's/.*github.com[:/]\([^/]*\)\/[^.]*.*/\1/')/charts
 
 .PHONY: helm-publish
 helm-publish: helm-package
