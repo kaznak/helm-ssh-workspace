@@ -84,6 +84,9 @@ homeDirectory:
 
   # PersistentVolume configuration [see:R7P4-STORAGE]
   persistentVolume:
+    # Use existing PVC instead of creating new one
+    # If specified, the PVC template will not be created
+    existingClaim: ""
     # Storage class [see:R7P4-STORAGE]
     storageClass: ""
     # Storage size

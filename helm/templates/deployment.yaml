@@ -122,7 +122,11 @@ spec:
         - name: home
           {{- if eq .Values.homeDirectory.type "persistentVolume" }}
           persistentVolumeClaim:
+            {{- if .Values.homeDirectory.persistentVolume.existingClaim }}
+            claimName: {{ .Values.homeDirectory.persistentVolume.existingClaim }}
+            {{- else }}
             claimName: {{ include "ssh-workspace.fullname" . }}-home
+            {{- end }}
           {{- else }}
           emptyDir:
             {{- if .Values.homeDirectory.emptyDir.sizeLimit }}
