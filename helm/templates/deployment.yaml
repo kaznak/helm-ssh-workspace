@@ -69,8 +69,10 @@ spec:
           # Health checks [see:Q1P4-HEALTH]
           {{- if .Values.healthCheck.livenessProbe.enabled }}
           livenessProbe:
-            tcpSocket:
-              port: ssh
+            exec:
+              command:
+                - /opt/ssh-workspace/bin/health-check.sh
+                - liveness
             initialDelaySeconds: {{ .Values.healthCheck.livenessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.healthCheck.livenessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.healthCheck.livenessProbe.timeoutSeconds }}
@@ -82,6 +84,7 @@ spec:
             exec:
               command:
                 - /opt/ssh-workspace/bin/health-check.sh
+                - readiness
             initialDelaySeconds: {{ .Values.healthCheck.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.healthCheck.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.healthCheck.readinessProbe.timeoutSeconds }}

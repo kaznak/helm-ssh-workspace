@@ -45,6 +45,12 @@ PROGRESS() {
 # ヘルプ機能
 print_help() {
     sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
+    echo ""
+    echo "Usage: $0 [MODE]"
+    echo "MODE:"
+    echo "  liveness   - Lightweight checks for liveness probe (process, port)"
+    echo "  readiness  - Full checks for readiness probe (process, port, host keys)"
+    echo "  (default)  - Same as readiness"
 }
 
 # 設定
@@ -52,7 +58,24 @@ USERNAME="${SSH_USERNAME:-developer}"
 SSH_PORT="${SSH_PORT:-2222}"
 DROPBEAR_DIR="/home/${USERNAME}/.ssh/dropbear"
 
-PROGRESS "Starting SSH workspace health check"
+# モード設定
+MODE="${1:-readiness}"
+
+case "$MODE" in
+    liveness|readiness)
+        ;;
+    --help|-h)
+        print_help
+        exit 0
+        ;;
+    *)
+        echo "Error: Invalid mode '$MODE'" >&2
+        print_help
+        exit 1
+        ;;
+esac
+
+PROGRESS "Starting SSH workspace health check (mode: $MODE)"
 
 # Dropbearプロセスチェック
 PROGRESS "Checking Dropbear SSH server process"
@@ -66,16 +89,19 @@ error_msg="SSH port ${SSH_PORT} is not listening"
 ss -ln | grep -q ":${SSH_PORT} "
 MSG "INFO: SSH port ${SSH_PORT} is listening"
 
-# RSAホストキー存在チェック
-PROGRESS "Checking RSA host key file"
-error_msg="RSA host key not found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
-[[ -f "${DROPBEAR_DIR}/dropbear_rsa_host_key" ]]
-MSG "INFO: RSA host key found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
+# ホストキーチェック (readiness モードのみ)
+if [[ "$MODE" == "readiness" ]]; then
+    # RSAホストキー存在チェック
+    PROGRESS "Checking RSA host key file"
+    error_msg="RSA host key not found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
+    [[ -f "${DROPBEAR_DIR}/dropbear_rsa_host_key" ]]
+    MSG "INFO: RSA host key found at ${DROPBEAR_DIR}/dropbear_rsa_host_key"
 
-# Ed25519ホストキー存在チェック
-PROGRESS "Checking Ed25519 host key file"
-error_msg="Ed25519 host key not found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
-[[ -f "${DROPBEAR_DIR}/dropbear_ed25519_host_key" ]]
-MSG "INFO: Ed25519 host key found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+    # Ed25519ホストキー存在チェック
+    PROGRESS "Checking Ed25519 host key file"
+    error_msg="Ed25519 host key not found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+    [[ -f "${DROPBEAR_DIR}/dropbear_ed25519_host_key" ]]
+    MSG "INFO: Ed25519 host key found at ${DROPBEAR_DIR}/dropbear_ed25519_host_key"
+fi
 
 MSG "SUCCESS: SSH workspace health check passed"
