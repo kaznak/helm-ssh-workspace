@@ -1,4 +1,4 @@
-{{- if eq .Values.homeDirectory.type "persistentVolume" }}
+{{- if and (eq .Values.homeDirectory.type "persistentVolume") (not .Values.homeDirectory.persistentVolume.existingClaim) }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
