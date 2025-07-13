@@ -38,7 +38,9 @@ help:
 	@echo "  helm-status         - Show Helm release status"
 	@echo "  helm-history        - Show Helm release history"
 	@echo "  helm-list           - List Helm releases"
-	@echo "  helm-lifecycle-test - Run complete lifecycle test"
+	@echo "  helm-lifecycle-test         - Run complete lifecycle test"
+	@echo "  store-host-key-fingerprints       - Store SSH host key fingerprints for verification"
+	@echo "  verify-host-key-secret-persistence   - Verify host key secret persistence"
 	@echo ""
 	@echo "k3d cluster targets (for local testing):"
 	@echo "  create-k3d-cluster      - Create k3d cluster for testing"
@@ -382,7 +384,7 @@ HELM_VALUES_FILE ?= helm/values.yaml
 HELM_IMAGE_REPO ?= $(DOCKER_REPO)
 
 .PHONY: helm-install
-helm-install: helm-package prepare-test-env
+helm-install: helm-package prepare-test-env tmp/.k3d-image-loaded-sentinel
 	@echo "Installing Helm release: $(HELM_RELEASE_NAME)"
 	@echo "Ensuring namespace exists: $(HELM_NAMESPACE)"
 	@$(KUBECTL) create namespace $(HELM_NAMESPACE) --dry-run=client -o yaml | $(KUBECTL) apply -f - || \
@@ -469,6 +471,7 @@ helm-lifecycle-test: docker-build helm-package
 	@echo "=== Phase 1: Install ==="
 	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) store-host-key-fingerprints KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 2: Upgrade ==="
 	$(MAKE) helm-upgrade KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
@@ -477,5 +480,75 @@ helm-lifecycle-test: docker-build helm-package
 	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 4: Uninstall ==="
 	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) verify-host-key-secret-persistence KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Helm lifecycle test completed successfully ==="
+
+# Store SSH host key fingerprints for later verification
+.PHONY: store-host-key-fingerprints
+store-host-key-fingerprints:
+	@echo "=== SSH Host Key Fingerprints ==="
+	@mkdir -p tmp
+	@POD_NAME=$$($(KUBECTL) get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null); \
+	if [ -n "$$POD_NAME" ]; then \
+		echo "Pod: $$POD_NAME"; \
+		echo "Waiting for SSH service to be ready..."; \
+		for i in $$(seq 1 30); do \
+			if $(KUBECTL) exec "$$POD_NAME" -- test -f /home/developer/.ssh/dropbear/dropbear_rsa_host_key 2>/dev/null; then \
+				echo "SSH service is ready"; \
+				break; \
+			fi; \
+			sleep 2; \
+		done; \
+		echo "Getting and storing fingerprints..."; \
+		RSA_FINGERPRINT=$$($(KUBECTL) exec "$$POD_NAME" -- dropbearkey -y -f /home/developer/.ssh/dropbear/dropbear_rsa_host_key | grep "Fingerprint:" | awk '{print $$2}'); \
+		ED25519_FINGERPRINT=$$($(KUBECTL) exec "$$POD_NAME" -- dropbearkey -y -f /home/developer/.ssh/dropbear/dropbear_ed25519_host_key | grep "Fingerprint:" | awk '{print $$2}'); \
+		echo "$$RSA_FINGERPRINT" > tmp/initial_rsa_fingerprint.txt; \
+		echo "$$ED25519_FINGERPRINT" > tmp/initial_ed25519_fingerprint.txt; \
+		echo "Stored fingerprints:"; \
+		echo "  RSA: $$RSA_FINGERPRINT"; \
+		echo "  Ed25519: $$ED25519_FINGERPRINT"; \
+	else \
+		echo "No SSH workspace pod found"; \
+		exit 1; \
+	fi
+	@echo "=== Fingerprints Displayed and Stored ==="
+
+# Verify SSH host key secret persistence after uninstall
+.PHONY: verify-host-key-secret-persistence
+verify-host-key-secret-persistence:
+	@echo "=== Verifying SSH Host Key Secret Persistence ==="
+	@SECRET_NAME="$(HELM_RELEASE_NAME)-ssh-hostkeys"; \
+	if $(KUBECTL) get secret "$$SECRET_NAME" >/dev/null 2>&1; then \
+		echo "✅ Host key secret exists after uninstall: $$SECRET_NAME"; \
+		if [ -f tmp/initial_rsa_fingerprint.txt ] && [ -f tmp/initial_ed25519_fingerprint.txt ]; then \
+			echo "Comparing fingerprints with initial values..."; \
+			INITIAL_RSA="$$(cat tmp/initial_rsa_fingerprint.txt)"; \
+			INITIAL_ED25519="$$(cat tmp/initial_ed25519_fingerprint.txt)"; \
+			echo "Expected RSA fingerprint: $$INITIAL_RSA"; \
+			echo "Expected Ed25519 fingerprint: $$INITIAL_ED25519"; \
+			echo "Getting secret fingerprints..."; \
+			mkdir -p tmp; \
+			$(KUBECTL) get secret "$$SECRET_NAME" -o jsonpath='{.data.rsa_host_key}' | base64 -d > tmp/secret_rsa_key; \
+			$(KUBECTL) get secret "$$SECRET_NAME" -o jsonpath='{.data.ed25519_host_key}' | base64 -d > tmp/secret_ed25519_key; \
+			SECRET_RSA_FINGERPRINT=$$(dropbearkey -y -f tmp/secret_rsa_key | grep "Fingerprint:" | awk '{print $$2}'); \
+			SECRET_ED25519_FINGERPRINT=$$(dropbearkey -y -f tmp/secret_ed25519_key | grep "Fingerprint:" | awk '{print $$2}'); \
+			echo "Secret RSA fingerprint: $$SECRET_RSA_FINGERPRINT"; \
+			echo "Secret Ed25519 fingerprint: $$SECRET_ED25519_FINGERPRINT"; \
+			rm -f tmp/secret_rsa_key tmp/secret_ed25519_key; \
+			if [ "$$INITIAL_RSA" = "$$SECRET_RSA_FINGERPRINT" ] && [ "$$INITIAL_ED25519" = "$$SECRET_ED25519_FINGERPRINT" ]; then \
+				echo "✅ Host key fingerprints match! Secret persistence verified."; \
+			else \
+				echo "❌ Host key fingerprints do not match!"; \
+				echo "  RSA: Expected $$INITIAL_RSA, Got $$SECRET_RSA_FINGERPRINT"; \
+				echo "  Ed25519: Expected $$INITIAL_ED25519, Got $$SECRET_ED25519_FINGERPRINT"; \
+				exit 1; \
+			fi; \
+		else \
+			echo "⚠️  Initial fingerprints not found, skipping comparison"; \
+		fi; \
+	else \
+		echo "❌ Host key secret not found after uninstall: $$SECRET_NAME"; \
+		exit 1; \
+	fi
+	@echo "=== Secret Persistence Verification Complete ==="
 
