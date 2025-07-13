@@ -1,3 +1,4 @@
+- values.yaml の構成の整理
 - makefile の sentry target の整備
   - image のロードで正しく動かない現象が発生
 - バージョン番号の振り方のポリシーの決定
