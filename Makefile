@@ -41,6 +41,7 @@ help:
 	@echo "  helm-lifecycle-test         - Run complete lifecycle test"
 	@echo "  store-host-key-fingerprints       - Store SSH host key fingerprints for verification"
 	@echo "  verify-host-key-secret-persistence   - Verify host key secret persistence"
+	@echo "  verify-host-key-fingerprint-match    - Verify host key fingerprint match after reinstall"
 	@echo ""
 	@echo "k3d cluster targets (for local testing):"
 	@echo "  create-k3d-cluster      - Create k3d cluster for testing"
@@ -481,6 +482,10 @@ helm-lifecycle-test: docker-build helm-package
 	@echo "=== Phase 4: Uninstall ==="
 	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) verify-host-key-secret-persistence KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	@echo "=== Phase 5: Reinstall and Verify Host Key Persistence ==="
+	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) verify-host-key-fingerprint-match KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Helm lifecycle test completed successfully ==="
 
 # Store SSH host key fingerprints for later verification
@@ -551,4 +556,47 @@ verify-host-key-secret-persistence:
 		exit 1; \
 	fi
 	@echo "=== Secret Persistence Verification Complete ==="
+
+# Verify host key fingerprint match after reinstall
+.PHONY: verify-host-key-fingerprint-match
+verify-host-key-fingerprint-match:
+	@echo "=== Verifying Host Key Fingerprint Match ==="
+	@echo "Verifying that reinstalled pod uses the same host keys..."
+	@POD_NAME=$$($(KUBECTL) get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null); \
+	if [ -n "$$POD_NAME" ]; then \
+		echo "Pod: $$POD_NAME"; \
+		echo "Waiting for SSH service to be ready..."; \
+		for i in $$(seq 1 30); do \
+			if $(KUBECTL) exec "$$POD_NAME" -- test -f /home/developer/.ssh/dropbear/dropbear_rsa_host_key 2>/dev/null; then \
+				echo "SSH service is ready"; \
+				break; \
+			fi; \
+			sleep 2; \
+		done; \
+		echo "Getting current fingerprints..."; \
+		CURRENT_RSA_FINGERPRINT=$$($(KUBECTL) exec "$$POD_NAME" -- dropbearkey -y -f /home/developer/.ssh/dropbear/dropbear_rsa_host_key | grep "Fingerprint:" | awk '{print $$2}'); \
+		CURRENT_ED25519_FINGERPRINT=$$($(KUBECTL) exec "$$POD_NAME" -- dropbearkey -y -f /home/developer/.ssh/dropbear/dropbear_ed25519_host_key | grep "Fingerprint:" | awk '{print $$2}'); \
+		if [ -f tmp/initial_rsa_fingerprint.txt ] && [ -f tmp/initial_ed25519_fingerprint.txt ]; then \
+			INITIAL_RSA="$$(cat tmp/initial_rsa_fingerprint.txt)"; \
+			INITIAL_ED25519="$$(cat tmp/initial_ed25519_fingerprint.txt)"; \
+			echo "Initial RSA fingerprint:     $$INITIAL_RSA"; \
+			echo "Current RSA fingerprint:     $$CURRENT_RSA_FINGERPRINT"; \
+			echo "Initial Ed25519 fingerprint: $$INITIAL_ED25519"; \
+			echo "Current Ed25519 fingerprint: $$CURRENT_ED25519_FINGERPRINT"; \
+			if [ "$$INITIAL_RSA" = "$$CURRENT_RSA_FINGERPRINT" ] && [ "$$INITIAL_ED25519" = "$$CURRENT_ED25519_FINGERPRINT" ]; then \
+				echo "✅ Host key fingerprints match! Persistence verified through complete lifecycle."; \
+			else \
+				echo "❌ Host key fingerprints do not match after reinstall!"; \
+				echo "  RSA: Expected $$INITIAL_RSA, Got $$CURRENT_RSA_FINGERPRINT"; \
+				echo "  Ed25519: Expected $$INITIAL_ED25519, Got $$CURRENT_ED25519_FINGERPRINT"; \
+				exit 1; \
+			fi; \
+		else \
+			echo "⚠️  Initial fingerprints not found, skipping comparison"; \
+		fi; \
+	else \
+		echo "❌ No SSH workspace pod found after reinstall"; \
+		exit 1; \
+	fi
+	@echo "=== Host Key Fingerprint Match Verification Complete ==="
 
