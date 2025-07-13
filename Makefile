@@ -40,6 +40,8 @@ help:
 	@echo "  helm-list           - List Helm releases"
 	@echo "  helm-lifecycle-test         - Run complete lifecycle test"
 	@echo "  store-host-key-fingerprints       - Store SSH host key fingerprints for verification"
+	@echo "  create-test-file-in-home           - Create test file with passphrase in home directory"
+	@echo "  verify-test-file-persistence       - Verify test file persistence in home directory"
 	@echo "  verify-host-key-secret-persistence   - Verify host key secret persistence"
 	@echo "  verify-host-key-fingerprint-match    - Verify host key fingerprint match after reinstall"
 	@echo ""
@@ -402,6 +404,7 @@ helm-install: helm-package prepare-test-env tmp/.k3d-image-loaded-sentinel
 		--set image.tag=latest \
 		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
+		--set homeDirectory.type=persistentVolume \
 		--wait --timeout=60s
 	@echo "Helm release $(HELM_RELEASE_NAME) installed successfully"
 
@@ -420,6 +423,7 @@ helm-upgrade: helm-package prepare-test-env
 		--set image.repository=$(HELM_IMAGE_REPO) \
 		--set image.pullPolicy=Never `# Use Never to ensure we test the exact locally built image` \
 		--set ssh.publicKeys.authorizedKeys="$$SSH_KEY" \
+		--set homeDirectory.type=persistentVolume \
 		--set image.tag=latest \
 		--wait --timeout=60s
 	@echo "Helm release $(HELM_RELEASE_NAME) upgraded successfully"
@@ -473,6 +477,7 @@ helm-lifecycle-test: docker-build helm-package
 	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) store-host-key-fingerprints KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) create-test-file-in-home KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 2: Upgrade ==="
 	$(MAKE) helm-upgrade KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
@@ -485,6 +490,7 @@ helm-lifecycle-test: docker-build helm-package
 	@echo "=== Phase 5: Reinstall and Verify Host Key Persistence ==="
 	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) verify-host-key-fingerprint-match KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	$(MAKE) verify-test-file-persistence KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Helm lifecycle test completed successfully ==="
 
@@ -599,4 +605,59 @@ verify-host-key-fingerprint-match:
 		exit 1; \
 	fi
 	@echo "=== Host Key Fingerprint Match Verification Complete ==="
+
+# Create test file with passphrase in home directory
+.PHONY: create-test-file-in-home
+create-test-file-in-home:
+	@echo "=== Creating Test File in Home Directory ==="
+	@POD_NAME=$$($(KUBECTL) get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null); \
+	if [ -n "$$POD_NAME" ]; then \
+		echo "Pod: $$POD_NAME"; \
+		echo "Creating test file with passphrase..."; \
+		PASSPHRASE="helm-lifecycle-test-$$(date +%s)-$$(head -c 4 /dev/urandom | od -An -tx1 | tr -d ' ')"; \
+		echo "$$PASSPHRASE" > tmp/test_passphrase.txt; \
+		$(KUBECTL) exec "$$POD_NAME" -- sh -c "echo '$$PASSPHRASE' > /home/developer/test_persistence.txt"; \
+		$(KUBECTL) exec "$$POD_NAME" -- sh -c "chmod 600 /home/developer/test_persistence.txt"; \
+		echo "Created test file: /home/developer/test_persistence.txt"; \
+		echo "Stored passphrase: $$PASSPHRASE"; \
+	else \
+		echo "❌ No SSH workspace pod found"; \
+		exit 1; \
+	fi
+	@echo "=== Test File Creation Complete ==="
+
+# Verify test file persistence in home directory
+.PHONY: verify-test-file-persistence
+verify-test-file-persistence:
+	@echo "=== Verifying Test File Persistence ==="
+	@POD_NAME=$$($(KUBECTL) get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null); \
+	if [ -n "$$POD_NAME" ]; then \
+		echo "Pod: $$POD_NAME"; \
+		if [ -f tmp/test_passphrase.txt ]; then \
+			EXPECTED_PASSPHRASE="$$(cat tmp/test_passphrase.txt)"; \
+			echo "Expected passphrase: $$EXPECTED_PASSPHRASE"; \
+			if $(KUBECTL) exec "$$POD_NAME" -- test -f /home/developer/test_persistence.txt 2>/dev/null; then \
+				echo "✅ Test file exists: /home/developer/test_persistence.txt"; \
+				CURRENT_PASSPHRASE=$$($(KUBECTL) exec "$$POD_NAME" -- cat /home/developer/test_persistence.txt); \
+				echo "Current passphrase: $$CURRENT_PASSPHRASE"; \
+				if [ "$$EXPECTED_PASSPHRASE" = "$$CURRENT_PASSPHRASE" ]; then \
+					echo "✅ Passphrase matches! Home directory persistence verified."; \
+				else \
+					echo "❌ Passphrase does not match!"; \
+					echo "  Expected: $$EXPECTED_PASSPHRASE"; \
+					echo "  Current:  $$CURRENT_PASSPHRASE"; \
+					exit 1; \
+				fi; \
+			else \
+				echo "❌ Test file not found: /home/developer/test_persistence.txt"; \
+				exit 1; \
+			fi; \
+		else \
+			echo "⚠️  Expected passphrase not found, skipping comparison"; \
+		fi; \
+	else \
+		echo "❌ No SSH workspace pod found"; \
+		exit 1; \
+	fi
+	@echo "=== Test File Persistence Verification Complete ==="
 
