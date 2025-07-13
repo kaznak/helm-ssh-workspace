@@ -472,13 +472,19 @@ helm-list:
 # Complete Helm lifecycle test
 .PHONY: helm-lifecycle-test
 helm-lifecycle-test: docker-build helm-package
+	# [see:U9A4-TEST] - Comprehensive test to verify deployment meets all requirements
+	# [see:W5I2-HELM] - Tests Helm chart functionality
 	@echo "Starting complete Helm lifecycle test..."
 	@echo "=== Phase 1: Install ==="
+	# [see:V4J1-HOSTKEY] - Verifies SSH host keys are generated during helm release creation
 	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	# [see:W5X2-SECRET] - Stores SSH host key fingerprints for persistence verification
 	$(MAKE) store-host-key-fingerprints KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	# [see:N3M9-PERSIST] - Creates test file to verify home directory persistence
 	$(MAKE) create-test-file-in-home KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 2: Upgrade ==="
+	# [see:Z8Y4-RESTART] - Tests Pod restart behavior on Secret/ConfigMap changes
 	$(MAKE) helm-upgrade KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-history KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 3: Rollback ==="
@@ -486,10 +492,14 @@ helm-lifecycle-test: docker-build helm-package
 	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 4: Uninstall ==="
 	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	# [see:R8N9-REUSE] - Verifies SSH host keys remain after helm release deletion
 	$(MAKE) verify-host-key-secret-persistence KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Phase 5: Reinstall and Verify Host Key Persistence ==="
 	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	# [see:T8Q4-AUTOGEN] - Verifies Secret reuse (not auto-generated if exists)
+	# [see:K2L8-HOSTVALID] - Validates SSH host key consistency
 	$(MAKE) verify-host-key-fingerprint-match KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	# [see:N3M9-PERSIST] - Verifies home directory data persistence across reinstalls
 	$(MAKE) verify-test-file-persistence KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-uninstall KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	@echo "=== Helm lifecycle test completed successfully ==="
