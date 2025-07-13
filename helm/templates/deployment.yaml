@@ -67,6 +67,7 @@ spec:
               containerPort: {{ .Values.ssh.port }}
               protocol: TCP
           # Health checks [see:Q1P4-HEALTH]
+          # To avoid spamming to logs of probles, we use exec probes instead of tcpsocket probes
           {{- if .Values.healthCheck.livenessProbe.enabled }}
           livenessProbe:
             exec:
