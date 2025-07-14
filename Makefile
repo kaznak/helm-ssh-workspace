@@ -192,7 +192,12 @@ helm-publish: helm-package
 
 # Quality assurance targets
 .PHONY: quality
-quality: lint security
+quality: lint security check-version-consistency
+
+.PHONY: check-version-consistency
+check-version-consistency:
+	@echo "Checking version consistency across project files..."
+	@scripts/check-version-consistency.sh
 
 # Development targets
 
