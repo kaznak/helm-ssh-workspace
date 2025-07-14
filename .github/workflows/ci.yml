@@ -188,8 +188,9 @@ jobs:
       - name: Install Kube-score
         run: |
           echo "Downloading kube-score..."
-          KUBESCORE_VERSION=$(curl -sSL https://api.github.com/repos/zegl/kube-score/releases/latest | jq -r '.tag_name')
-          echo "Latest kube-score version: $KUBESCORE_VERSION"
+          # Use a specific stable version to avoid API rate limits
+          KUBESCORE_VERSION="v1.18.0"
+          echo "Using kube-score version: $KUBESCORE_VERSION"
           curl -sSL -o kube-score.tar.gz "https://github.com/zegl/kube-score/releases/download/${KUBESCORE_VERSION}/kube-score_${KUBESCORE_VERSION#v}_linux_amd64.tar.gz"
           tar -xzf kube-score.tar.gz
           chmod +x kube-score
