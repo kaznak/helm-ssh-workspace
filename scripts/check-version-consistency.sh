@@ -1,67 +1,95 @@
 #!/bin/bash
-# [P3R8-VERSION] バージョン番号整合性チェックスクリプト
+# NAME: check-version-consistency.sh
+# SYNOPSIS: バージョン番号整合性チェックスクリプト
+# DESCRIPTION: プロジェクト内の複数箇所に記載されたバージョン番号の整合性をチェック
 
-set -euo pipefail
+set -Cu -Ee -o pipefail
+shopt -s nullglob
 
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+stime=$(date +%Y%m%d%H%M%S%Z)
+pname=$(basename $0)
+based=$(readlink -f $(dirname $0)/..)
+tmpd=$(mktemp -d)
 
-# バージョン番号を抽出する関数
-extract_helm_chart_version() {
-    grep '^version:' "${PROJECT_ROOT}/helm/Chart.yaml" | sed 's/version: *//g'
+logd=$tmpd/log
+mkdir -p $logd
+
+exec 3>&2
+
+error_msg=""
+error_status=0
+
+BEFORE_EXIT() {
+    [[ -d "$tmpd" ]] && rm -rf "$tmpd"
 }
 
-extract_helm_app_version() {
-    grep '^appVersion:' "${PROJECT_ROOT}/helm/Chart.yaml" | sed 's/appVersion: *"*//g' | sed 's/"*$//g'
+ERROR_HANDLER() {
+    error_status=$?
+    MSG "ERROR at line $1: $error_msg"
+    exit $error_status
 }
 
-extract_helm_image_tag() {
-    grep '  tag:' "${PROJECT_ROOT}/helm/values.yaml" | sed 's/.*tag: *"*//g' | sed 's/"*$//g' | sed 's/^v//g'
+trap 'BEFORE_EXIT' EXIT
+trap 'ERROR_HANDLER ${LINENO}' ERR
+
+MSG() { 
+    echo "$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) $@" >&3
 }
 
-extract_readme_version() {
-    grep -- '--version' "${PROJECT_ROOT}/README.md" | sed 's/.*--version *//g' | sed 's/ .*//g'
+PROGRESS() {
+    MSG "PROGRESS(${BASH_LINENO[0]}): $*"
 }
 
-# メイン処理
-main() {
-    echo "=== バージョン番号整合性チェック ==="
-    
-    local helm_chart_version helm_app_version helm_image_tag readme_version
-    local exit_code=0
-    
-    helm_chart_version=$(extract_helm_chart_version)
-    helm_app_version=$(extract_helm_app_version)
-    helm_image_tag=$(extract_helm_image_tag)
-    readme_version=$(extract_readme_version)
-    
-    echo "Helm Chart version: ${helm_chart_version}"
-    echo "Helm App version: ${helm_app_version}"
-    echo "Helm image tag: ${helm_image_tag}"
-    echo "README version: ${readme_version}"
-    echo
-    
-    # バージョン整合性チェック
-    if [[ "${helm_chart_version}" != "${helm_app_version}" ]]; then
-        echo "❌ ERROR: Helm Chart version (${helm_chart_version}) != App version (${helm_app_version})"
-        exit_code=1
-    fi
-    
-    if [[ "${helm_app_version}" != "${helm_image_tag}" ]]; then
-        echo "❌ ERROR: Helm App version (${helm_app_version}) != Image tag (${helm_image_tag})"
-        exit_code=1
-    fi
-    
-    if [[ "${helm_app_version}" != "${readme_version}" ]]; then
-        echo "❌ ERROR: Helm App version (${helm_app_version}) != README version (${readme_version})"
-        exit_code=1
-    fi
-    
-    if [[ ${exit_code} -eq 0 ]]; then
-        echo "✅ すべてのバージョン番号が一致しています"
-    fi
-    
-    exit ${exit_code}
+print_help() {
+    sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
 }
 
-main "$@"
+# ヘルプ表示処理
+[[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]] && {
+    print_help
+    exit 0
+}
+
+PROGRESS "バージョン番号抽出"
+
+error_msg="Failed to extract Helm Chart version"
+grep '^version:' "$based/helm/Chart.yaml" |
+sed 's/version: *//g' |
+# バージョン種別を付与
+sed 's/$/ Helm Chart version/' |
+tee -a "$tmpd/version_summary.txt" >&3
+
+error_msg="Failed to extract Helm App version"
+grep '^appVersion:' "$based/helm/Chart.yaml" |
+sed 's/appVersion: *"*//g' |
+sed 's/"*$//g' |
+# バージョン種別を付与
+sed 's/$/ Helm App version/' |
+tee -a "$tmpd/version_summary.txt" >&3
+
+error_msg="Failed to extract Helm image tag"
+grep '  tag:' "$based/helm/values.yaml" |
+sed 's/.*tag: *"*//g' | sed 's/"*$//g' | sed 's/^v//g' |
+# バージョン種別を付与
+sed 's/$/ Helm image tag/' |
+tee -a "$tmpd/version_summary.txt" >&3
+
+error_msg="Failed to extract README version"
+grep -- '--version' "$based/README.md" |
+sed 's/.*--version *//g' |
+sed 's/ .*//g' |
+# バージョン種別を付与
+sed 's/$/ README version/' |
+tee -a "$tmpd/version_summary.txt" >&3
+
+PROGRESS "不整合チェック"
+
+awk -F' ' '{print $1}' "$tmpd/version_summary.txt" |
+sort -u |
+wc -l |
+tee "$logd/version_count.txt" >&3
+error_msg="ERROR ❌ バージョン番号が一致していません"
+[ $(cat "$logd/version_count.txt") -eq 1 ]
+
+MSG "INFO ✅ すべてのバージョン番号が一致しています"
+exit 0
