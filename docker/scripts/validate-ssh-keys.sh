@@ -206,13 +206,16 @@ while read -r key_name ; do
     kfile="$tmpd/priv_keys_data.$key_name"
 
     error_msg="Failed to extract private key for $key_name"
-    jq ".$key_name" "$tmpd/priv_keys_data.json" |
-    base64 -d   |
+    jq -r ".$key_name|@base64d" "$tmpd/priv_keys_data.json" |
     tee "$kfile" >&3
 
     pfile="$kfile.pub"
     ssh-keygen -y -f "$kfile" |
-    tee "$pfile" >&3
+    tee "$pfile" >&3 || {
+        # Check if the extracted data is actually a private key
+        MSG "NOTICE Skipping $key_name - not a valid SSH private key"
+        continue
+    }
 
     ifile="$kfile.info"
     ssh-keygen -lf "$pfile"   |
