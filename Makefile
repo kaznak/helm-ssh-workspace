@@ -18,7 +18,7 @@ KUBECTL = kubectl $(KUBECTL_OPTS)
 
 # Default target
 .PHONY: all
-all: docker-build test helm-package
+all: check-version-consistency docker-build test helm-package
 
 # Help target
 .PHONY: help
@@ -73,7 +73,7 @@ docker-build: tmp/.docker-build-sentinel
 
 # Test targets
 .PHONY: test
-test: lint helm-test docker-test
+test: check-version-consistency lint helm-test docker-test
 
 .PHONY: lint
 lint: helm-lint yaml-lint markdown-lint
@@ -160,7 +160,7 @@ helm-security:
 # Package targets
 
 .PHONY: helm-package
-helm-package: helm-test
+helm-package: helm-test check-version-consistency
 	@echo "Packaging Helm chart..."
 	mkdir -p $(HELM_PACKAGE_DIR)
 	helm package $(HELM_CHART_DIR) --destination $(HELM_PACKAGE_DIR)
@@ -168,7 +168,7 @@ helm-package: helm-test
 
 # Publish targets
 .PHONY: publish
-publish: docker-push helm-publish
+publish: check-version-consistency docker-push helm-publish
 
 .PHONY: docker-push
 docker-push: tmp/.docker-build-sentinel docker-test
