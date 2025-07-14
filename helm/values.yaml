@@ -7,7 +7,7 @@
 image:
   repository: ghcr.io/kaznak/ssh-workspace
   pullPolicy: Always  # Default for production, overridden locally
-  tag: "v0.7.3"
+  tag: "v0.7.4"
 
 # Image pull secrets
 imagePullSecrets: []
