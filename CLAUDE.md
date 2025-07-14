@@ -52,7 +52,8 @@
 - ビルド、テスト、デプロイ等のタスクは必ず Makefile に定義し、依存関係を sentry file パターンで明示すること。
 - 開発の流れは docs/development.md を参照すること
 - プルリクエストのマージの際は merge commit しリモートブランチを削除すること。
-- リリースは main ブランチにタグを打ち、 github のリリース機能を使用して行う事。
+- リリースは作業ブランチでバージョンアップ後、PRでmainに反映してから `gh release create v<version>
+--target main` でタグとリリースを同時作成すること。
 - github のリリースページに表示される説明は必ず記述する事。
 
 # 削除すべきコード
