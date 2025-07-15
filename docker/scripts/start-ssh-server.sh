@@ -67,6 +67,30 @@ MSG "Dropbear Keys Directory: ${DROPBEAR_DIR}"
 # Phase 1: User and Environment Setup (as root)
 PROGRESS "Phase 1: User and Environment Setup"
 
+# Setup skeleton files based on configuration
+PROGRESS "Setting up skeleton files"
+error_msg="Failed to setup skeleton files"
+
+# Setup Podman skeleton files if enabled
+if [[ "${CONTAINER_TOOLS_ENABLED:-true}" != "true" ]]; then
+    MSG "Podman skeleton files skipped (disabled via containerTools settings)"
+else
+    MSG "Setting up Podman skeleton files"
+    
+    # Create directories
+    mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
+    
+    # Copy podman configuration files from templates
+    cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
+    cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
+    chmod +x /etc/skel/.local/bin/docker
+    
+    # Append podman configuration to bashrc
+    cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
+    
+    MSG "Podman skeleton files configured"
+fi
+
 # グループ作成
 PROGRESS "Creating user and group"
 MSG "Creating group ${USERNAME} with GID ${USER_GID}"
@@ -78,7 +102,7 @@ MSG "Creating user ${USERNAME} with UID ${USER_UID}"
 error_msg="Failed to create user ${USERNAME}"
 # ホームディレクトリの存在確認
 if [[ -d "${HOME_DIR}" ]] && [[ -n "$(ls -A "${HOME_DIR}" 2>/dev/null || true)" ]]; then
-    MSG "Home directory exists with files, creating user without -m option"
+    MSG "Home directory exists with files, creating user without -m option (skipping skeleton files to avoid overwriting)"
     useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}"
 else
     MSG "Home directory empty or non-existent, creating user with -m option to copy skeleton files"
@@ -143,6 +167,24 @@ error_msg="Failed to set home directory permissions"
 chown "${USER_UID}:${USER_GID}" "${HOME_DIR}"
 chmod 755 "${HOME_DIR}"
 MSG "Home directory permissions set to 755 for Dropbear requirements"
+
+# Podman設定 [see:H9L2-PODMAN]
+if [[ "${CONTAINER_TOOLS_ENABLED:-true}" != "true" ]]; then
+    MSG "Podman configuration skipped (disabled via containerTools settings)"
+else
+    PROGRESS "Setting up Podman environment"
+    error_msg="Failed to setup Podman environment"
+
+    # Setup subuid/subgid for the user using usermod
+    MSG "Setting up subuid/subgid for Podman rootless operation"
+    
+    error_msg="Failed to setup subuid for user ${USERNAME}"
+    usermod --add-subuids 100000-165535 "${USERNAME}"
+    error_msg="Failed to setup subgid for user ${USERNAME}"
+    usermod --add-subgids 100000-165535 "${USERNAME}"
+    
+    MSG "Podman environment configured"
+fi
 
 # セットアップ検証
 PROGRESS "Setup Verification"

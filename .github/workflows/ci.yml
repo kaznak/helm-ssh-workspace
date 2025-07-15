@@ -276,6 +276,14 @@ jobs:
             K3D_CLUSTER_MANAGEMENT=external \
             K3D_CLUSTER_NAME=test-cluster
 
+      - name: Run Podman functionality tests
+        run: |
+          make test-podman-in-ssh-workspace \
+            DOCKER_REPO=${{ env.DOCKER_REPO }} \
+            DOCKER_TAG=integration-test \
+            K3D_CLUSTER_MANAGEMENT=external \
+            K3D_CLUSTER_NAME=test-cluster
+
   # [see:H6N4-PACKAGE] Helm chart packaging
   package:
     runs-on: ubuntu-latest
