@@ -33,7 +33,7 @@ ssh-keygen -t ed25519 -f ~/.ssh/workspace_key -N ""
 2. OCI形式のHelmチャートをインストール
 ```bash
 helm install my-workspace oci://ghcr.io/kaznak/charts/ssh-workspace \
-  --version 0.7.4 \
+  --version 0.7.5 \
   --set ssh.publicKeys.authorizedKeys="$(cat ~/.ssh/workspace_key.pub)"
 ```
 
