@@ -18,7 +18,7 @@ KUBECTL = kubectl $(KUBECTL_OPTS)
 
 # Default target
 .PHONY: all
-all: docker-build test helm-package
+all: check-version-consistency docker-build test helm-package
 
 # Help target
 .PHONY: help
@@ -42,6 +42,7 @@ help:
 	@echo "  store-host-key-fingerprints       - Store SSH host key fingerprints for verification"
 	@echo "  create-test-file-in-home           - Create test file with passphrase in home directory"
 	@echo "  verify-test-file-persistence       - Verify test file persistence in home directory"
+	@echo "  verify-skeleton-files              - Verify skeleton files (.bashrc, .profile) exist in home directory"
 	@echo "  verify-host-key-secret-persistence   - Verify host key secret persistence"
 	@echo "  verify-host-key-fingerprint-match    - Verify host key fingerprint match after reinstall"
 	@echo ""
@@ -73,7 +74,7 @@ docker-build: tmp/.docker-build-sentinel
 
 # Test targets
 .PHONY: test
-test: lint helm-test docker-test
+test: check-version-consistency lint helm-test docker-test
 
 .PHONY: lint
 lint: helm-lint yaml-lint markdown-lint
@@ -160,7 +161,7 @@ helm-security:
 # Package targets
 
 .PHONY: helm-package
-helm-package: helm-test
+helm-package: helm-test check-version-consistency
 	@echo "Packaging Helm chart..."
 	mkdir -p $(HELM_PACKAGE_DIR)
 	helm package $(HELM_CHART_DIR) --destination $(HELM_PACKAGE_DIR)
@@ -168,7 +169,7 @@ helm-package: helm-test
 
 # Publish targets
 .PHONY: publish
-publish: docker-push helm-publish
+publish: check-version-consistency docker-push helm-publish
 
 .PHONY: docker-push
 docker-push: tmp/.docker-build-sentinel docker-test
@@ -192,7 +193,12 @@ helm-publish: helm-package
 
 # Quality assurance targets
 .PHONY: quality
-quality: lint security
+quality: lint security check-version-consistency
+
+.PHONY: check-version-consistency
+check-version-consistency:
+	@echo "Checking version consistency across project files..."
+	@scripts/check-version-consistency.sh
 
 # Development targets
 
@@ -479,6 +485,8 @@ helm-lifecycle-test: docker-build helm-package
 	# [see:V4J1-HOSTKEY] - Verifies SSH host keys are generated during helm release creation
 	$(MAKE) helm-install KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	$(MAKE) helm-status KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
+	# Verify skeleton files like .bashrc are created in home directory
+	$(MAKE) verify-skeleton-files KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	# [see:W5X2-SECRET] - Stores SSH host key fingerprints for persistence verification
 	$(MAKE) store-host-key-fingerprints KUBE_CONTEXT=$(KUBE_CONTEXT) KUBE_NAMESPACE=$(KUBE_NAMESPACE)
 	# [see:N3M9-PERSIST] - Creates test file to verify home directory persistence
@@ -670,4 +678,35 @@ verify-test-file-persistence:
 		exit 1; \
 	fi
 	@echo "=== Test File Persistence Verification Complete ==="
+
+# Verify skeleton files (like .bashrc) exist in home directory after helm-install
+.PHONY: verify-skeleton-files
+verify-skeleton-files:
+	@echo "=== Verifying Skeleton Files in Home Directory ==="
+	@POD_NAME=$$($(KUBECTL) get pods -l app.kubernetes.io/name=ssh-workspace -o jsonpath='{.items[0].metadata.name}' 2>/dev/null); \
+	if [ -n "$$POD_NAME" ]; then \
+		echo "Pod: $$POD_NAME"; \
+		echo "Checking for skeleton files in /home/developer..."; \
+		MISSING_FILES=""; \
+		for file in .bashrc .profile; do \
+			if $(KUBECTL) exec "$$POD_NAME" -- test -f "/home/developer/$$file" 2>/dev/null; then \
+				echo "✅ Found: /home/developer/$$file"; \
+				echo "Content preview:"; \
+				$(KUBECTL) exec "$$POD_NAME" -- head -n 5 "/home/developer/$$file" | sed 's/^/    /'; \
+			else \
+				echo "❌ Missing: /home/developer/$$file"; \
+				MISSING_FILES="$$MISSING_FILES $$file"; \
+			fi; \
+		done; \
+		if [ -n "$$MISSING_FILES" ]; then \
+			echo "❌ Some skeleton files are missing:$$MISSING_FILES"; \
+			exit 1; \
+		else \
+			echo "✅ All expected skeleton files exist"; \
+		fi; \
+	else \
+		echo "❌ No SSH workspace pod found"; \
+		exit 1; \
+	fi
+	@echo "=== Skeleton Files Verification Complete ==="
 
