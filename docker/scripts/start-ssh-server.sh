@@ -73,7 +73,9 @@ PROGRESS "Setting up skeleton files"
 error_msg="Failed to setup skeleton files"
 
 # Setup Podman skeleton files if enabled
-if [[ "${CONTAINER_TOOLS_ENABLED}" == "true" ]]; then
+if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
+    MSG "Podman skeleton files skipped (disabled via containerTools settings)"
+else
     MSG "Setting up Podman skeleton files"
     
     # Create directories
@@ -88,8 +90,6 @@ if [[ "${CONTAINER_TOOLS_ENABLED}" == "true" ]]; then
     cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
     
     MSG "Podman skeleton files configured"
-else
-    MSG "Podman skeleton files skipped (disabled via containerTools settings)"
 fi
 
 # グループ作成
@@ -170,7 +170,9 @@ chmod 755 "${HOME_DIR}"
 MSG "Home directory permissions set to 755 for Dropbear requirements"
 
 # Podman設定 [see:H9L2-PODMAN]
-if [[ "${CONTAINER_TOOLS_ENABLED}" == "true" ]]; then
+if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
+    MSG "Podman configuration skipped (disabled via containerTools settings)"
+else
     PROGRESS "Setting up Podman environment"
     error_msg="Failed to setup Podman environment"
 
@@ -183,8 +185,6 @@ if [[ "${CONTAINER_TOOLS_ENABLED}" == "true" ]]; then
     usermod --add-subgids 100000-165535 "${USERNAME}"
     
     MSG "Podman environment configured"
-else
-    MSG "Podman configuration skipped (disabled via containerTools settings)"
 fi
 
 # セットアップ検証
