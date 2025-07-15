@@ -29,18 +29,15 @@ FROM ubuntu:22.04
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Install essential packages (without dropbear)
+# Install ubuntu-standard meta-package and additional packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Basic development tools [see:Q2N5-TOOLS]
+    ubuntu-standard \
+    # Additional packages not in ubuntu-standard [see:Q2N5-TOOLS]
     git \
     curl \
-    wget \
     vim \
-    nano \
     python3 \
     python3-pip \
-    # For SSH key generation and validation
-    openssh-client \
     # Required for user management
     sudo \
     # Network utilities for health checks
@@ -56,12 +53,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     zlib1g \
     # Additional tools for Nix installation script
     tar \
-    xz-utils \
     coreutils \
     openssl \
     # Network and diagnostic tools
     iputils-ping \
-    dnsutils \
     net-tools \
     # Security and authentication
     gnupg \
@@ -72,7 +67,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # File operations
     unzip \
     zip \
-    rsync \
+    # Text viewing and file management
+    less \
+    stow \
+    # Recommended packages from ubuntu-standard that we need
+    nano \
+    openssh-client \
     && rm -rf /var/lib/apt/lists/* \
     && locale-gen en_US.UTF-8
 
