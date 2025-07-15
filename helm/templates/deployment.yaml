@@ -59,6 +59,9 @@ spec:
               value: {{ .Values.user.gid | quote }}
             - name: SSH_PORT
               value: {{ .Values.ssh.port | quote }}
+            # Container tools configuration [see:H9L2-PODMAN]
+            - name: CONTAINER_TOOLS_ENABLED
+              value: {{ .Values.containerTools.enabled | quote }}
           # Override entrypoint to run SSH server startup script
           command:
             - /opt/ssh-workspace/bin/start-ssh-server.sh

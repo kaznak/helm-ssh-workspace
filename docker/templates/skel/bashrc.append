@@ -1,0 +1,4 @@
+# Source podman configuration
+if [ -f ~/.bashrc.d/podman.sh ]; then
+    source ~/.bashrc.d/podman.sh
+fi
