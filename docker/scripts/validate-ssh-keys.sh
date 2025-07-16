@@ -37,8 +37,11 @@ BEFORE_EXIT() {
 
 ERROR_HANDLER() {
     error_status=$?
-    MSG "ERROR at line $1: $error_msg"
-    exit $error_status
+    MSG "line:$1 ERROR status ${PIPESTATUS[@]}"
+    [[ "$error_msg" ]] && MSG "$error_msg"
+    touch "$tmpd/ERROR"    # for child process error detection
+    MSG "line:$1 EXIT with error."
+    exit 1        # root process trigger BEFORE_EXIT function
 }
 
 trap 'BEFORE_EXIT' EXIT
@@ -93,12 +96,14 @@ mkdir -p /etc/dropbear 2>/dev/null || true
 # Extract and validate RSA host key
 PROGRESS "Extracting RSA host key"
 rm -f /etc/dropbear/dropbear_rsa_host_key
-kubectl get secret "$host_secret" -n "$namespace" -o jsonpath='{.data.rsa_host_key}' | base64 -d > /etc/dropbear/dropbear_rsa_host_key
+kubectl get secret "$host_secret" -n "$namespace" -o jsonpath='{.data.rsa_host_key}' |
+    base64 -d > /etc/dropbear/dropbear_rsa_host_key
 chmod 600 /etc/dropbear/dropbear_rsa_host_key
 
 temp_pub_key="$tmpd/rsa_host_pub"
 error_msg="Cannot extract RSA public key from Dropbear key"
-dropbearkey -y -f "/etc/dropbear/dropbear_rsa_host_key" | grep "^ssh-" > "$temp_pub_key"
+dropbearkey -y -f "/etc/dropbear/dropbear_rsa_host_key" |
+    grep "^ssh-" > "$temp_pub_key"
 
 key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
 error_msg="Invalid RSA host key format"
@@ -114,12 +119,14 @@ MSG "INFO: Valid $key_type host key ($key_bits bits)"
 # Extract and validate Ed25519 host key
 PROGRESS "Extracting Ed25519 host key"
 rm -f /etc/dropbear/dropbear_ed25519_host_key
-kubectl get secret "$host_secret" -n "$namespace" -o jsonpath='{.data.ed25519_host_key}' | base64 -d > /etc/dropbear/dropbear_ed25519_host_key
+kubectl get secret "$host_secret" -n "$namespace" -o jsonpath='{.data.ed25519_host_key}' |
+    base64 -d > /etc/dropbear/dropbear_ed25519_host_key
 chmod 600 /etc/dropbear/dropbear_ed25519_host_key
 
 temp_pub_key="$tmpd/ed25519_host_pub"
 error_msg="Cannot extract Ed25519 public key from Dropbear key"
-dropbearkey -y -f "/etc/dropbear/dropbear_ed25519_host_key" | grep "^ssh-" > "$temp_pub_key"
+dropbearkey -y -f "/etc/dropbear/dropbear_ed25519_host_key" |
+    grep "^ssh-" > "$temp_pub_key"
 
 key_info=$(ssh-keygen -lf "$temp_pub_key" 2>/dev/null)
 error_msg="Invalid Ed25519 host key format"
@@ -141,21 +148,24 @@ mkdir -p /home/user/.ssh
 chmod 700 /home/user/.ssh
 
 # Extract authorized_keys
-kubectl get secret "$pub_secret" -n "$namespace" -o jsonpath='{.data.authorized_keys}' | base64 -d > /home/user/.ssh/authorized_keys
+kubectl get secret "$pub_secret" -n "$namespace" -o jsonpath='{.data.authorized_keys}' |
+    base64 -d > /home/user/.ssh/authorized_keys
 chmod 600 /home/user/.ssh/authorized_keys
 
 # Validate each line in authorized_keys using stream processing
 # 前処理とファイル分割を直接パイプで接続
-grep -vE '^[[:space:]]*($|#)' /home/user/.ssh/authorized_keys | awk '{
-    filename = "'"$tmpd"'/auth_key_" NR
-    print $0 > filename
-    close(filename)
-    print NR " " filename
-}' | while read -r line_number temp_pub_key; do
-    error_msg="Invalid public key format at line $line_number"
-    echo -n "$line_number "
-    ssh-keygen -lf "$temp_pub_key"
-done |
+grep -vE '^[[:space:]]*($|#)' /home/user/.ssh/authorized_keys |
+    awk '{
+        filename = "'"$tmpd"'/auth_key_" NR
+        print $0 > filename
+        close(filename)
+        print NR " " filename
+    }' |
+    while read -r line_number temp_pub_key; do
+        error_msg="Invalid public key format at line $line_number"
+        echo -n "$line_number "
+        ssh-keygen -lf "$temp_pub_key"
+    done |
 # line_number key_bits fingerprint comment key_type
 awk '
 function MSG(level, msg) {
@@ -197,32 +207,32 @@ PROGRESS "Validating private keys from secret"
 # Extract private keys data from secret
 error_msg="Failed to extract private keys data from secret: $priv_secret"
 kubectl get secret "$priv_secret" -n "$namespace" -o json |
-jq -r '.data'   |
-tee "$tmpd/priv_keys_data.json" >&3
+    jq -r '.data' |
+    tee "$tmpd/priv_keys_data.json" >&3
 
 error_msg="Failed to validate private keys data format"
-jq -r 'keys[]' "$tmpd/priv_keys_data.json"  |
+jq -r 'keys[]' "$tmpd/priv_keys_data.json" |
 while read -r key_name ; do
     kfile="$tmpd/priv_keys_data.$key_name"
 
     error_msg="Failed to extract private key for $key_name"
     jq -r ".$key_name|@base64d" "$tmpd/priv_keys_data.json" |
-    tee "$kfile" >&3
+        tee "$kfile" >&3
 
     pfile="$kfile.pub"
     ssh-keygen -y -f "$kfile" |
-    tee "$pfile" >&3 || {
+        tee "$pfile" >&3 || {
         # Check if the extracted data is actually a private key
         MSG "NOTICE Skipping $key_name - not a valid SSH private key"
         continue
     }
 
     ifile="$kfile.info"
-    ssh-keygen -lf "$pfile"   |
-    tee "$ifile" >&3
+    ssh-keygen -lf "$pfile" |
+        tee "$ifile" >&3
 
     echo "$key_name" "$(cat "$ifile")"
-done    |
+done |
 awk '
 function MSG(level, msg) {
     print "'"$pname pid:$$ stime:$stime etime:$(date +%Y%m%d%H%M%S%Z) "'" level ": " msg > "/dev/fd/3"

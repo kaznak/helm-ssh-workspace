@@ -42,11 +42,62 @@ spec:
       # Pod security context
       securityContext:
         {{- toYaml .Values.mainPodSecurityContext | nindent 8 }}
+      {{- if .Values.userManagement.configMapBased.enabled }}
+      # Init container for ConfigMap-based user management [see:U4N8-USERDB]
+      initContainers:
+        - name: init-users
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Init container requires root for /etc file modification
+          securityContext:
+            {{- toYaml .Values.initSecurityContext | nindent 12 }}
+          command:
+            - /opt/ssh-workspace/bin/init-users.sh
+          args:
+            - /etc-new
+          env:
+            - name: USER_CONFIG_DIR
+              value: "/config/users"
+            - name: SSH_USERNAME
+              value: {{ .Values.user.name | quote }}
+            - name: SSH_UID
+              value: {{ .Values.user.uid | quote }}
+            - name: SSH_GID
+              value: {{ .Values.user.gid | quote }}
+          volumeMounts:
+            # User configuration from ConfigMap
+            - name: user-config
+              mountPath: /config/users
+              readOnly: true
+            # Shared /etc volume for user database
+            - name: etc-overlay
+              mountPath: /etc-new
+            # Home directory mount for ownership setup
+            - name: home
+              mountPath: /home/{{ .Values.user.name }}
+            # Skeleton files directory for container tools setup
+            - name: skel-overlay
+              mountPath: /etc/skel
+          resources:
+            {{- toYaml .Values.jobResources.userInit | nindent 12 }}
+      {{- end }}
       containers:
         - name: {{ .Chart.Name }}
           # Container security context
           securityContext:
+            {{- if .Values.userManagement.configMapBased.enabled }}
+            # Enhanced security for ConfigMap-based user management
+            runAsUser: {{ .Values.user.uid }}
+            runAsGroup: {{ .Values.user.gid }}
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: false  # SSH needs to write to user home
+            {{- else }}
+            # Fallback to root mode if ConfigMap mode not enabled
             {{- toYaml .Values.mainSecurityContext | nindent 12 }}
+            {{- end }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # Environment variables for user configuration [see:Y4F1-USER]
@@ -60,8 +111,6 @@ spec:
             - name: SSH_PORT
               value: {{ .Values.ssh.port | quote }}
             # Container tools configuration [see:H9L2-PODMAN]
-            - name: CONTAINER_TOOLS_ENABLED
-              value: {{ .Values.containerTools.enabled | quote }}
           # Override entrypoint to run SSH server startup script
           command:
             - /opt/ssh-workspace/bin/start-ssh-server.sh
@@ -106,6 +155,27 @@ spec:
               {{- if and (eq .Values.homeDirectory.type "persistentVolume") .Values.homeDirectory.persistentVolume.subPath }}
               subPath: {{ .Values.homeDirectory.persistentVolume.subPath }}
               {{- end }}
+            {{- if .Values.userManagement.configMapBased.enabled }}
+            # Mount individual user database files from init container [see:U4N8-USERDB]
+            - name: etc-overlay
+              mountPath: /etc/passwd
+              subPath: passwd
+            - name: etc-overlay
+              mountPath: /etc/group
+              subPath: group
+            - name: etc-overlay
+              mountPath: /etc/shadow
+              subPath: shadow
+            - name: etc-overlay
+              mountPath: /etc/subuid
+              subPath: subuid
+            - name: etc-overlay
+              mountPath: /etc/subgid
+              subPath: subgid
+            {{- end }}
+            # Skeleton files directory for container tools
+            - name: skel-overlay
+              mountPath: /etc/skel
             # SSH host keys mount (read from mounted secrets)
             - name: ssh-host-keys
               mountPath: /mnt/ssh-host-keys
@@ -149,6 +219,18 @@ spec:
         - name: ssh-private-keys
           secret:
             secretName: {{ .Values.ssh.privateKeys.secretName | default (printf "%s-ssh-privkeys" (include "ssh-workspace.fullname" .)) }}
+        {{- end }}
+        {{- if .Values.userManagement.configMapBased.enabled }}
+        # User configuration from ConfigMap [see:U4N8-USERDB]
+        - name: user-config
+          configMap:
+            name: {{ include "ssh-workspace.fullname" . }}-users
+        # Shared /etc volume for user database
+        - name: etc-overlay
+          emptyDir: {}
+        # Skeleton files overlay for container tools
+        - name: skel-overlay
+          emptyDir: {}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

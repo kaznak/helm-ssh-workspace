@@ -25,8 +25,11 @@ BEFORE_EXIT() {
 
 ERROR_HANDLER() {
     error_status=$?
-    MSG "ERROR at line $1: $error_msg"
-    exit $error_status
+    MSG "line:$1 ERROR status ${PIPESTATUS[@]}"
+    [[ "$error_msg" ]] && MSG "$error_msg"
+    touch "$tmpd/ERROR"    # for child process error detection
+    MSG "line:$1 EXIT with error."
+    exit 1        # root process trigger BEFORE_EXIT function
 }
 
 trap 'BEFORE_EXIT' EXIT
@@ -54,40 +57,42 @@ PROGRESS "バージョン番号抽出"
 
 error_msg="Failed to extract Helm Chart version"
 grep '^version:' "$based/helm/Chart.yaml" |
-sed 's/version: *//g' |
-# バージョン種別を付与
-sed 's/$/ Helm Chart version/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/version: *//g' |
+    # バージョン種別を付与
+    sed 's/$/ Helm Chart version/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 error_msg="Failed to extract Helm App version"
 grep '^appVersion:' "$based/helm/Chart.yaml" |
-sed 's/appVersion: *"*//g' |
-sed 's/"*$//g' |
-# バージョン種別を付与
-sed 's/$/ Helm App version/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/appVersion: *"*//g' |
+    sed 's/"*$//g' |
+    # バージョン種別を付与
+    sed 's/$/ Helm App version/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 error_msg="Failed to extract Helm image tag"
 grep '  tag:' "$based/helm/values.yaml" |
-sed 's/.*tag: *"*//g' | sed 's/"*$//g' | sed 's/^v//g' |
-# バージョン種別を付与
-sed 's/$/ Helm image tag/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/.*tag: *"*//g' |
+    sed 's/"*$//g' |
+    sed 's/^v//g' |
+    # バージョン種別を付与
+    sed 's/$/ Helm image tag/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 error_msg="Failed to extract README version"
 grep -- '--version' "$based/README.md" |
-sed 's/.*--version *//g' |
-sed 's/ .*//g' |
-# バージョン種別を付与
-sed 's/$/ README version/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/.*--version *//g' |
+    sed 's/ .*//g' |
+    # バージョン種別を付与
+    sed 's/$/ README version/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 PROGRESS "不整合チェック"
 
 awk -F' ' '{print $1}' "$tmpd/version_summary.txt" |
-sort -u |
-wc -l |
-tee "$logd/version_count.txt" >&3
+    sort -u |
+    wc -l |
+    tee "$logd/version_count.txt" >&3
 error_msg="ERROR ❌ バージョン番号が一致していません"
 [ $(cat "$logd/version_count.txt") -eq 1 ]
 

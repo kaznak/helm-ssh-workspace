@@ -1,0 +1,38 @@
+{{- if .Values.userManagement.configMapBased.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "ssh-workspace.fullname" . }}-users
+  labels:
+    {{- include "ssh-workspace.labels" . | nindent 4 }}
+data:
+  # User database entries (passwd format)
+  passwd: |
+    {{- range .Values.userManagement.configMapBased.users }}
+    {{ .name }}:x:{{ .uid }}:{{ .gid }}:{{ .comment | default .name }}:{{ .home | default (printf "/home/%s" .name) }}:{{ .shell | default "/bin/bash" }}
+    {{- end }}
+  
+  # Group database entries (group format)
+  group: |
+    {{- range .Values.userManagement.configMapBased.groups }}
+    {{ .name }}:x:{{ .gid }}:{{ .members | default "" }}
+    {{- end }}
+  
+  # Shadow database entries (shadow format) - for compatibility
+  shadow: |
+    {{- range .Values.userManagement.configMapBased.users }}
+    {{ .name }}:*:19000:0:99999:7:::
+    {{- end }}
+  
+  # Subuid entries for Podman rootless operation
+  subuid: |
+    {{- range .Values.userManagement.configMapBased.users }}
+    {{ .name }}:100000:65536
+    {{- end }}
+  
+  # Subgid entries for Podman rootless operation
+  subgid: |
+    {{- range .Values.userManagement.configMapBased.users }}
+    {{ .name }}:100000:65536
+    {{- end }}
+{{- end }}

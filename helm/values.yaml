@@ -7,7 +7,7 @@
 image:
   repository: ghcr.io/kaznak/ssh-workspace
   pullPolicy: Always  # Default for production, overridden locally
-  tag: "v0.7.6"
+  tag: "v0.7.7"
 
 # Image pull secrets
 imagePullSecrets: []
@@ -68,6 +68,26 @@ user:
 containerTools:
   # Enable Podman and related container tools
   enabled: true
+
+# User management configuration [see:U4N8-USERDB]
+userManagement:
+  # ConfigMap-based user management (NIS-style approach)
+  configMapBased:
+    # Enable ConfigMap-based user management for enhanced security
+    enabled: true
+    # User definitions
+    users:
+      - name: developer
+        uid: 1000
+        gid: 1000
+        comment: "Developer User"
+        home: "/home/developer"
+        shell: "/bin/bash"
+    # Group definitions
+    groups:
+      - name: developer
+        gid: 1000
+        members: ""
 
 # Service configuration
 service:
@@ -137,14 +157,38 @@ jobResources:
       memory: 32Mi
       ephemeral-storage: 50Mi
 
-# Security context for main SSH workspace container (requires root for user management)
+  # User initialization job (ConfigMap-based user management)
+  userInit:
+    limits:
+      cpu: 100m
+      memory: 128Mi
+      ephemeral-storage: 500Mi
+    requests:
+      cpu: 25m
+      memory: 32Mi
+      ephemeral-storage: 50Mi
+
+# Security context for main SSH workspace container
 mainSecurityContext:
+  # When userManagement.configMapBased.enabled=true, runs as non-root
+  # When userManagement.configMapBased.enabled=false, requires root for user management
   runAsUser: 0
   runAsGroup: 0
   runAsNonRoot: false
   allowPrivilegeEscalation: true
   capabilities:
     add: ["CHOWN", "DAC_OVERRIDE"]
+
+# Security context for init container (ConfigMap-based user management)
+initSecurityContext:
+  runAsUser: 0
+  runAsGroup: 0
+  runAsNonRoot: false
+  allowPrivilegeEscalation: false  # No privilege escalation needed
+  capabilities:
+    drop: ["ALL"]
+    add: ["CHOWN", "DAC_OVERRIDE"]  # Minimal permissions for /etc modification
+  readOnlyRootFilesystem: false    # /etc modification required
 
 # Security context for job containers (temporarily using root for Dropbear key operations)
 jobSecurityContext:

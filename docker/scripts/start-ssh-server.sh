@@ -26,8 +26,11 @@ BEFORE_EXIT() {
 
 ERROR_HANDLER() {
     error_status=$?
-    MSG "ERROR at line $1: $error_msg"
-    exit $error_status
+    MSG "line:$1 ERROR status ${PIPESTATUS[@]}"
+    [[ "$error_msg" ]] && MSG "$error_msg"
+    touch "$tmpd/ERROR"    # for child process error detection
+    MSG "line:$1 EXIT with error."
+    exit 1        # root process trigger BEFORE_EXIT function
 }
 
 trap 'BEFORE_EXIT' EXIT
@@ -55,7 +58,6 @@ SSH_PORT="${SSH_PORT:-2222}"
 HOME_DIR="/home/${USERNAME}"
 SSH_DIR="${HOME_DIR}/.ssh"
 DROPBEAR_DIR="${SSH_DIR}/dropbear"
-CONTAINER_TOOLS_ENABLED="${CONTAINER_TOOLS_ENABLED:-true}"
 
 PROGRESS "SSH Workspace Complete Setup"
 MSG "Username: ${USERNAME}"
@@ -72,42 +74,29 @@ PROGRESS "Phase 1: User and Environment Setup"
 PROGRESS "Setting up skeleton files"
 error_msg="Failed to setup skeleton files"
 
-# Setup Podman skeleton files if enabled
-if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
-    MSG "Podman skeleton files skipped (disabled via containerTools settings)"
-else
-    MSG "Setting up Podman skeleton files"
-    
-    # Create directories
-    mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
-    
-    # Copy podman configuration files from templates
-    cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
-    cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
-    chmod +x /etc/skel/.local/bin/docker
-    
-    # Append podman configuration to bashrc
-    cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
-    
-    MSG "Podman skeleton files configured"
+MSG "Skeleton files setup handled by init container"
+
+# ConfigMap-based user management - verify user exists
+MSG "ConfigMap-based user management - users configured by init container"
+if ! getent passwd "${USERNAME}" >/dev/null 2>&1; then
+    error_msg="User ${USERNAME} not found in user database"
+    exit 1
 fi
+MSG "User ${USERNAME} validated successfully"
 
-# グループ作成
-PROGRESS "Creating user and group"
-MSG "Creating group ${USERNAME} with GID ${USER_GID}"
-error_msg="Failed to create group ${USERNAME}"
-groupadd -g "${USER_GID}" "${USERNAME}"
-
-# ユーザ作成
-MSG "Creating user ${USERNAME} with UID ${USER_UID}"
-error_msg="Failed to create user ${USERNAME}"
-# ホームディレクトリの存在確認
+# Initialize home directory if empty
+PROGRESS "Checking home directory initialization"
 if [[ -d "${HOME_DIR}" ]] && [[ -n "$(ls -A "${HOME_DIR}" 2>/dev/null || true)" ]]; then
-    MSG "Home directory exists with files, creating user without -m option (skipping skeleton files to avoid overwriting)"
-    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}"
+    MSG "Home directory exists with files, skipping skeleton file initialization"
 else
-    MSG "Home directory empty or non-existent, creating user with -m option to copy skeleton files"
-    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash -m "${USERNAME}"
+    MSG "Home directory empty or non-existent, initializing with skeleton files"
+    
+    # Create home directory and copy skeleton files
+    mkdir -p "${HOME_DIR}"
+    cp -r /etc/skel/. "${HOME_DIR}/"
+    MSG "Skeleton files copied from /etc/skel"
+    chown -R "${USER_UID}:${USER_GID}" "${HOME_DIR}"
+    MSG "Home directory ownership set to ${USER_UID}:${USER_GID}"
 fi
 
 # SSHディレクトリ作成
@@ -170,22 +159,7 @@ chmod 755 "${HOME_DIR}"
 MSG "Home directory permissions set to 755 for Dropbear requirements"
 
 # Podman設定 [see:H9L2-PODMAN]
-if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
-    MSG "Podman configuration skipped (disabled via containerTools settings)"
-else
-    PROGRESS "Setting up Podman environment"
-    error_msg="Failed to setup Podman environment"
-
-    # Setup subuid/subgid for the user using usermod
-    MSG "Setting up subuid/subgid for Podman rootless operation"
-    
-    error_msg="Failed to setup subuid for user ${USERNAME}"
-    usermod --add-subuids 100000-165535 "${USERNAME}"
-    error_msg="Failed to setup subgid for user ${USERNAME}"
-    usermod --add-subgids 100000-165535 "${USERNAME}"
-    
-    MSG "Podman environment configured"
-fi
+MSG "Podman environment setup handled by init container"
 
 # セットアップ検証
 PROGRESS "Setup Verification"
@@ -221,9 +195,7 @@ error_msg="Authorized keys not found at ${AUTHORIZED_KEYS}. SSH workspace requir
 MSG "Authorized keys found at ${AUTHORIZED_KEYS}"
 
 # Dropbear起動
-PROGRESS "Switching to user ${USERNAME} (${USER_UID}:${USER_GID}) to start Dropbear"
+PROGRESS "Starting Dropbear SSH server as user ${USERNAME} (${USER_UID}:${USER_GID})"
 MSG "Command: dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}"
-
-# 指定ユーザでdropbear実行
 error_msg="Failed to start Dropbear SSH server"
-exec su -c "exec dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}" "${USERNAME}"
+exec dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}
