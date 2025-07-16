@@ -53,6 +53,9 @@ spec:
             {{- toYaml .Values.initSecurityContext | nindent 12 }}
           command:
             - /opt/ssh-workspace/bin/init-users.sh
+          args:
+            - --etc-target=/etc
+            - --etc-source=/etc
           env:
             - name: USER_CONFIG_DIR
               value: "/config/users"
