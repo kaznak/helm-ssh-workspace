@@ -49,7 +49,7 @@ PROGRESS "Merging ConfigMap user data with existing system users"
 PROGRESS "Processing $USER_CONFIG_DIR/passwd -> /etc/passwd"
 error_msg="Failed to merge and sort /etc/passwd and $USER_CONFIG_DIR/passwd"
 cat "/etc/passwd" "$USER_CONFIG_DIR/passwd" |
-    sort -t: -k1,1 > "/etc/passwd.tmp"
+    sort -t: -k3,3n > "/etc/passwd.tmp"
 
 # Check for duplicate usernames (field 1)
 duplicates_file="/etc/passwd.tmp.duplicates.username"
@@ -88,7 +88,7 @@ MSG "Successfully merged /etc/passwd"
 PROGRESS "Processing $USER_CONFIG_DIR/group -> /etc/group"
 error_msg="Failed to merge and sort /etc/group and $USER_CONFIG_DIR/group"
 cat "/etc/group" "$USER_CONFIG_DIR/group" |
-    sort -t: -k1,1 > "/etc/group.tmp"
+    sort -t: -k3,3n > "/etc/group.tmp"
 
 # Check for duplicate group names (field 1)
 duplicates_file="/etc/group.tmp.duplicates.groupname"
