@@ -75,25 +75,7 @@ PROGRESS "Phase 1: User and Environment Setup"
 PROGRESS "Setting up skeleton files"
 error_msg="Failed to setup skeleton files"
 
-# Setup Podman skeleton files if enabled
-if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
-    MSG "Podman skeleton files skipped (disabled via containerTools settings)"
-else
-    MSG "Setting up Podman skeleton files"
-    
-    # Create directories
-    mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
-    
-    # Copy podman configuration files from templates
-    cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
-    cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
-    chmod +x /etc/skel/.local/bin/docker
-    
-    # Append podman configuration to bashrc
-    cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
-    
-    MSG "Podman skeleton files configured"
-fi
+MSG "Skeleton files setup handled by init container"
 
 # ConfigMap-based user management - verify user exists
 MSG "ConfigMap-based user management - users configured by init container"
