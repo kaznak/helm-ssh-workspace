@@ -58,7 +58,6 @@ SSH_PORT="${SSH_PORT:-2222}"
 HOME_DIR="/home/${USERNAME}"
 SSH_DIR="${HOME_DIR}/.ssh"
 DROPBEAR_DIR="${SSH_DIR}/dropbear"
-CONTAINER_TOOLS_ENABLED="${CONTAINER_TOOLS_ENABLED:-true}"
 
 PROGRESS "SSH Workspace Complete Setup"
 MSG "Username: ${USERNAME}"
@@ -160,11 +159,7 @@ chmod 755 "${HOME_DIR}"
 MSG "Home directory permissions set to 755 for Dropbear requirements"
 
 # Podman設定 [see:H9L2-PODMAN]
-if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
-    MSG "Podman configuration skipped (disabled via containerTools settings)"
-else
-    MSG "Podman environment setup handled by init container"
-fi
+MSG "Podman environment setup handled by init container"
 
 # セットアップ検証
 PROGRESS "Setup Verification"

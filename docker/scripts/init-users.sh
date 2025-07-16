@@ -76,18 +76,16 @@ for file in passwd group shadow; do
     [[ -f "$USER_CONFIG_DIR/$file" ]]
 done
 
-# Check for optional subuid/subgid files if container tools are enabled
-if [[ "${CONTAINER_TOOLS_ENABLED:-true}" == "true" ]]; then
-    # Check subuid file exists
-    error_msg="Optional file check failed: $USER_CONFIG_DIR/subuid"
-    [[ -f "$USER_CONFIG_DIR/subuid" ]] && MSG "Found: $USER_CONFIG_DIR/subuid" || MSG "Optional file: $USER_CONFIG_DIR/subuid (will be created if needed)"
-    
-    # Check subgid file exists
-    error_msg="Optional file check failed: $USER_CONFIG_DIR/subgid"
-    [[ -f "$USER_CONFIG_DIR/subgid" ]] && MSG "Found: $USER_CONFIG_DIR/subgid" || MSG "Optional file: $USER_CONFIG_DIR/subgid (will be created if needed)"
-    
-    error_msg=""
-fi
+# Check for optional subuid/subgid files for container tools
+# Check subuid file exists
+error_msg="Optional file check failed: $USER_CONFIG_DIR/subuid"
+[[ -f "$USER_CONFIG_DIR/subuid" ]] && MSG "Found: $USER_CONFIG_DIR/subuid" || MSG "Optional file: $USER_CONFIG_DIR/subuid (will be created if needed)"
+
+# Check subgid file exists
+error_msg="Optional file check failed: $USER_CONFIG_DIR/subgid"
+[[ -f "$USER_CONFIG_DIR/subgid" ]] && MSG "Found: $USER_CONFIG_DIR/subgid" || MSG "Optional file: $USER_CONFIG_DIR/subgid (will be created if needed)"
+
+error_msg=""
 
 # Initialize target /etc files by copying from source (required for emptyDir)
 PROGRESS "Initializing target /etc files by copying from source"
@@ -229,22 +227,20 @@ error_msg="Failed to replace $ETC_TARGET/shadow"
 mv "$ETC_TARGET/shadow.tmp" "$ETC_TARGET/shadow"
 MSG "Successfully merged $ETC_TARGET/shadow"
 
-# Merge subuid/subgid files if container tools are enabled
-if [[ "${CONTAINER_TOOLS_ENABLED:-true}" == "true" ]]; then
-    # Merge subuid file
-    PROGRESS "Processing $USER_CONFIG_DIR/subuid -> $ETC_TARGET/subuid"
-    error_msg="Failed to merge subuid file"
-    cp "$ETC_SOURCE/subuid" "$ETC_TARGET/subuid" || true
-    cat "$USER_CONFIG_DIR/subuid" >> "$ETC_TARGET/subuid" || true
-    MSG "Successfully merged $ETC_TARGET/subuid"
-    
-    # Merge subgid file
-    PROGRESS "Processing $USER_CONFIG_DIR/subgid -> $ETC_TARGET/subgid"
-    error_msg="Failed to merge subgid file"
-    cp "$ETC_SOURCE/subgid" "$ETC_TARGET/subgid" || true
-    cat "$USER_CONFIG_DIR/subgid" >> "$ETC_TARGET/subgid" || true
-    MSG "Successfully merged $ETC_TARGET/subgid"
-fi
+# Merge subuid/subgid files for container tools
+# Merge subuid file
+PROGRESS "Processing $USER_CONFIG_DIR/subuid -> $ETC_TARGET/subuid"
+error_msg="Failed to merge subuid file"
+cp "$ETC_SOURCE/subuid" "$ETC_TARGET/subuid" || true
+cat "$USER_CONFIG_DIR/subuid" >> "$ETC_TARGET/subuid" || true
+MSG "Successfully merged $ETC_TARGET/subuid"
+
+# Merge subgid file
+PROGRESS "Processing $USER_CONFIG_DIR/subgid -> $ETC_TARGET/subgid"
+error_msg="Failed to merge subgid file"
+cp "$ETC_SOURCE/subgid" "$ETC_TARGET/subgid" || true
+cat "$USER_CONFIG_DIR/subgid" >> "$ETC_TARGET/subgid" || true
+MSG "Successfully merged $ETC_TARGET/subgid"
 
 # Set proper permissions
 PROGRESS "Setting proper file permissions"
@@ -256,28 +252,23 @@ chmod 600 $ETC_TARGET/shadow
 PROGRESS "Setting up skeleton files for container tools"
 error_msg="Failed to setup skeleton files"
 
-# Check if container tools are enabled
-if [[ "${CONTAINER_TOOLS_ENABLED:-true}" != "true" ]]; then
-    MSG "Container tools skeleton files skipped (disabled via containerTools settings)"
-else
-    MSG "Setting up container tools skeleton files"
-    
-    # Initialize skeleton directory with base files
-    cp -r /etc/skel-orig/. /etc/skel/
-    
-    # Create skeleton directories
-    mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
-    
-    # Copy container tools configuration files from templates
-    cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
-    cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
-    chmod +x /etc/skel/.local/bin/docker
-    
-    # Append container tools configuration to bashrc
-    cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
-    
-    MSG "Container tools skeleton files configured"
-fi
+MSG "Setting up container tools skeleton files"
+
+# Initialize skeleton directory with base files
+cp -r /etc/skel-orig/. /etc/skel/
+
+# Create skeleton directories
+mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
+
+# Copy container tools configuration files from templates
+cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
+cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
+chmod +x /etc/skel/.local/bin/docker
+
+# Append container tools configuration to bashrc
+cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
+
+MSG "Container tools skeleton files configured"
 
 # Validate the merged files
 PROGRESS "Validating merged user database files"

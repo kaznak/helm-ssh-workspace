@@ -58,8 +58,6 @@ spec:
           env:
             - name: USER_CONFIG_DIR
               value: "/config/users"
-            - name: CONTAINER_TOOLS_ENABLED
-              value: {{ .Values.containerTools.enabled | quote }}
             - name: SSH_USERNAME
               value: {{ .Values.user.name | quote }}
             - name: SSH_UID
@@ -113,8 +111,6 @@ spec:
             - name: SSH_PORT
               value: {{ .Values.ssh.port | quote }}
             # Container tools configuration [see:H9L2-PODMAN]
-            - name: CONTAINER_TOOLS_ENABLED
-              value: {{ .Values.containerTools.enabled | quote }}
           # Override entrypoint to run SSH server startup script
           command:
             - /opt/ssh-workspace/bin/start-ssh-server.sh
@@ -170,7 +166,6 @@ spec:
             - name: etc-overlay
               mountPath: /etc/shadow
               subPath: shadow
-            {{- if .Values.containerTools.enabled }}
             - name: etc-overlay
               mountPath: /etc/subuid
               subPath: subuid
@@ -178,12 +173,9 @@ spec:
               mountPath: /etc/subgid
               subPath: subgid
             {{- end }}
-            {{- end }}
-            {{- if .Values.containerTools.enabled }}
             # Skeleton files directory for container tools
             - name: skel-overlay
               mountPath: /etc/skel
-            {{- end }}
             # SSH host keys mount (read from mounted secrets)
             - name: ssh-host-keys
               mountPath: /mnt/ssh-host-keys
@@ -236,11 +228,9 @@ spec:
         # Shared /etc volume for user database
         - name: etc-overlay
           emptyDir: {}
-        {{- if .Values.containerTools.enabled }}
         # Skeleton files overlay for container tools
         - name: skel-overlay
           emptyDir: {}
-        {{- end }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
