@@ -169,12 +169,13 @@ cut -d: -f1 "$ETC_TARGET/group.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^" $1 ":"}' |
-    { grep -f - "/etc/group.tmp" || true; } |
+    { grep -f - "$ETC_TARGET/group.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
 error_msg="Duplicate group names found in $ETC_TARGET/group"
 [[ ! -s "$duplicates_file" ]]
+error_msg=""
 
 # Check for duplicate GIDs (field 3)
 duplicates_file="$ETC_TARGET/group.tmp.duplicates.gid"
@@ -183,12 +184,13 @@ cut -d: -f3 "$ETC_TARGET/group.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^[^:]*:[^:]*:" $1 ":"}' |
-    { grep -f - "/etc/group.tmp" || true; } |
+    { grep -f - "$ETC_TARGET/group.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
 error_msg="Duplicate GIDs found in $ETC_TARGET/group"
 [[ ! -s "$duplicates_file" ]]
+error_msg=""
 
 # Replace original file
 error_msg="Failed to replace $ETC_TARGET/group"
@@ -214,6 +216,7 @@ cut -d: -f1 "$ETC_TARGET/shadow.tmp" |
 # Check if duplicates were found and handle error
 error_msg="Duplicate usernames found in $ETC_TARGET/shadow"
 [[ ! -s "$duplicates_file" ]]
+error_msg=""
 
 # Replace original file
 error_msg="Failed to replace $ETC_TARGET/shadow"
