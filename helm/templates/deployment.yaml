@@ -59,11 +59,11 @@ spec:
             - name: USER_CONFIG_DIR
               value: "/config/users"
             - name: SSH_USERNAME
-              value: {{ .Values.user.name | quote }}
+              value: {{ include "ssh-workspace.primaryUsername" . | quote }}
             - name: SSH_UID
-              value: {{ .Values.user.uid | quote }}
+              value: {{ include "ssh-workspace.primaryUserUID" . | quote }}
             - name: SSH_GID
-              value: {{ .Values.user.gid | quote }}
+              value: {{ include "ssh-workspace.primaryUserGID" . | quote }}
           volumeMounts:
             # User configuration from ConfigMap
             - name: user-config
@@ -74,7 +74,7 @@ spec:
               mountPath: /etc-new
             # Home directory mount for ownership setup
             - name: home
-              mountPath: /home/{{ .Values.user.name }}
+              mountPath: {{ include "ssh-workspace.primaryUserHome" . }}
             # Skeleton files directory for container tools setup
             - name: skel-overlay
               mountPath: /etc/skel
@@ -87,8 +87,8 @@ spec:
           securityContext:
             {{- if .Values.userManagement.configMapBased.enabled }}
             # Enhanced security for ConfigMap-based user management
-            runAsUser: {{ .Values.user.uid }}
-            runAsGroup: {{ .Values.user.gid }}
+            runAsUser: {{ include "ssh-workspace.primaryUserUID" . }}
+            runAsGroup: {{ include "ssh-workspace.primaryUserGID" . }}
             runAsNonRoot: true
             allowPrivilegeEscalation: false
             capabilities:
@@ -103,11 +103,11 @@ spec:
           # Environment variables for user configuration [see:Y4F1-USER]
           env:
             - name: SSH_USERNAME
-              value: {{ .Values.user.name | quote }}
+              value: {{ include "ssh-workspace.primaryUsername" . | quote }}
             - name: SSH_UID
-              value: {{ .Values.user.uid | quote }}
+              value: {{ include "ssh-workspace.primaryUserUID" . | quote }}
             - name: SSH_GID
-              value: {{ .Values.user.gid | quote }}
+              value: {{ include "ssh-workspace.primaryUserGID" . | quote }}
             - name: SSH_PORT
               value: {{ .Values.ssh.port | quote }}
             # Container tools configuration [see:H9L2-PODMAN]
@@ -151,7 +151,7 @@ spec:
           volumeMounts:
             # Home directory mount [see:V5Q3-HOME]
             - name: home
-              mountPath: /home/{{ .Values.user.name }}
+              mountPath: {{ include "ssh-workspace.primaryUserHome" . }}
               {{- if and (eq .Values.homeDirectory.type "persistentVolume") .Values.homeDirectory.persistentVolume.subPath }}
               subPath: {{ .Values.homeDirectory.persistentVolume.subPath }}
               {{- end }}

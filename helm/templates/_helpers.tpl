@@ -60,3 +60,46 @@ Create the name of the service account to use
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
 {{- end }}
+
+{{/*
+Get the primary SSH user from userManagement configuration
+*/}}
+{{- define "ssh-workspace.primaryUser" -}}
+{{- if and .Values.userManagement.configMapBased.enabled .Values.userManagement.configMapBased.users }}
+{{- index .Values.userManagement.configMapBased.users 0 | toYaml }}
+{{- else }}
+{{- dict "name" "developer" "uid" 1000 "gid" 1000 "home" "/home/developer" | toYaml }}
+{{- end }}
+{{- end }}
+
+{{/*
+Get the primary SSH username
+*/}}
+{{- define "ssh-workspace.primaryUsername" -}}
+{{- $user := include "ssh-workspace.primaryUser" . | fromYaml }}
+{{- $user.name }}
+{{- end }}
+
+{{/*
+Get the primary SSH user UID
+*/}}
+{{- define "ssh-workspace.primaryUserUID" -}}
+{{- $user := include "ssh-workspace.primaryUser" . | fromYaml }}
+{{- $user.uid }}
+{{- end }}
+
+{{/*
+Get the primary SSH user GID
+*/}}
+{{- define "ssh-workspace.primaryUserGID" -}}
+{{- $user := include "ssh-workspace.primaryUser" . | fromYaml }}
+{{- $user.gid }}
+{{- end }}
+
+{{/*
+Get the primary SSH user home directory
+*/}}
+{{- define "ssh-workspace.primaryUserHome" -}}
+{{- $user := include "ssh-workspace.primaryUser" . | fromYaml }}
+{{- $user.home | default (printf "/home/%s" $user.name) }}
+{{- end }}

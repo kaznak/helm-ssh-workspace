@@ -70,6 +70,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Text viewing and file management
     less \
     stow \
+    # Terminal multiplexers
+    tmux \
+    screen \
     # Recommended packages from ubuntu-standard that we need
     nano \
     openssh-client \
