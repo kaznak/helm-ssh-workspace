@@ -115,16 +115,8 @@ COPY docker/configs/containers/registries.conf /etc/containers/registries.conf
 # Copy management scripts and templates [see:D8M4-SCRIPT]
 COPY docker/scripts/* /opt/ssh-workspace/bin/
 COPY docker/templates/ /opt/ssh-workspace/templates/
-
-# Setup skeleton files for container tools [see:H9L2-PODMAN]
 RUN chmod +x /opt/ssh-workspace/bin/* && \
-    chmod +x /opt/ssh-workspace/templates/skel/.local/bin/docker && \
-    # Setup Podman skeleton files
-    mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin && \
-    cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh && \
-    cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker && \
-    chmod +x /etc/skel/.local/bin/docker && \
-    cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
+    chmod +x /opt/ssh-workspace/templates/skel/.local/bin/docker
 
 # Expose SSH port (non-privileged) [see:B3Q8-PORT]
 EXPOSE 2222
