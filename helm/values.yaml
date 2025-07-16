@@ -64,10 +64,7 @@ user:
   # Group ID [see:A9T3-GID]
   gid: 1000
 
-# Container tools configuration [see:H9L2-PODMAN]
-containerTools:
-  # Enable Podman and related container tools
-  enabled: true
+# Container tools (Podman) are always enabled and configured at build time [see:H9L2-PODMAN]
 
 # User management configuration [see:U4N8-USERDB]
 userManagement:
