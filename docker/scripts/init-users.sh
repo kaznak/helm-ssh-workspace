@@ -262,6 +262,9 @@ if [[ "${CONTAINER_TOOLS_ENABLED:-true}" != "true" ]]; then
 else
     MSG "Setting up container tools skeleton files"
     
+    # Initialize skeleton directory with base files
+    cp -r /etc/skel-orig/. /etc/skel/
+    
     # Create skeleton directories
     mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
     

@@ -106,7 +106,9 @@ ENV LANGUAGE=en_US:en
 ENV LC_ALL=en_US.UTF-8
 
 # Create directories for scripts and container environment [see:F5K3-SCRIPTPATH] [see:D8M4-SCRIPT] [see:H9L2-PODMAN]
-RUN mkdir -p /opt/ssh-workspace/bin /etc/dropbear /etc/containers
+RUN mkdir -p /opt/ssh-workspace/bin /etc/dropbear /etc/containers && \
+    # Backup original skeleton files for init container
+    cp -r /etc/skel /etc/skel-orig
 
 # Copy Podman configuration files (always installed for potential use)
 COPY docker/configs/containers/storage.conf /etc/containers/storage.conf

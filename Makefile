@@ -842,13 +842,13 @@ test-podman-in-ssh-workspace: prepare-test-env tmp/.k3d-image-loaded-sentinel
 	echo "Testing podman version..."; \
 	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- podman --version; \
 	echo "Testing docker alias..."; \
-	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- su - developer -c 'docker --version'; \
+	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- bash -c 'export PATH="/home/developer/.local/bin:$$PATH" && docker --version'; \
 	echo "Testing docker-compose command..."; \
-	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- su - developer -c 'docker-compose --version'; \
+	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- docker-compose --version; \
 	echo "Testing podman-compose command..."; \
-	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- su - developer -c 'podman-compose --version'; \
+	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- podman-compose --version; \
 	echo "Testing podman hello world..."; \
-	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- su - developer -c 'podman run --rm hello-world || echo "Note: hello-world test may fail in restricted environments"'; \
+	$(KUBECTL) exec -n ssh-workspace-podman-test "$$POD_NAME" -- bash -c 'podman run --rm hello-world || echo "Note: hello-world test may fail in restricted environments"'; \
 	echo "✅ Podman functionality test passed"
 	@echo "Cleaning up..."
 	@helm uninstall ssh-workspace-podman-test --namespace ssh-workspace-podman-test $(if $(KUBE_CONTEXT),--kube-context=$(KUBE_CONTEXT)) --wait || true

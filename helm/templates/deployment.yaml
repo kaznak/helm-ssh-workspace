@@ -77,6 +77,9 @@ spec:
             # Home directory mount for ownership setup
             - name: home
               mountPath: /home/{{ .Values.user.name }}
+            # Skeleton files directory for container tools setup
+            - name: skel-overlay
+              mountPath: /etc/skel
           resources:
             {{- toYaml .Values.jobResources.userInit | nindent 12 }}
       {{- end }}
@@ -167,6 +170,19 @@ spec:
             - name: etc-overlay
               mountPath: /etc/shadow
               subPath: shadow
+            {{- if .Values.containerTools.enabled }}
+            - name: etc-overlay
+              mountPath: /etc/subuid
+              subPath: subuid
+            - name: etc-overlay
+              mountPath: /etc/subgid
+              subPath: subgid
+            {{- end }}
+            {{- end }}
+            {{- if .Values.containerTools.enabled }}
+            # Skeleton files directory for container tools
+            - name: skel-overlay
+              mountPath: /etc/skel
             {{- end }}
             # SSH host keys mount (read from mounted secrets)
             - name: ssh-host-keys
@@ -220,6 +236,11 @@ spec:
         # Shared /etc volume for user database
         - name: etc-overlay
           emptyDir: {}
+        {{- if .Values.containerTools.enabled }}
+        # Skeleton files overlay for container tools
+        - name: skel-overlay
+          emptyDir: {}
+        {{- end }}
         {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
