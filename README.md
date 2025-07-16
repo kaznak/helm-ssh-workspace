@@ -76,7 +76,61 @@ persistence:
 
 MIT License
 
+## コンテナツールの使用について
+
+このSSHワークスペースには、Podman（Docker互換）が含まれています。
+
+### <span id="U3K7-ROOTLESS">[U3K7-ROOTLESS]</span> Rootless Podman の制限
+
+Podmanはrootlessモード（非特権ユーザ）で動作するため、以下の制限があります：
+
+- **ユーザネームスペースが必要**: ホストでユーザネームスペースが有効化されている必要があります
+- **共有マウントの制限**: 一部のマウント操作で警告が表示される場合があります
+
+### ユーザネームスペース設定
+
+#### Kubernetesクラスタでの設定
+
+**一般的なKubernetes:**
+```bash
+# ノード上でユーザネームスペースを有効化
+sysctl kernel.unprivileged_userns_clone=1
+sysctl user.max_user_namespaces=15000
+```
+
+**Talos Linux:**
+```yaml
+# talos-config.yaml
+machine:
+  sysctls:
+    kernel.unprivileged_userns_clone: "1"
+    user.max_user_namespaces: "15000"
+```
+
+設定後、クラスタノードの再起動が必要です。
+
+### トラブルシューティング
+
+**エラー例:**
+```
+cannot clone: Operation not permitted
+user namespaces are not enabled in /proc/sys/user/max_user_namespaces
+```
+
+**確認方法:**
+```bash
+# ユーザネームスペースの状態確認
+cat /proc/sys/user/max_user_namespaces
+# 0: 無効, >0: 有効
+```
+
+**回避策:**
+- クラスタ管理者にユーザネームスペース有効化を依頼
+- 代替手段としてKubernetes Job/Podでコンテナ操作を実行
+- 開発環境では別のコンテナランタイムを使用
+
 ## 参考情報
 
 - [Dropbear SSH](https://github.com/mkj/dropbear)
 - [Dropbear SSH Documentation](https://matt.ucc.asn.au/dropbear/dropbear.html)
+- [Podman Rootless Documentation](https://docs.podman.io/en/latest/markdown/podman.1.html#rootless-mode)
