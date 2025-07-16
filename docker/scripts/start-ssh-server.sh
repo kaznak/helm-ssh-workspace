@@ -94,10 +94,8 @@ else
     
     # Create home directory and copy skeleton files
     mkdir -p "${HOME_DIR}"
-    if [[ -d /etc/skel ]]; then
-        cp -r /etc/skel/. "${HOME_DIR}/"
-        MSG "Skeleton files copied from /etc/skel"
-    fi
+    cp -r /etc/skel/. "${HOME_DIR}/"
+    MSG "Skeleton files copied from /etc/skel"
     chown -R "${USER_UID}:${USER_GID}" "${HOME_DIR}"
     MSG "Home directory ownership set to ${USER_UID}:${USER_GID}"
 fi
