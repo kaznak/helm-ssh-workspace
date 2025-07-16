@@ -163,18 +163,7 @@ MSG "Home directory permissions set to 755 for Dropbear requirements"
 if [[ "${CONTAINER_TOOLS_ENABLED}" != "true" ]]; then
     MSG "Podman configuration skipped (disabled via containerTools settings)"
 else
-    PROGRESS "Setting up Podman environment"
-    error_msg="Failed to setup Podman environment"
-
-    # Setup subuid/subgid for the user using usermod
-    MSG "Setting up subuid/subgid for Podman rootless operation"
-    
-    error_msg="Failed to setup subuid for user ${USERNAME}"
-    usermod --add-subuids 100000-165535 "${USERNAME}"
-    error_msg="Failed to setup subgid for user ${USERNAME}"
-    usermod --add-subgids 100000-165535 "${USERNAME}"
-    
-    MSG "Podman environment configured"
+    MSG "Podman environment setup handled by init container"
 fi
 
 # セットアップ検証
@@ -211,7 +200,7 @@ error_msg="Authorized keys not found at ${AUTHORIZED_KEYS}. SSH workspace requir
 MSG "Authorized keys found at ${AUTHORIZED_KEYS}"
 
 # Dropbear起動
-PROGRESS "Switching to user ${USERNAME} (${USER_UID}:${USER_GID}) to start Dropbear"
+PROGRESS "Starting Dropbear SSH server as user ${USERNAME} (${USER_UID}:${USER_GID})"
 MSG "Command: dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}"
 error_msg="Failed to start Dropbear SSH server"
-exec su -c "exec dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}" "${USERNAME}"
+exec dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}

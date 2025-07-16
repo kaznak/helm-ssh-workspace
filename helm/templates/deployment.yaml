@@ -60,6 +60,12 @@ spec:
               value: "/config/users"
             - name: CONTAINER_TOOLS_ENABLED
               value: {{ .Values.containerTools.enabled | quote }}
+            - name: SSH_USERNAME
+              value: {{ .Values.user.name | quote }}
+            - name: SSH_UID
+              value: {{ .Values.user.uid | quote }}
+            - name: SSH_GID
+              value: {{ .Values.user.gid | quote }}
           volumeMounts:
             # User configuration from ConfigMap
             - name: user-config
@@ -68,6 +74,9 @@ spec:
             # Shared /etc volume for user database
             - name: etc-overlay
               mountPath: /etc-new
+            # Home directory mount for ownership setup
+            - name: home
+              mountPath: /home/{{ .Values.user.name }}
           resources:
             {{- toYaml .Values.jobResources.userInit | nindent 12 }}
       {{- end }}

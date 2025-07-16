@@ -76,6 +76,19 @@ for file in passwd group shadow; do
     [[ -f "$USER_CONFIG_DIR/$file" ]]
 done
 
+# Check for optional subuid/subgid files if container tools are enabled
+if [[ "${CONTAINER_TOOLS_ENABLED:-true}" == "true" ]]; then
+    # Check subuid file exists
+    error_msg="Optional file check failed: $USER_CONFIG_DIR/subuid"
+    [[ -f "$USER_CONFIG_DIR/subuid" ]] && MSG "Found: $USER_CONFIG_DIR/subuid" || MSG "Optional file: $USER_CONFIG_DIR/subuid (will be created if needed)"
+    
+    # Check subgid file exists
+    error_msg="Optional file check failed: $USER_CONFIG_DIR/subgid"
+    [[ -f "$USER_CONFIG_DIR/subgid" ]] && MSG "Found: $USER_CONFIG_DIR/subgid" || MSG "Optional file: $USER_CONFIG_DIR/subgid (will be created if needed)"
+    
+    error_msg=""
+fi
+
 # Initialize target /etc files by copying from source (required for emptyDir)
 PROGRESS "Initializing target /etc files by copying from source"
 MSG "Copying base system files from $ETC_SOURCE to $ETC_TARGET"
@@ -92,6 +105,7 @@ for file in passwd group shadow; do
     cp "$ETC_SOURCE/$file" "$ETC_TARGET/$file"
     MSG "Copied $ETC_SOURCE/$file to $ETC_TARGET/$file"
 done
+
 
 MSG "Base system files initialized in $ETC_TARGET"
 
@@ -215,6 +229,23 @@ error_msg="Failed to replace $ETC_TARGET/shadow"
 mv "$ETC_TARGET/shadow.tmp" "$ETC_TARGET/shadow"
 MSG "Successfully merged $ETC_TARGET/shadow"
 
+# Merge subuid/subgid files if container tools are enabled
+if [[ "${CONTAINER_TOOLS_ENABLED:-true}" == "true" ]]; then
+    # Merge subuid file
+    PROGRESS "Processing $USER_CONFIG_DIR/subuid -> $ETC_TARGET/subuid"
+    error_msg="Failed to merge subuid file"
+    cp "$ETC_SOURCE/subuid" "$ETC_TARGET/subuid" || true
+    cat "$USER_CONFIG_DIR/subuid" >> "$ETC_TARGET/subuid" || true
+    MSG "Successfully merged $ETC_TARGET/subuid"
+    
+    # Merge subgid file
+    PROGRESS "Processing $USER_CONFIG_DIR/subgid -> $ETC_TARGET/subgid"
+    error_msg="Failed to merge subgid file"
+    cp "$ETC_SOURCE/subgid" "$ETC_TARGET/subgid" || true
+    cat "$USER_CONFIG_DIR/subgid" >> "$ETC_TARGET/subgid" || true
+    MSG "Successfully merged $ETC_TARGET/subgid"
+fi
+
 # Set proper permissions
 PROGRESS "Setting proper file permissions"
 error_msg="Failed to set file permissions"
@@ -266,6 +297,24 @@ MSG "- Users added: $(wc -l < "$USER_CONFIG_DIR/passwd") entries"
 MSG "- Groups added: $(wc -l < "$USER_CONFIG_DIR/group") entries"
 MSG "- Total system users: $(wc -l < $ETC_TARGET/passwd) entries"
 MSG "- Total system groups: $(wc -l < $ETC_TARGET/group) entries"
+
+# Set up home directory ownership (required for emptyDir volumes)
+PROGRESS "Setting up home directory ownership for SSH user"
+error_msg="Failed to setup home directory ownership"
+
+# Get user info from ConfigMap
+SSH_USERNAME="${SSH_USERNAME:-developer}"
+SSH_UID="${SSH_UID:-1000}"
+SSH_GID="${SSH_GID:-1000}"
+HOME_DIR="/home/${SSH_USERNAME}"
+
+MSG "Setting up home directory for user: ${SSH_USERNAME} (${SSH_UID}:${SSH_GID})"
+MSG "Home directory path: ${HOME_DIR}"
+
+# Set ownership to the SSH user (init container runs as root)
+chown "${SSH_UID}:${SSH_GID}" "${HOME_DIR}"
+MSG "Set home directory ownership to ${SSH_UID}:${SSH_GID}"
+
 
 # Clear error message on success
 error_msg=""

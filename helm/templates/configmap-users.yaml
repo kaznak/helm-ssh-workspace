@@ -23,4 +23,18 @@ data:
     {{- range .Values.userManagement.configMapBased.users }}
     {{ .name }}:*:19000:0:99999:7:::
     {{- end }}
+  
+  {{- if .Values.containerTools.enabled }}
+  # Subuid entries for Podman rootless operation
+  subuid: |
+    {{- range .Values.userManagement.configMapBased.users }}
+    {{ .name }}:100000:65536
+    {{- end }}
+  
+  # Subgid entries for Podman rootless operation
+  subgid: |
+    {{- range .Values.userManagement.configMapBased.users }}
+    {{ .name }}:100000:65536
+    {{- end }}
+  {{- end }}
 {{- end }}
