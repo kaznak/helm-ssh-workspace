@@ -92,22 +92,29 @@ else
     MSG "Podman skeleton files configured"
 fi
 
-# グループ作成
-PROGRESS "Creating user and group"
-MSG "Creating group ${USERNAME} with GID ${USER_GID}"
-error_msg="Failed to create group ${USERNAME}"
-groupadd -g "${USER_GID}" "${USERNAME}"
+# ConfigMap-based user management - verify user exists
+MSG "ConfigMap-based user management - users configured by init container"
+if ! getent passwd "${USERNAME}" >/dev/null 2>&1; then
+    error_msg="User ${USERNAME} not found in user database"
+    exit 1
+fi
+MSG "User ${USERNAME} validated successfully"
 
-# ユーザ作成
-MSG "Creating user ${USERNAME} with UID ${USER_UID}"
-error_msg="Failed to create user ${USERNAME}"
-# ホームディレクトリの存在確認
+# Initialize home directory if empty
+PROGRESS "Checking home directory initialization"
 if [[ -d "${HOME_DIR}" ]] && [[ -n "$(ls -A "${HOME_DIR}" 2>/dev/null || true)" ]]; then
-    MSG "Home directory exists with files, creating user without -m option (skipping skeleton files to avoid overwriting)"
-    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash "${USERNAME}"
+    MSG "Home directory exists with files, skipping skeleton file initialization"
 else
-    MSG "Home directory empty or non-existent, creating user with -m option to copy skeleton files"
-    useradd -u "${USER_UID}" -g "${USER_GID}" -d "${HOME_DIR}" -s /bin/bash -m "${USERNAME}"
+    MSG "Home directory empty or non-existent, initializing with skeleton files"
+    
+    # Create home directory and copy skeleton files
+    mkdir -p "${HOME_DIR}"
+    if [[ -d /etc/skel ]]; then
+        cp -r /etc/skel/. "${HOME_DIR}/"
+        MSG "Skeleton files copied from /etc/skel"
+    fi
+    chown -R "${USER_UID}:${USER_GID}" "${HOME_DIR}"
+    MSG "Home directory ownership set to ${USER_UID}:${USER_GID}"
 fi
 
 # SSHディレクトリ作成
@@ -223,7 +230,5 @@ MSG "Authorized keys found at ${AUTHORIZED_KEYS}"
 # Dropbear起動
 PROGRESS "Switching to user ${USERNAME} (${USER_UID}:${USER_GID}) to start Dropbear"
 MSG "Command: dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}"
-
-# 指定ユーザでdropbear実行
 error_msg="Failed to start Dropbear SSH server"
 exec su -c "exec dropbear -F -E -p ${SSH_PORT} -r ${RSA_KEY} -r ${ED25519_KEY} -D ${SSH_DIR}" "${USERNAME}"

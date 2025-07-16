@@ -54,40 +54,42 @@ PROGRESS "バージョン番号抽出"
 
 error_msg="Failed to extract Helm Chart version"
 grep '^version:' "$based/helm/Chart.yaml" |
-sed 's/version: *//g' |
-# バージョン種別を付与
-sed 's/$/ Helm Chart version/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/version: *//g' |
+    # バージョン種別を付与
+    sed 's/$/ Helm Chart version/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 error_msg="Failed to extract Helm App version"
 grep '^appVersion:' "$based/helm/Chart.yaml" |
-sed 's/appVersion: *"*//g' |
-sed 's/"*$//g' |
-# バージョン種別を付与
-sed 's/$/ Helm App version/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/appVersion: *"*//g' |
+    sed 's/"*$//g' |
+    # バージョン種別を付与
+    sed 's/$/ Helm App version/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 error_msg="Failed to extract Helm image tag"
 grep '  tag:' "$based/helm/values.yaml" |
-sed 's/.*tag: *"*//g' | sed 's/"*$//g' | sed 's/^v//g' |
-# バージョン種別を付与
-sed 's/$/ Helm image tag/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/.*tag: *"*//g' |
+    sed 's/"*$//g' |
+    sed 's/^v//g' |
+    # バージョン種別を付与
+    sed 's/$/ Helm image tag/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 error_msg="Failed to extract README version"
 grep -- '--version' "$based/README.md" |
-sed 's/.*--version *//g' |
-sed 's/ .*//g' |
-# バージョン種別を付与
-sed 's/$/ README version/' |
-tee -a "$tmpd/version_summary.txt" >&3
+    sed 's/.*--version *//g' |
+    sed 's/ .*//g' |
+    # バージョン種別を付与
+    sed 's/$/ README version/' |
+    tee -a "$tmpd/version_summary.txt" >&3
 
 PROGRESS "不整合チェック"
 
 awk -F' ' '{print $1}' "$tmpd/version_summary.txt" |
-sort -u |
-wc -l |
-tee "$logd/version_count.txt" >&3
+    sort -u |
+    wc -l |
+    tee "$logd/version_count.txt" >&3
 error_msg="ERROR ❌ バージョン番号が一致していません"
 [ $(cat "$logd/version_count.txt") -eq 1 ]
 
