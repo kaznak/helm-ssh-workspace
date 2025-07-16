@@ -51,11 +51,12 @@ if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
 fi
 
 # Validate arguments
-if [[ $# -ne 1 ]]; then
-    echo "Error: Target /etc path is required" >&2
-    echo "Usage: init-users.sh <target_etc_path>" >&2
-    exit 1
-fi
+error_msg="Target /etc path is required. Usage: init-users.sh <target_etc_path>"
+[[ $# -eq 1 ]]
+
+# Validate that source and target are different
+error_msg="Source and target paths cannot be the same. Source: $ETC_SOURCE, Target: $ETC_TARGET"
+[[ "$ETC_SOURCE" != "$ETC_TARGET" ]]
 
 # Configuration
 USER_CONFIG_DIR="${USER_CONFIG_DIR:-/config/users}"

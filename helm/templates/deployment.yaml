@@ -54,7 +54,7 @@ spec:
           command:
             - /opt/ssh-workspace/bin/init-users.sh
           args:
-            - /etc
+            - /etc-new
           env:
             - name: USER_CONFIG_DIR
               value: "/config/users"
@@ -65,7 +65,7 @@ spec:
               readOnly: true
             # Shared /etc volume for user database
             - name: etc-overlay
-              mountPath: /etc
+              mountPath: /etc-new
           resources:
             {{- toYaml .Values.jobResources.userInit | nindent 12 }}
       {{- end }}
@@ -146,9 +146,16 @@ spec:
               subPath: {{ .Values.homeDirectory.persistentVolume.subPath }}
               {{- end }}
             {{- if .Values.userManagement.configMapBased.enabled }}
-            # Shared /etc volume from init container [see:U4N8-USERDB]
+            # Mount individual user database files from init container [see:U4N8-USERDB]
             - name: etc-overlay
-              mountPath: /etc
+              mountPath: /etc/passwd
+              subPath: passwd
+            - name: etc-overlay
+              mountPath: /etc/group
+              subPath: group
+            - name: etc-overlay
+              mountPath: /etc/shadow
+              subPath: shadow
             {{- end }}
             # SSH host keys mount (read from mounted secrets)
             - name: ssh-host-keys
