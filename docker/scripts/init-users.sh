@@ -225,41 +225,22 @@ chmod 600 $ETC_TARGET/shadow
 PROGRESS "Validating merged user database files"
 error_msg="User database validation failed"
 
-# Test user entries in target files
-MSG "Validating users in $ETC_TARGET/passwd"
-validated_users="$tmpd/validated_users"
-cut -d: -f1 "$USER_CONFIG_DIR/passwd" |
-    while read user; do
-        if grep "^${user}:" "$ETC_TARGET/passwd" >/dev/null; then
-            echo "$user"
-        fi
-    done |
-    tee "$validated_users"
+# Test getent functionality
+for file_user in $(cut -d: -f1 "$USER_CONFIG_DIR/passwd"); do
+    if ! getent passwd "$file_user" >/dev/null 2>&1; then
+        error_msg="User lookup failed for: $file_user"
+        exit 1
+    fi
+    MSG "Validated user: $file_user"
+done
 
-# Check if all users were found
-expected_count=$(cut -d: -f1 "$USER_CONFIG_DIR/passwd" | wc -l)
-actual_count=$(wc -l < "$validated_users")
-error_msg="Not all users found in $ETC_TARGET/passwd (expected: $expected_count, found: $actual_count)"
-[[ "$expected_count" -eq "$actual_count" ]]
-MSG "All $actual_count users found in $ETC_TARGET/passwd"
-
-# Test group entries in target files
-MSG "Validating groups in $ETC_TARGET/group"
-validated_groups="$tmpd/validated_groups"
-cut -d: -f1 "$USER_CONFIG_DIR/group" |
-    while read group; do
-        if grep "^${group}:" "$ETC_TARGET/group" >/dev/null; then
-            echo "$group"
-        fi
-    done |
-    tee "$validated_groups"
-
-# Check if all groups were found
-expected_count=$(cut -d: -f1 "$USER_CONFIG_DIR/group" | wc -l)
-actual_count=$(wc -l < "$validated_groups")
-error_msg="Not all groups found in $ETC_TARGET/group (expected: $expected_count, found: $actual_count)"
-[[ "$expected_count" -eq "$actual_count" ]]
-MSG "All $actual_count groups found in $ETC_TARGET/group"
+for file_group in $(cut -d: -f1 "$USER_CONFIG_DIR/group"); do
+    if ! getent group "$file_group" >/dev/null 2>&1; then
+        error_msg="Group lookup failed for: $file_group"
+        exit 1
+    fi
+    MSG "Validated group: $file_group"
+done
 
 PROGRESS "ConfigMap-based user database initialization completed successfully"
 
