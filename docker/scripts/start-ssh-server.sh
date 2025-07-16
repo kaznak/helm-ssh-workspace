@@ -58,7 +58,6 @@ SSH_PORT="${SSH_PORT:-2222}"
 HOME_DIR="/home/${USERNAME}"
 SSH_DIR="${HOME_DIR}/.ssh"
 DROPBEAR_DIR="${SSH_DIR}/dropbear"
-# Container tools always enabled (configured at build time)
 
 PROGRESS "SSH Workspace Complete Setup"
 MSG "Username: ${USERNAME}"
@@ -71,7 +70,6 @@ MSG "Dropbear Keys Directory: ${DROPBEAR_DIR}"
 # Phase 1: User and Environment Setup (as root)
 PROGRESS "Phase 1: User and Environment Setup"
 
-# Setup skeleton files based on configuration
 
 # ConfigMap-based user management - verify user exists
 MSG "ConfigMap-based user management - users configured by init container"

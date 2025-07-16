@@ -64,7 +64,6 @@ user:
   # Group ID [see:A9T3-GID]
   gid: 1000
 
-# Container tools (Podman) are always enabled and configured at build time [see:H9L2-PODMAN]
 
 # User management configuration [see:U4N8-USERDB]
 userManagement:
