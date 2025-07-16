@@ -26,8 +26,11 @@ BEFORE_EXIT() {
 
 ERROR_HANDLER() {
     error_status=$?
-    MSG "ERROR at line $1: $error_msg"
-    exit $error_status
+    MSG "line:$1 ERROR status ${PIPESTATUS[@]}"
+    [[ "$error_msg" ]] && MSG "$error_msg"
+    touch "$tmpd/ERROR"    # for child process error detection
+    MSG "line:$1 EXIT with error."
+    exit 1        # root process trigger BEFORE_EXIT function
 }
 
 trap 'BEFORE_EXIT' EXIT

@@ -74,7 +74,7 @@ userManagement:
   # ConfigMap-based user management (NIS-style approach)
   configMapBased:
     # Enable ConfigMap-based user management for enhanced security
-    enabled: false
+    enabled: true
     # User definitions
     users:
       - name: developer

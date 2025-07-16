@@ -4,6 +4,11 @@
 
 set -Cu -Ee -o pipefail
 
+# 基本変数の初期化
+stime=$(date +%Y%m%d%H%M%S%Z)
+pname=$(basename "$0")
+tmpd=$(mktemp -d)
+
 # Logging functions
 MSG() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >&2; }
 PROGRESS() { MSG "PROGRESS: $*"; }
@@ -11,13 +16,23 @@ ERROR() { MSG "ERROR: $*"; }
 
 # Error handling
 error_msg=""
-cleanup() {
-    if [[ -n "$error_msg" ]]; then
-        ERROR "$error_msg"
-        exit 1
-    fi
+error_status=0
+
+BEFORE_EXIT() {
+    [[ -d "$tmpd" ]] && rm -rf "$tmpd"
 }
-trap cleanup EXIT
+
+ERROR_HANDLER() {
+    error_status=$?
+    MSG "line:$1 ERROR status ${PIPESTATUS[@]}"
+    [[ "$error_msg" ]] && MSG "$error_msg"
+    touch "$tmpd/ERROR"    # for child process error detection
+    MSG "line:$1 EXIT with error."
+    exit 1        # root process trigger BEFORE_EXIT function
+}
+
+trap 'BEFORE_EXIT' EXIT
+trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # Configuration
 USER_CONFIG_DIR="${USER_CONFIG_DIR:-/config/users}"
@@ -58,12 +73,13 @@ cut -d: -f1 "/etc/passwd.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^" $1 ":"}' |
-    grep -f - "/etc/passwd.tmp" |
+    { grep -f - "/etc/passwd.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
 error_msg="Duplicate usernames found in /etc/passwd"
 [[ ! -s "$duplicates_file" ]]
+error_msg=""
 
 # Check for duplicate UIDs (field 3)
 duplicates_file="/etc/passwd.tmp.duplicates.uid"
@@ -72,12 +88,13 @@ cut -d: -f3 "/etc/passwd.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^[^:]*:[^:]*:" $1 ":"}' |
-    grep -f - "/etc/passwd.tmp" |
+    { grep -f - "/etc/passwd.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
 error_msg="Duplicate UIDs found in /etc/passwd"
 [[ ! -s "$duplicates_file" ]]
+error_msg=""
 
 # Replace original file
 error_msg="Failed to replace /etc/passwd"
@@ -97,7 +114,7 @@ cut -d: -f1 "/etc/group.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^" $1 ":"}' |
-    grep -f - "/etc/group.tmp" |
+    { grep -f - "/etc/group.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
@@ -111,7 +128,7 @@ cut -d: -f3 "/etc/group.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^[^:]*:[^:]*:" $1 ":"}' |
-    grep -f - "/etc/group.tmp" |
+    { grep -f - "/etc/group.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
@@ -136,7 +153,7 @@ cut -d: -f1 "/etc/shadow.tmp" |
     uniq -d |
     tee "$duplicates_file" |
     awk '{print "^" $1 ":"}' |
-    grep -f - "/etc/shadow.tmp" |
+    { grep -f - "/etc/shadow.tmp" || true; } |
     sed 's/^/ERROR   - /' >&2
 
 # Check if duplicates were found and handle error
