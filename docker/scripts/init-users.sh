@@ -223,24 +223,16 @@ chmod 600 $ETC_TARGET/shadow
 
 # Validate the merged files
 PROGRESS "Validating merged user database files"
-error_msg="User database validation failed"
 
-# Test getent functionality
-for file_user in $(cut -d: -f1 "$USER_CONFIG_DIR/passwd"); do
-    if ! getent passwd "$file_user" >/dev/null 2>&1; then
-        error_msg="User lookup failed for: $file_user"
-        exit 1
-    fi
-    MSG "Validated user: $file_user"
-done
+error_msg="User lookup failed"
+cut -d: -f1 "$USER_CONFIG_DIR/passwd"   |
+awk '{print "^" $1 ":"}' |
+xargs -r -I% grep -q % "$ETC_TARGET/passwd"
 
-for file_group in $(cut -d: -f1 "$USER_CONFIG_DIR/group"); do
-    if ! getent group "$file_group" >/dev/null 2>&1; then
-        error_msg="Group lookup failed for: $file_group"
-        exit 1
-    fi
-    MSG "Validated group: $file_group"
-done
+error_msg="Group lookup failed"
+cut -d: -f1 "$USER_CONFIG_DIR/group"   |
+awk '{print "^" $1 ":"}' |
+xargs -r -I% grep -q % "$ETC_TARGET/group"
 
 PROGRESS "ConfigMap-based user database initialization completed successfully"
 
