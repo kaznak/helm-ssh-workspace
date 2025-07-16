@@ -76,27 +76,23 @@ for file in passwd group shadow; do
 done
 
 # Initialize target /etc files by copying from source (required for emptyDir)
-if [[ "$ETC_SOURCE" != "$ETC_TARGET" ]]; then
-    PROGRESS "Initializing target /etc files by copying from source"
-    MSG "Copying base system files from $ETC_SOURCE to $ETC_TARGET"
+PROGRESS "Initializing target /etc files by copying from source"
+MSG "Copying base system files from $ETC_SOURCE to $ETC_TARGET"
 
-    # Create target directory if it doesn't exist
-    mkdir -p "$ETC_TARGET"
+# Create target directory if it doesn't exist
+mkdir -p "$ETC_TARGET"
 
-    # Copy base system files - fail immediately if source doesn't exist
-    for file in passwd group shadow; do
-        error_msg="Source file $ETC_SOURCE/$file not found - cannot initialize"
-        [[ -f "$ETC_SOURCE/$file" ]]
-        
-        error_msg="Failed to copy $file from $ETC_SOURCE to $ETC_TARGET"
-        cp "$ETC_SOURCE/$file" "$ETC_TARGET/$file"
-        MSG "Copied $ETC_SOURCE/$file to $ETC_TARGET/$file"
-    done
+# Copy base system files - fail immediately if source doesn't exist
+for file in passwd group shadow; do
+    error_msg="Source file $ETC_SOURCE/$file not found - cannot initialize"
+    [[ -f "$ETC_SOURCE/$file" ]]
+    
+    error_msg="Failed to copy $file from $ETC_SOURCE to $ETC_TARGET"
+    cp "$ETC_SOURCE/$file" "$ETC_TARGET/$file"
+    MSG "Copied $ETC_SOURCE/$file to $ETC_TARGET/$file"
+done
 
-    MSG "Base system files initialized in $ETC_TARGET"
-else
-    MSG "Source and target are the same ($ETC_TARGET), skipping initialization copy"
-fi
+MSG "Base system files initialized in $ETC_TARGET"
 
 # Backup existing files
 PROGRESS "Backing up existing user database files"
