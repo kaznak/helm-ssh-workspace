@@ -58,6 +58,8 @@ spec:
           env:
             - name: USER_CONFIG_DIR
               value: "/config/users"
+            - name: CONTAINER_TOOLS_ENABLED
+              value: {{ .Values.containerTools.enabled | quote }}
           volumeMounts:
             # User configuration from ConfigMap
             - name: user-config

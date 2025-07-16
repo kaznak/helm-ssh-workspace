@@ -225,18 +225,25 @@ chmod 600 $ETC_TARGET/shadow
 PROGRESS "Setting up skeleton files for container tools"
 error_msg="Failed to setup skeleton files"
 
-# Create skeleton directories
-mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
-
-# Copy container tools configuration files from templates
-cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
-cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
-chmod +x /etc/skel/.local/bin/docker
-
-# Append container tools configuration to bashrc
-cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
-
-MSG "Skeleton files configured for container tools"
+# Check if container tools are enabled
+if [[ "${CONTAINER_TOOLS_ENABLED:-true}" != "true" ]]; then
+    MSG "Container tools skeleton files skipped (disabled via containerTools settings)"
+else
+    MSG "Setting up container tools skeleton files"
+    
+    # Create skeleton directories
+    mkdir -p /etc/skel/.bashrc.d /etc/skel/.local/bin
+    
+    # Copy container tools configuration files from templates
+    cp /opt/ssh-workspace/templates/skel/.bashrc.d/podman.sh /etc/skel/.bashrc.d/podman.sh
+    cp /opt/ssh-workspace/templates/skel/.local/bin/docker /etc/skel/.local/bin/docker
+    chmod +x /etc/skel/.local/bin/docker
+    
+    # Append container tools configuration to bashrc
+    cat /opt/ssh-workspace/templates/skel/bashrc.append >> /etc/skel/.bashrc
+    
+    MSG "Container tools skeleton files configured"
+fi
 
 # Validate the merged files
 PROGRESS "Validating merged user database files"
