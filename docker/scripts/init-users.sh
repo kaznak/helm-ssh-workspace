@@ -3,11 +3,10 @@
 # [see:U4N8-USERDB] ConfigMap-based user database initialization
 #
 # USAGE:
-#     init-users.sh [--etc-target=PATH] [--etc-source=PATH]
+#     init-users.sh <target_etc_path>
 #
-# OPTIONS:
-#     --etc-target=PATH    Target directory for /etc files (default: /etc)
-#     --etc-source=PATH    Source directory for base /etc files (default: /etc)
+# ARGUMENTS:
+#     target_etc_path    Target directory for /etc files
 
 set -Cu -Ee -o pipefail
 
@@ -42,29 +41,21 @@ trap 'BEFORE_EXIT' EXIT
 trap 'ERROR_HANDLER ${LINENO}' ERR
 
 # Parse command line arguments
-ETC_TARGET="/etc"
 ETC_SOURCE="/etc"
+ETC_TARGET="$1"
 
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --etc-target=*)
-            ETC_TARGET="${1#*=}"
-            shift
-            ;;
-        --etc-source=*)
-            ETC_SOURCE="${1#*=}"
-            shift
-            ;;
-        -h|--help)
-            sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
-            exit 0
-            ;;
-        *)
-            echo "Unknown option: $1" >&2
-            exit 1
-            ;;
-    esac
-done
+# Help option
+if [[ "${1:-}" == "-h" ]] || [[ "${1:-}" == "--help" ]]; then
+    sed -n '2,/^$/p' "$0" | sed 's/^# \?//'
+    exit 0
+fi
+
+# Validate arguments
+if [[ $# -ne 1 ]]; then
+    echo "Error: Target /etc path is required" >&2
+    echo "Usage: init-users.sh <target_etc_path>" >&2
+    exit 1
+fi
 
 # Configuration
 USER_CONFIG_DIR="${USER_CONFIG_DIR:-/config/users}"
